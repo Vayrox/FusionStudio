@@ -104,44 +104,58 @@ async def _find_recent_generation(
     submit_ts - Toleranz. Retryed mehrmals mit Delays, falls die Generation
     noch nicht im Listing auftaucht.
     """
-    list_url = f"{settings.aiauto_base_url}/generations?limit=50"
+    # AI-Auto hat getrennte Listings fuer Videos (/generations) und
+    # Bilder (/generations/images). Wir versuchen zuerst den Image-
+    # Endpoint, dann als Fallback /generations.
+    list_urls = [
+        f"{settings.aiauto_base_url}/generations/images?limit=100",
+        f"{settings.aiauto_base_url}/generations?limit=100",
+    ]
     prompt_prefix = (prompt or "")[:60].strip()
     if not prompt_prefix:
         return None
 
+    def _normalize(s: str) -> str:
+        return " ".join((s or "").split()).lower()
+
+    want_prefix = _normalize(prompt_prefix)
+
     for attempt in range(AIAUTO_LIST_MATCH_ATTEMPTS):
-        try:
-            resp = await client.get(list_url, headers=_headers())
-            if resp.status_code == 200:
+        for list_url in list_urls:
+            try:
+                resp = await client.get(list_url, headers=_headers())
+                if resp.status_code == 404:
+                    continue
+                if resp.status_code != 200:
+                    log.warning(
+                        "AI-Auto GET %s -> %d: %s",
+                        list_url, resp.status_code, resp.text[:200],
+                    )
+                    continue
                 data = resp.json()
                 items = data.get("generations", []) if isinstance(data, dict) else []
                 for g in items:
                     if not isinstance(g, dict):
                         continue
-                    if g.get("mode") != "images":
+                    mode = (g.get("mode") or "").lower()
+                    if mode and mode not in ("images", "image"):
                         continue
-                    g_prompt = (g.get("prompt") or "")[: len(prompt_prefix)]
-                    if g_prompt != prompt_prefix:
+                    g_prompt_norm = _normalize(g.get("prompt") or "")
+                    if not g_prompt_norm.startswith(want_prefix[: min(40, len(want_prefix))]):
                         continue
                     ts = _parse_iso_ts(str(g.get("created_at", "")))
-                    if ts is None:
-                        continue
-                    if ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
+                    if ts is not None and ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
                         continue
                     gen_id = g.get("id")
                     if gen_id:
                         log.info(
-                            "AI-Auto fallback match: gen_id=%s (attempt %d)",
-                            gen_id, attempt + 1,
+                            "AI-Auto fallback match: gen_id=%s via %s (attempt %d)",
+                            gen_id, list_url.rsplit("/", 1)[-1], attempt + 1,
                         )
                         return str(gen_id)
-            else:
-                log.warning(
-                    "AI-Auto GET /generations %d on attempt %d: %s",
-                    resp.status_code, attempt + 1, resp.text[:200],
-                )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("AI-Auto listing attempt %d failed: %s", attempt + 1, exc)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("AI-Auto listing %s attempt %d failed: %s",
+                            list_url, attempt + 1, exc)
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
     return None
 
