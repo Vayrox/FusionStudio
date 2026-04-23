@@ -34,15 +34,12 @@ from typing import Any
 import httpx
 
 from backend.config import (
-    AIAUTO_API_KEY,
-    AIAUTO_BASE_URL,
-    AIAUTO_IMAGE_MODEL,
-    AIAUTO_IMAGE_RESOLUTION,
     AIAUTO_POLL_INTERVAL_S,
     AIAUTO_POLL_TIMEOUT_S,
     AIAUTO_REQUEST_TIMEOUT_S,
     DEFAULT_ASPECT_RATIO,
     MAX_PARALLEL_AIAUTO_CALLS,
+    settings,
 )
 
 _SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_AIAUTO_CALLS)
@@ -53,10 +50,13 @@ class AIAutoError(RuntimeError):
 
 
 def _headers() -> dict[str, str]:
-    if not AIAUTO_API_KEY:
-        raise AIAutoError("AIAUTO_API_KEY ist nicht gesetzt. Bitte in .env eintragen.")
+    key = settings.aiauto_api_key
+    if not key:
+        raise AIAutoError(
+            "AIAUTO_API_KEY ist nicht gesetzt. Im Dashboard unter Settings eintragen."
+        )
     return {
-        "Authorization": f"Bearer {AIAUTO_API_KEY}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
@@ -93,8 +93,9 @@ async def _fetch_image_with_polling(
     """Pollt /generations/{id}/image bis ein Bild zurueckkommt oder der Job
     failed. Bei 4xx wird zusaetzlich /generations/{id} geprueft, um echte
     Fehler von 'noch nicht fertig' zu unterscheiden."""
-    image_url = f"{AIAUTO_BASE_URL}/generations/{generation_id}/image"
-    status_url = f"{AIAUTO_BASE_URL}/generations/{generation_id}"
+    base = settings.aiauto_base_url
+    image_url = f"{base}/generations/{generation_id}/image"
+    status_url = f"{base}/generations/{generation_id}"
 
     deadline = asyncio.get_event_loop().time() + AIAUTO_POLL_TIMEOUT_S
     last_status: str | None = None
@@ -160,14 +161,14 @@ async def generate_image(
         "prompt": prompt,
         "mode": "images",
         "model": "standard",
-        "image_model": AIAUTO_IMAGE_MODEL,
+        "image_model": settings.aiauto_image_model,
         "aspect_ratio": aspect_ratio,
-        "resolution": resolution or AIAUTO_IMAGE_RESOLUTION,
+        "resolution": resolution or settings.aiauto_image_resolution,
     }
     if refs_data_urls:
         body["i2v_reference_images"] = refs_data_urls
 
-    url = f"{AIAUTO_BASE_URL}/generate"
+    url = f"{settings.aiauto_base_url}/generate"
 
     async with _SEMAPHORE:
         async with httpx.AsyncClient(timeout=AIAUTO_REQUEST_TIMEOUT_S) as client:

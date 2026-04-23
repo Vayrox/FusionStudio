@@ -95,6 +95,28 @@
     border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px;
     color: var(--text); z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
   .toast.err { border-color: var(--err); }
+  details.settings { background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0; margin-bottom: 22px; }
+  details.settings[open] { padding-bottom: 12px; }
+  details.settings > summary { padding: 16px 22px; cursor: pointer;
+    list-style: none; display: flex; align-items: center; gap: 10px;
+    font-size: 15px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); font-weight: 600; user-select: none; }
+  details.settings > summary::-webkit-details-marker { display: none; }
+  details.settings > summary::before { content: '>'; font-family: monospace;
+    transition: transform 0.15s; }
+  details.settings[open] > summary::before { transform: rotate(90deg); }
+  details.settings .dot { width: 8px; height: 8px; border-radius: 50%;
+    background: var(--warn); margin-left: auto; }
+  details.settings .dot.ok { background: var(--ok); }
+  .settings-body { padding: 4px 22px 8px; }
+  .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; }
+  .settings-grid .field { display: flex; flex-direction: column; }
+  .settings-grid .field small { color: var(--muted); font-size: 11px;
+    margin-top: 4px; }
+  .settings-actions { margin-top: 14px; display: flex; align-items: center; gap: 12px; }
+  .bg-status { font-size: 12px; color: var(--muted); }
+  .bg-status.missing { color: var(--warn); }
 </style>
 </head>
 <body>
@@ -103,6 +125,47 @@
   <span class="sub">Cinematic Pokemon Fusion Pipeline</span>
 </header>
 <main>
+
+  <details class="settings" id="sec-settings">
+    <summary>
+      <span>Settings</span>
+      <span class="dot" id="settings-dot" title="API-Key Status"></span>
+    </summary>
+    <div class="settings-body">
+      <div class="settings-grid">
+        <div class="field">
+          <label for="s-aiauto-key">AI-Auto API Key</label>
+          <input type="password" id="s-aiauto-key" placeholder="unchanged" autocomplete="off" />
+          <small id="s-aiauto-key-state">not set</small>
+        </div>
+        <div class="field">
+          <label for="s-openai-key">OpenAI API Key</label>
+          <input type="password" id="s-openai-key" placeholder="unchanged" autocomplete="off" />
+          <small id="s-openai-key-state">not set</small>
+        </div>
+        <div class="field">
+          <label for="s-aiauto-url">AI-Auto Base URL</label>
+          <input type="text" id="s-aiauto-url" />
+        </div>
+        <div class="field">
+          <label for="s-aiauto-model">AI-Auto Image Model</label>
+          <input type="text" id="s-aiauto-model" />
+        </div>
+        <div class="field">
+          <label for="s-aiauto-res">AI-Auto Image Resolution</label>
+          <input type="text" id="s-aiauto-res" placeholder="1k / 2k" />
+        </div>
+        <div class="field">
+          <label for="s-openai-model">OpenAI Model</label>
+          <input type="text" id="s-openai-model" placeholder="gpt-4o" />
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button id="btn-save-settings">Save</button>
+        <span class="bg-status" id="bg-status">Signature Background: ...</span>
+      </div>
+    </div>
+  </details>
 
   <section id="sec-ideas">
     <h2>1. Idea Generator</h2>
@@ -376,14 +439,78 @@ function escapeHtml(s) {
 function escapeAttr(s) { return escapeHtml(s); }
 
 // ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+async function refreshSettings() {
+  try {
+    const res = await api('/api/settings');
+    const s = res.settings;
+    const aiSet = s.AIAUTO_API_KEY && s.AIAUTO_API_KEY.set;
+    const oaSet = s.OPENAI_API_KEY && s.OPENAI_API_KEY.set;
+    $('#s-aiauto-key-state').textContent = aiSet
+      ? `set (...${s.AIAUTO_API_KEY.suffix})` : 'not set';
+    $('#s-openai-key-state').textContent = oaSet
+      ? `set (...${s.OPENAI_API_KEY.suffix})` : 'not set';
+    $('#s-aiauto-url').value = s.AIAUTO_BASE_URL || '';
+    $('#s-aiauto-model').value = s.AIAUTO_IMAGE_MODEL || '';
+    $('#s-aiauto-res').value = s.AIAUTO_IMAGE_RESOLUTION || '';
+    $('#s-openai-model').value = s.OPENAI_MODEL || '';
+
+    const dot = $('#settings-dot');
+    const allOk = aiSet && oaSet && res.signature_background_present;
+    dot.classList.toggle('ok', !!allOk);
+    // Auto-open bei missing config
+    if (!allOk) $('#sec-settings').setAttribute('open', '');
+
+    const bg = $('#bg-status');
+    if (res.signature_background_present) {
+      bg.textContent = 'Signature Background: OK';
+      bg.classList.remove('missing');
+    } else {
+      bg.textContent = 'Signature Background FEHLT: assets/signature_background.png';
+      bg.classList.add('missing');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function saveSettings() {
+  const payload = {
+    AIAUTO_API_KEY: $('#s-aiauto-key').value,
+    AIAUTO_BASE_URL: $('#s-aiauto-url').value,
+    AIAUTO_IMAGE_MODEL: $('#s-aiauto-model').value,
+    AIAUTO_IMAGE_RESOLUTION: $('#s-aiauto-res').value,
+    OPENAI_API_KEY: $('#s-openai-key').value,
+    OPENAI_MODEL: $('#s-openai-model').value,
+  };
+  const btn = $('#btn-save-settings');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const res = await api('/api/settings', {method: 'POST', body: JSON.stringify(payload)});
+    // Secret-Felder nach dem Save leeren, damit man sie nicht erneut sendet
+    $('#s-aiauto-key').value = '';
+    $('#s-openai-key').value = '';
+    toast(res.changed.length ? `Saved: ${res.changed.join(', ')}` : 'No changes');
+    await refreshSettings();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Wiring
 // ---------------------------------------------------------------------------
 $('#btn-generate').addEventListener('click', generateIdeas);
 $('#btn-run-approved').addEventListener('click', runApproved);
 $('#btn-run-manual').addEventListener('click', runManual);
+$('#btn-save-settings').addEventListener('click', saveSettings);
 $('#hint').addEventListener('keydown', e => { if (e.key === 'Enter') generateIdeas(); });
 
 // Initial + poll
+refreshSettings();
 refreshJobs();
 setInterval(refreshJobs, 2000);
 </script>

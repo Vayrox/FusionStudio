@@ -41,6 +41,15 @@ class BatchRequest(BaseModel):
     ideas: list[FusionIdea]
 
 
+class SettingsUpdate(BaseModel):
+    AIAUTO_API_KEY: str | None = None
+    AIAUTO_BASE_URL: str | None = None
+    AIAUTO_IMAGE_MODEL: str | None = None
+    AIAUTO_IMAGE_RESOLUTION: str | None = None
+    OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Startup-Check
 # ---------------------------------------------------------------------------
@@ -54,10 +63,33 @@ async def _startup() -> None:
             "Bitte PNG manuell platzieren.",
             config.SIGNATURE_BACKGROUND_PATH,
         )
-    if not config.AIAUTO_API_KEY:
-        log.warning("AIAUTO_API_KEY ist nicht gesetzt. Setze den Key in .env.")
-    if not config.OPENAI_API_KEY:
-        log.warning("OPENAI_API_KEY ist nicht gesetzt. Setze den Key in .env.")
+    if not config.settings.aiauto_api_key:
+        log.warning("AIAUTO_API_KEY ist nicht gesetzt. Im Dashboard unter Settings eintragen.")
+    if not config.settings.openai_api_key:
+        log.warning("OPENAI_API_KEY ist nicht gesetzt. Im Dashboard unter Settings eintragen.")
+
+
+# ---------------------------------------------------------------------------
+# API - Settings
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/settings")
+async def api_get_settings() -> dict[str, Any]:
+    return {
+        "settings": config.settings.snapshot_public(),
+        "signature_background_present": config.SIGNATURE_BACKGROUND_PATH.exists(),
+    }
+
+
+@app.post("/api/settings")
+async def api_update_settings(req: SettingsUpdate) -> dict[str, Any]:
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    changed = config.settings.update(updates)
+    return {
+        "changed": changed,
+        "settings": config.settings.snapshot_public(),
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -10,16 +10,17 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from backend.config import OPENAI_API_KEY, OPENAI_MODEL
+from backend.config import settings
 from backend import prompts
 
 
 def _client() -> AsyncOpenAI:
-    if not OPENAI_API_KEY:
+    key = settings.openai_api_key
+    if not key:
         raise RuntimeError(
-            "OPENAI_API_KEY ist nicht gesetzt. Bitte in .env eintragen."
+            "OPENAI_API_KEY ist nicht gesetzt. Im Dashboard unter Settings eintragen."
         )
-    return AsyncOpenAI(api_key=OPENAI_API_KEY)
+    return AsyncOpenAI(api_key=key)
 
 
 async def _chat(
@@ -30,7 +31,7 @@ async def _chat(
 ) -> str:
     client = _client()
     kwargs: dict[str, Any] = {
-        "model": OPENAI_MODEL,
+        "model": settings.openai_model,
         "temperature": temperature,
         "messages": [
             {"role": "system", "content": system},
