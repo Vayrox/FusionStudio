@@ -87,6 +87,54 @@ def cached_path(slug: str) -> Path:
     return POKEMON_REFS_DIR / f"{slug}.png"
 
 
+async def _fetch_pokemon_data(client: httpx.AsyncClient, slug: str) -> dict | None:
+    """GET /pokemon/{slug} oder None bei 404."""
+    resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon/{slug}")
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.json()
+
+
+async def _resolve_via_species(
+    client: httpx.AsyncClient, slug: str
+) -> dict | None:
+    """Bei Form-only-Pokemon (Mimikyu, Wishiwashi, Minior, Urshifu, ...) gibt
+    es keinen /pokemon/{slug}-Eintrag - nur /pokemon-species/{slug} mit den
+    Varieties. Holt die default variety und laedt deren pokemon-Eintrag."""
+    resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon-species/{slug}")
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    species = resp.json()
+    default_name: str | None = None
+    for v in species.get("varieties", []) or []:
+        pokemon = v.get("pokemon") or {}
+        if v.get("is_default") and pokemon.get("name"):
+            default_name = pokemon["name"]
+            break
+    if not default_name:
+        # Fallback: erste variety
+        varieties = species.get("varieties") or []
+        if varieties:
+            default_name = (varieties[0].get("pokemon") or {}).get("name")
+    if not default_name:
+        return None
+    return await _fetch_pokemon_data(client, default_name)
+
+
+def _extract_artwork_url(data: dict) -> str | None:
+    url = (
+        data.get("sprites", {})
+        .get("other", {})
+        .get("official-artwork", {})
+        .get("front_default")
+    )
+    if url:
+        return url
+    return data.get("sprites", {}).get("front_default")
+
+
 async def fetch_official_artwork(name: str) -> Path:
     """Laedt official-artwork fuer einen Pokemon-Namen, gibt lokalen Pfad zurueck.
 
@@ -98,24 +146,16 @@ async def fetch_official_artwork(name: str) -> Path:
         return target
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Pokemon-Endpoint fuer die Artwork-URL
-        resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon/{slug}")
-        if resp.status_code == 404:
+        data = await _fetch_pokemon_data(client, slug)
+        if data is None:
+            # Form-only oder Species-only Pokemon -> via species aufloesen
+            data = await _resolve_via_species(client, slug)
+        if data is None:
             raise ValueError(
                 f"Pokemon '{name}' (slug '{slug}') wurde in der PokeAPI nicht gefunden."
             )
-        resp.raise_for_status()
-        data = resp.json()
 
-        artwork_url = (
-            data.get("sprites", {})
-            .get("other", {})
-            .get("official-artwork", {})
-            .get("front_default")
-        )
-        if not artwork_url:
-            # Fallback auf den normalen front_default
-            artwork_url = data.get("sprites", {}).get("front_default")
+        artwork_url = _extract_artwork_url(data)
         if not artwork_url:
             raise ValueError(f"Kein Artwork fuer '{name}' verfuegbar.")
 
