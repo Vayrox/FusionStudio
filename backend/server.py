@@ -1,0 +1,156 @@
+"""
+FastAPI-Server. Bedient das Dashboard und die Pipeline-API.
+"""
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from backend import config
+from backend.clients import openai_client
+from backend.pipeline import runner
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+log = logging.getLogger("fusion-auto")
+
+app = FastAPI(title="Fusion Auto", version="0.1.0")
+
+
+# ---------------------------------------------------------------------------
+# Pydantic Models
+# ---------------------------------------------------------------------------
+
+
+class IdeasRequest(BaseModel):
+    hint: str = Field(..., min_length=1, max_length=200)
+
+
+class FusionIdea(BaseModel):
+    pokemon_a: str
+    pokemon_b: str
+    concept: str = ""
+    tone_hint: str | None = None
+
+
+class BatchRequest(BaseModel):
+    ideas: list[FusionIdea]
+
+
+# ---------------------------------------------------------------------------
+# Startup-Check
+# ---------------------------------------------------------------------------
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    if not config.SIGNATURE_BACKGROUND_PATH.exists():
+        log.warning(
+            "Signature Background fehlt: %s - erste Pipeline-Runs werden fehlschlagen. "
+            "Bitte PNG manuell platzieren.",
+            config.SIGNATURE_BACKGROUND_PATH,
+        )
+    if not config.AIAUTO_API_KEY:
+        log.warning("AIAUTO_API_KEY ist nicht gesetzt. Setze den Key in .env.")
+    if not config.OPENAI_API_KEY:
+        log.warning("OPENAI_API_KEY ist nicht gesetzt. Setze den Key in .env.")
+
+
+# ---------------------------------------------------------------------------
+# API - Ideas
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/ideas")
+async def api_generate_ideas(req: IdeasRequest) -> dict[str, Any]:
+    try:
+        ideas = await openai_client.generate_fusion_ideas(req.hint)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
+    return {"hint": req.hint, "ideas": ideas}
+
+
+# ---------------------------------------------------------------------------
+# API - Fusion submit
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/fusion")
+async def api_submit_fusion(idea: FusionIdea) -> dict[str, str]:
+    job_id = await runner.submit_fusion(
+        pokemon_a=idea.pokemon_a,
+        pokemon_b=idea.pokemon_b,
+        concept=idea.concept,
+        tone_hint=idea.tone_hint,
+    )
+    return {"job_id": job_id}
+
+
+@app.post("/api/fusion/batch")
+async def api_submit_batch(req: BatchRequest) -> dict[str, list[str]]:
+    job_ids: list[str] = []
+    for idea in req.ideas:
+        jid = await runner.submit_fusion(
+            pokemon_a=idea.pokemon_a,
+            pokemon_b=idea.pokemon_b,
+            concept=idea.concept,
+            tone_hint=idea.tone_hint,
+        )
+        job_ids.append(jid)
+    return {"job_ids": job_ids}
+
+
+# ---------------------------------------------------------------------------
+# API - Jobs
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/jobs")
+async def api_list_jobs() -> dict[str, Any]:
+    return {"jobs": await runner.list_jobs()}
+
+
+@app.get("/api/jobs/{job_id}")
+async def api_get_job(job_id: str) -> dict[str, Any]:
+    job = await runner.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    return job
+
+
+@app.post("/api/jobs/{job_id}/regenerate/{variant_index}")
+async def api_regenerate(job_id: str, variant_index: int) -> dict[str, str]:
+    try:
+        await runner.regenerate_variant(job_id, variant_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
+# ---------------------------------------------------------------------------
+# Static mounts + Dashboard
+# ---------------------------------------------------------------------------
+
+# Output-Ordner statisch servieren, damit das Dashboard Thumbnails zeigen kann.
+app.mount("/output", StaticFiles(directory=str(config.OUTPUT_DIR)), name="output")
+# Assets (signature background) - nur informativ.
+app.mount("/assets", StaticFiles(directory=str(config.ASSETS_DIR)), name="assets")
+
+
+@app.get("/")
+async def dashboard_index() -> FileResponse:
+    index = config.DASHBOARD_DIR / "index.html"
+    if not index.exists():
+        return JSONResponse(
+            {"error": "dashboard/index.html fehlt"}, status_code=500
+        )
+    return FileResponse(str(index))
+
+
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}

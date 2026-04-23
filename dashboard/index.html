@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Fusion Auto</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0e0f13;
+    --bg2: #161821;
+    --bg3: #1d202c;
+    --border: #2a2e3d;
+    --text: #e8e9ee;
+    --muted: #8a8f9e;
+    --accent: #ff5b5b;
+    --accent2: #6b8cff;
+    --ok: #3dd598;
+    --warn: #ffb547;
+    --err: #ff5b5b;
+    --run: #6b8cff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 14px; line-height: 1.5; }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { padding: 20px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 16px; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 28px 80px; }
+  section { background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px; margin-bottom: 22px; }
+  section h2 { margin: 0 0 14px 0; font-size: 15px; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
+  label { display: block; font-size: 12px; color: var(--muted);
+    margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  input[type=text], textarea {
+    width: 100%; padding: 10px 12px; background: var(--bg3);
+    color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: inherit; outline: none;
+  }
+  input[type=text]:focus, textarea:focus { border-color: var(--accent2); }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 9px 16px; font-weight: 600; cursor: pointer; font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: var(--bg3); color: var(--text);
+    border: 1px solid var(--border); }
+  button.tiny { padding: 4px 9px; font-size: 11px; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+  .row .narrow { flex: 0 0 auto; }
+  .ideas { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .idea { background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; display: flex;
+    gap: 12px; align-items: flex-start; }
+  .idea input[type=checkbox] { margin-top: 4px; transform: scale(1.3); accent-color: var(--accent); }
+  .idea .body { flex: 1; }
+  .idea .pair { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .idea .concept { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .idea .tone { font-size: 12px; }
+  .idea .tone input { margin-top: 3px; font-size: 12px; padding: 6px 8px; }
+  .jobs { display: flex; flex-direction: column; gap: 14px; }
+  .job { background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; }
+  .job-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .job-head .pair { font-weight: 600; font-size: 14px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 100px;
+    font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+  .badge.queued { background: #3a3e4d; color: var(--muted); }
+  .badge.running { background: rgba(107, 140, 255, 0.2); color: var(--run); }
+  .badge.done { background: rgba(61, 213, 152, 0.2); color: var(--ok); }
+  .badge.error { background: rgba(255, 91, 91, 0.2); color: var(--err); }
+  .job .step { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: "SF Mono", Menlo, monospace; }
+  .job .err { color: var(--err); font-size: 12px; margin-top: 6px;
+    white-space: pre-wrap; background: rgba(255,91,91,0.08); padding: 8px; border-radius: 4px; }
+  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+  .thumb { position: relative; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 6px; aspect-ratio: 9/16; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .regen { position: absolute; top: 4px; right: 4px;
+    background: rgba(0,0,0,0.7); color: #fff; border: 0;
+    border-radius: 4px; padding: 2px 6px; font-size: 12px;
+    cursor: pointer; opacity: 0; transition: opacity 0.15s; }
+  .thumb:hover .regen { opacity: 1; }
+  .links { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; flex-wrap: wrap; }
+  .meta-row { display: flex; gap: 18px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; padding: 20px 0; text-align: center; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg3);
+    border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px;
+    color: var(--text); z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .toast.err { border-color: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fusion Auto</h1>
+  <span class="sub">Cinematic Pokemon Fusion Pipeline</span>
+</header>
+<main>
+
+  <section id="sec-ideas">
+    <h2>1. Idea Generator</h2>
+    <div class="row">
+      <div style="flex: 1;">
+        <label for="hint">Hint</label>
+        <input type="text" id="hint" placeholder='z.B. "Legendary and Random" oder "Fire and Water"' />
+      </div>
+      <div class="narrow" style="align-self: flex-end;">
+        <button id="btn-generate">Generate 6</button>
+      </div>
+    </div>
+    <div class="ideas" id="ideas-list"></div>
+    <div id="ideas-actions" style="margin-top: 14px; display: none;">
+      <button id="btn-run-approved">Run Pipeline on Approved</button>
+      <span id="approved-count" class="sub" style="margin-left: 10px; color: var(--muted);"></span>
+    </div>
+  </section>
+
+  <section id="sec-manual">
+    <h2>2. Manual Fusion</h2>
+    <div class="row">
+      <div>
+        <label for="m-a">Pokemon A</label>
+        <input type="text" id="m-a" placeholder="z.B. Mewtwo" />
+      </div>
+      <div>
+        <label for="m-b">Pokemon B</label>
+        <input type="text" id="m-b" placeholder="z.B. Mr Mime" />
+      </div>
+      <div>
+        <label for="m-tone">Tone Hint (optional)</label>
+        <input type="text" id="m-tone" placeholder='z.B. "tragic, unsettling"' />
+      </div>
+      <div class="narrow" style="align-self: flex-end;">
+        <button id="btn-run-manual">Run</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-jobs">
+    <h2>3. Active Pipelines</h2>
+    <div class="jobs" id="jobs-list"></div>
+    <div class="empty" id="jobs-empty" style="display: none;">Keine Jobs. Starte einen oben.</div>
+  </section>
+
+</main>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+let currentIdeas = [];
+
+function toast(msg, isErr=false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+async function api(path, opts={}) {
+  const headers = opts.body ? {'Content-Type': 'application/json'} : {};
+  const resp = await fetch(path, {headers, ...opts});
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`${resp.status}: ${text}`);
+  }
+  return resp.json();
+}
+
+// ---------------------------------------------------------------------------
+// Ideas
+// ---------------------------------------------------------------------------
+async function generateIdeas() {
+  const hint = $('#hint').value.trim();
+  if (!hint) { toast('Hint fehlt', true); return; }
+  const btn = $('#btn-generate');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  try {
+    const res = await api('/api/ideas', {method: 'POST', body: JSON.stringify({hint})});
+    currentIdeas = res.ideas.map(i => ({...i, approved: false, tone_hint: ''}));
+    renderIdeas();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Generate 6';
+  }
+}
+
+function renderIdeas() {
+  const list = $('#ideas-list');
+  list.innerHTML = '';
+  currentIdeas.forEach((idea, idx) => {
+    const el = document.createElement('div');
+    el.className = 'idea';
+    el.innerHTML = `
+      <input type="checkbox" data-idx="${idx}" ${idea.approved ? 'checked' : ''} />
+      <div class="body">
+        <div class="pair">${escapeHtml(idea.pokemon_a)} + ${escapeHtml(idea.pokemon_b)}</div>
+        <div class="concept">${escapeHtml(idea.concept)}</div>
+        <div class="tone">
+          <input type="text" data-idx="${idx}" placeholder="Tone Hint (optional)" value="${escapeAttr(idea.tone_hint || '')}" />
+        </div>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+  $$('input[type=checkbox]', list).forEach(cb => {
+    cb.addEventListener('change', e => {
+      currentIdeas[+e.target.dataset.idx].approved = e.target.checked;
+      updateApprovedCount();
+    });
+  });
+  $$('.tone input', list).forEach(ti => {
+    ti.addEventListener('input', e => {
+      currentIdeas[+e.target.dataset.idx].tone_hint = e.target.value;
+    });
+  });
+  $('#ideas-actions').style.display = currentIdeas.length ? 'block' : 'none';
+  updateApprovedCount();
+}
+
+function updateApprovedCount() {
+  const n = currentIdeas.filter(i => i.approved).length;
+  $('#approved-count').textContent = n ? `${n} selected` : '';
+}
+
+async function runApproved() {
+  const approved = currentIdeas.filter(i => i.approved);
+  if (!approved.length) { toast('Nichts approved', true); return; }
+  const btn = $('#btn-run-approved');
+  btn.disabled = true; btn.textContent = 'Queueing...';
+  try {
+    const payload = {
+      ideas: approved.map(i => ({
+        pokemon_a: i.pokemon_a,
+        pokemon_b: i.pokemon_b,
+        concept: i.concept,
+        tone_hint: i.tone_hint || null,
+      })),
+    };
+    const res = await api('/api/fusion/batch', {method: 'POST', body: JSON.stringify(payload)});
+    toast(`${res.job_ids.length} Fusion(s) queued`);
+    await refreshJobs();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run Pipeline on Approved';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Manual
+// ---------------------------------------------------------------------------
+async function runManual() {
+  const a = $('#m-a').value.trim();
+  const b = $('#m-b').value.trim();
+  const tone = $('#m-tone').value.trim();
+  if (!a || !b) { toast('Pokemon A und B angeben', true); return; }
+  const btn = $('#btn-run-manual');
+  btn.disabled = true; btn.textContent = 'Queueing...';
+  try {
+    await api('/api/fusion', {method: 'POST', body: JSON.stringify({
+      pokemon_a: a, pokemon_b: b, concept: '', tone_hint: tone || null,
+    })});
+    toast(`Fusion queued: ${a} + ${b}`);
+    $('#m-a').value = ''; $('#m-b').value = ''; $('#m-tone').value = '';
+    await refreshJobs();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Jobs
+// ---------------------------------------------------------------------------
+async function refreshJobs() {
+  try {
+    const res = await api('/api/jobs');
+    renderJobs(res.jobs);
+  } catch (e) {
+    // silent - just log
+    console.error(e);
+  }
+}
+
+function renderJobs(jobs) {
+  const list = $('#jobs-list');
+  const empty = $('#jobs-empty');
+  if (!jobs.length) {
+    list.innerHTML = ''; empty.style.display = 'block'; return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+  jobs.forEach(job => list.appendChild(renderJob(job)));
+}
+
+function renderJob(job) {
+  const el = document.createElement('div');
+  el.className = 'job';
+  el.dataset.id = job.id;
+  const status = job.status || 'queued';
+
+  const thumbs = (job.variants || []).map((v, i) => {
+    const url = '/' + v.replace(/^\/+/, '');
+    const idx = i + 1;
+    return `
+      <div class="thumb">
+        <img src="${escapeAttr(url)}?v=${Date.now()}" alt="variant ${idx}" />
+        <button class="regen" data-job="${job.id}" data-idx="${idx}" title="Regenerate variant ${idx}">↻ ${idx}</button>
+      </div>
+    `;
+  }).join('');
+
+  const files = job.files || {};
+  const links = [];
+  if (files.video_prompts_md) links.push(`<a href="/${files.video_prompts_md}" target="_blank">video_prompts.md</a>`);
+  if (files.narration_md) links.push(`<a href="/${files.narration_md}" target="_blank">narration.md</a>`);
+  if (files.meta_json) links.push(`<a href="/${files.meta_json}" target="_blank">_meta.json</a>`);
+  if (job.output_dir) links.push(`<a href="/${job.output_dir}/" target="_blank">output/</a>`);
+
+  el.innerHTML = `
+    <div class="job-head">
+      <span class="pair">${escapeHtml(job.pokemon_a)} + ${escapeHtml(job.pokemon_b)}</span>
+      <span class="badge ${status}">${status}</span>
+      <span class="sub" style="color: var(--muted); font-size: 12px;">${job.id}</span>
+    </div>
+    ${job.concept ? `<div class="step" style="color:#a0a4b5; margin-top:6px;">${escapeHtml(job.concept)}</div>` : ''}
+    <div class="step">step: ${escapeHtml(job.current_step || '-')}</div>
+    ${job.error ? `<div class="err">${escapeHtml(job.error)}</div>` : ''}
+    ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ''}
+    ${links.length ? `<div class="links">${links.join(' &middot; ')}</div>` : ''}
+    <div class="meta-row">
+      ${job.created_at ? `<span>created: ${escapeHtml(job.created_at)}</span>` : ''}
+      ${job.updated_at ? `<span>updated: ${escapeHtml(job.updated_at)}</span>` : ''}
+    </div>
+  `;
+
+  $$('.regen', el).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const jobId = btn.dataset.job;
+      const idx = +btn.dataset.idx;
+      btn.disabled = true;
+      try {
+        await api(`/api/jobs/${jobId}/regenerate/${idx}`, {method: 'POST'});
+        toast(`Regenerate v${idx} queued`);
+        await refreshJobs();
+      } catch (e) {
+        toast(e.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  return el;
+}
+
+// ---------------------------------------------------------------------------
+// Utils
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+// ---------------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------------
+$('#btn-generate').addEventListener('click', generateIdeas);
+$('#btn-run-approved').addEventListener('click', runApproved);
+$('#btn-run-manual').addEventListener('click', runManual);
+$('#hint').addEventListener('keydown', e => { if (e.key === 'Enter') generateIdeas(); });
+
+// Initial + poll
+refreshJobs();
+setInterval(refreshJobs, 2000);
+</script>
+</body>
+</html>

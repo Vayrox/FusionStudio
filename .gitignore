@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+output/
+pokemon_refs/
+assets/signature_background.png
+.venv/
+venv/
+.state/
+*.log
+.DS_Store
+Thumbs.db
