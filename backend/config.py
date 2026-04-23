@@ -33,8 +33,10 @@ for _dir in (ASSETS_DIR, POKEMON_REFS_DIR, OUTPUT_DIR, STATE_DIR):
 load_dotenv(PROJECT_ROOT / ".env")
 
 AIAUTO_API_KEY = os.getenv("AIAUTO_API_KEY", "")
-AIAUTO_BASE_URL = os.getenv("AIAUTO_BASE_URL", "https://api.ai-auto.com/v1").rstrip("/")
-AIAUTO_MODEL = os.getenv("AIAUTO_MODEL", "nano-banana-pro-4k")
+AIAUTO_BASE_URL = os.getenv("AIAUTO_BASE_URL", "https://api.ai-auto.io/api/saas").rstrip("/")
+# AI-Auto erwartet fuer Image-Generation: model="standard", image_model=<das Bildmodell>.
+AIAUTO_IMAGE_MODEL = os.getenv("AIAUTO_IMAGE_MODEL", "nano_banana_pro")
+AIAUTO_IMAGE_RESOLUTION = os.getenv("AIAUTO_IMAGE_RESOLUTION", "2k")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
@@ -52,7 +54,6 @@ PORT = 8765
 
 STEP4_VARIANTS = 5
 DEFAULT_ASPECT_RATIO = "9:16"
-IMAGE_RESOLUTION = "4K"
 
 # Max gleichzeitig laufende Fusion-Jobs (voneinander unabhaengig)
 MAX_PARALLEL_FUSIONS = 3
