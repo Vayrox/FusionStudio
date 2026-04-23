@@ -1,46 +1,46 @@
 """
 AI-Auto Client fuer Image-Generation mit Nano Banana Pro.
 
+Robust gegen 524/Timeout: AI-Auto haelt bei einigen Modellen die HTTP-
+Verbindung offen waehrend das Bild rendert; Cloudflare vor ihrem Origin
+kappt bei 120s mit Cloudflare-524. Der Job laeuft trotzdem durch, die
+Generation erscheint in /generations. Wenn POST /generate timeouted,
+suchen wir die Generation via GET /generations ueber Prompt + Timestamp
+und pollen dann /generations/{id}/image wie im Normalfall.
+
 Basiert auf der offiziellen AI-Auto SaaS-Doc:
   Base URL: https://api.ai-auto.io/api/saas
-  POST /generate                       - neuen Job starten
+  POST /generate
+  GET  /generations                    - listing
   GET  /generations/{id}/image         - fertiges Bild (JPEG)
-  GET  /generations/{id}                - Status (optional)
-
-Image-Generation-Body:
-  {
-    "prompt": "...",
-    "mode": "images",
-    "model": "standard",
-    "image_model": "nano_banana_pro",
-    "aspect_ratio": "9:16",
-    "resolution": "2k",
-    "i2v_reference_images": ["data:image/png;base64,...", ...]
-  }
-
-Response (202 Accepted):
-  {"generation": {"id": "...", "status": "pending", ...}, "status": "accepted"}
-
-Dann /generations/{id}/image pollen bis 200 image/jpeg zurueckkommt.
+  GET  /generations/{id}               - Status (optional)
 """
 from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import mimetypes
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from backend.config import (
+    AIAUTO_LIST_MATCH_ATTEMPTS,
+    AIAUTO_LIST_MATCH_TOLERANCE_S,
     AIAUTO_POLL_INTERVAL_S,
     AIAUTO_POLL_TIMEOUT_S,
+    AIAUTO_POST_TIMEOUT_S,
     AIAUTO_REQUEST_TIMEOUT_S,
     DEFAULT_ASPECT_RATIO,
     MAX_PARALLEL_AIAUTO_CALLS,
     settings,
 )
+
+log = logging.getLogger("fusion-auto.aiauto")
 
 _SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_AIAUTO_CALLS)
 
@@ -63,18 +63,14 @@ def _headers() -> dict[str, str]:
 
 
 def _encode_reference_as_data_url(image_path: Path) -> str:
-    """Packt ein lokales Bild in eine base64-Data-URL (wie AI-Auto es erwartet)."""
     mime, _ = mimetypes.guess_type(str(image_path))
     if not mime or not mime.startswith("image/"):
-        # Best-effort: PNG als Default, AI-Auto akzeptiert jpg/png/webp.
         mime = "image/png"
     b64 = base64.b64encode(image_path.read_bytes()).decode("ascii")
     return f"data:{mime};base64,{b64}"
 
 
 def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
-    """Manche AI-Auto Bildmodelle liefern das Bild direkt im Initial-Response
-    (z.B. imagen-3 / gpt-image-1 via b64_json). Defensiv pruefen."""
     candidates: list[dict[str, Any]] = []
     g = payload.get("generation")
     if isinstance(g, dict):
@@ -87,12 +83,72 @@ def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
     return None
 
 
+def _parse_iso_ts(raw: str) -> float | None:
+    if not raw:
+        return None
+    s = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        return datetime.fromisoformat(s).timestamp()
+    except Exception:
+        return None
+
+
+async def _find_recent_generation(
+    client: httpx.AsyncClient,
+    prompt: str,
+    submit_ts: float,
+) -> str | None:
+    """Sucht die frisch gestartete Generation im User-Listing.
+
+    Match: mode=images, prompt startet mit unserem Prompt, created_at >=
+    submit_ts - Toleranz. Retryed mehrmals mit Delays, falls die Generation
+    noch nicht im Listing auftaucht.
+    """
+    list_url = f"{settings.aiauto_base_url}/generations?limit=50"
+    prompt_prefix = (prompt or "")[:60].strip()
+    if not prompt_prefix:
+        return None
+
+    for attempt in range(AIAUTO_LIST_MATCH_ATTEMPTS):
+        try:
+            resp = await client.get(list_url, headers=_headers())
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("generations", []) if isinstance(data, dict) else []
+                for g in items:
+                    if not isinstance(g, dict):
+                        continue
+                    if g.get("mode") != "images":
+                        continue
+                    g_prompt = (g.get("prompt") or "")[: len(prompt_prefix)]
+                    if g_prompt != prompt_prefix:
+                        continue
+                    ts = _parse_iso_ts(str(g.get("created_at", "")))
+                    if ts is None:
+                        continue
+                    if ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
+                        continue
+                    gen_id = g.get("id")
+                    if gen_id:
+                        log.info(
+                            "AI-Auto fallback match: gen_id=%s (attempt %d)",
+                            gen_id, attempt + 1,
+                        )
+                        return str(gen_id)
+            else:
+                log.warning(
+                    "AI-Auto GET /generations %d on attempt %d: %s",
+                    resp.status_code, attempt + 1, resp.text[:200],
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("AI-Auto listing attempt %d failed: %s", attempt + 1, exc)
+        await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
+    return None
+
+
 async def _fetch_image_with_polling(
     client: httpx.AsyncClient, generation_id: str
 ) -> bytes:
-    """Pollt /generations/{id}/image bis ein Bild zurueckkommt oder der Job
-    failed. Bei 4xx wird zusaetzlich /generations/{id} geprueft, um echte
-    Fehler von 'noch nicht fertig' zu unterscheiden."""
     base = settings.aiauto_base_url
     image_url = f"{base}/generations/{generation_id}/image"
     status_url = f"{base}/generations/{generation_id}"
@@ -107,23 +163,24 @@ async def _fetch_image_with_polling(
                 f"after {AIAUTO_POLL_TIMEOUT_S}s (last status: {last_status})"
             )
 
-        # 1) Status-Endpoint pruefen - wenn failed, sofort abbrechen.
         status_resp = await client.get(status_url, headers=_headers())
         if status_resp.status_code == 200:
-            data = status_resp.json()
+            try:
+                data = status_resp.json()
+            except Exception:
+                data = {}
             g = data.get("generation") if isinstance(data.get("generation"), dict) else data
-            last_status = str(g.get("status", "")).lower()
-            if last_status in ("failed", "error", "cancelled"):
-                raise AIAutoError(
-                    f"AI-Auto generation {generation_id} failed: "
-                    f"{g.get('error') or g.get('error_message') or g}"
-                )
-            # Einige Bildmodelle legen fertige b64 direkt hier ab.
-            sync_bytes = _sync_image_bytes_from_response(data)
-            if sync_bytes:
-                return sync_bytes
+            if isinstance(g, dict):
+                last_status = str(g.get("status", "")).lower()
+                if last_status in ("failed", "error", "cancelled"):
+                    raise AIAutoError(
+                        f"AI-Auto generation {generation_id} failed: "
+                        f"{g.get('error') or g.get('error_message') or g}"
+                    )
+                sync_bytes = _sync_image_bytes_from_response(data)
+                if sync_bytes:
+                    return sync_bytes
 
-        # 2) Image-Endpoint pruefen
         img_resp = await client.get(image_url, headers=_headers())
         if img_resp.status_code == 200:
             ct = img_resp.headers.get("content-type", "")
@@ -136,6 +193,52 @@ async def _fetch_image_with_polling(
             )
 
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
+
+
+async def _post_generate(
+    client: httpx.AsyncClient,
+    url: str,
+    body: dict[str, Any],
+) -> tuple[bytes | None, str | None]:
+    """Versucht den POST. Gibt (sync_bytes, generation_id) zurueck.
+
+    Bei Timeout/524/502/503/504 wird (None, None) zurueckgegeben - der
+    Aufrufer faellt dann auf Listing-Polling zurueck.
+    """
+    try:
+        resp = await client.post(
+            url, headers=_headers(), json=body, timeout=AIAUTO_POST_TIMEOUT_S,
+        )
+    except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.RemoteProtocolError) as exc:
+        log.warning("AI-Auto POST /generate network timeout: %s - fallback to listing", exc)
+        return None, None
+
+    if resp.status_code in (502, 503, 504, 524):
+        log.warning(
+            "AI-Auto POST /generate transient %d - fallback to listing", resp.status_code
+        )
+        return None, None
+    if resp.status_code >= 400:
+        raise AIAutoError(
+            f"AI-Auto POST /generate {resp.status_code}: {resp.text[:500]}"
+        )
+
+    try:
+        payload = resp.json()
+    except Exception as exc:
+        raise AIAutoError(f"AI-Auto POST /generate invalid JSON: {exc}") from exc
+
+    sync_bytes = _sync_image_bytes_from_response(payload)
+    if sync_bytes:
+        return sync_bytes, None
+
+    gen = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
+    generation_id = gen.get("id") or payload.get("id")
+    if not generation_id:
+        raise AIAutoError(
+            f"AI-Auto Response enthaelt keine generation.id: {payload!r}"
+        )
+    return None, str(generation_id)
 
 
 async def generate_image(
@@ -169,33 +272,26 @@ async def generate_image(
         body["i2v_reference_images"] = refs_data_urls
 
     url = f"{settings.aiauto_base_url}/generate"
+    submit_ts = time.time()
 
     async with _SEMAPHORE:
         async with httpx.AsyncClient(timeout=AIAUTO_REQUEST_TIMEOUT_S) as client:
-            resp = await client.post(url, headers=_headers(), json=body)
-            if resp.status_code >= 400:
-                raise AIAutoError(
-                    f"AI-Auto POST /generate {resp.status_code}: {resp.text[:500]}"
-                )
-            payload = resp.json()
+            sync_bytes, generation_id = await _post_generate(client, url, body)
 
-            # Einige Modelle liefern das Bild direkt synchron (b64_json) -
-            # defensiv pruefen bevor wir pollen.
-            sync_bytes = _sync_image_bytes_from_response(payload)
-            if sync_bytes:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_bytes(sync_bytes)
-                return output_path
+            if sync_bytes is None and generation_id is None:
+                # POST timed out / 524 - listing-fallback
+                generation_id = await _find_recent_generation(client, prompt, submit_ts)
+                if not generation_id:
+                    raise AIAutoError(
+                        "AI-Auto POST /generate hat nicht geantwortet und die "
+                        "Generation wurde auch nicht im Listing gefunden. "
+                        "Check https://ai-auto.io/my-generations"
+                    )
 
-            generation = payload.get("generation") or {}
-            generation_id = generation.get("id") or payload.get("id")
-            if not generation_id:
-                raise AIAutoError(
-                    f"AI-Auto Response enthaelt keine generation.id: {payload!r}"
-                )
-
-            image_bytes = await _fetch_image_with_polling(client, str(generation_id))
+            if sync_bytes is None:
+                assert generation_id is not None
+                sync_bytes = await _fetch_image_with_polling(client, generation_id)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(image_bytes)
+        output_path.write_bytes(sync_bytes)
         return output_path
