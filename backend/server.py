@@ -250,7 +250,16 @@ async def dashboard_index() -> FileResponse:
         return JSONResponse(
             {"error": "dashboard/index.html fehlt"}, status_code=500
         )
-    return FileResponse(str(index))
+    return FileResponse(
+        str(index),
+        headers={
+            # Dashboard hat keinen Build-Prozess - wir wollen garantiert
+            # frische HTML/CSS/JS-Version nach jedem git pull.
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.get("/healthz")
