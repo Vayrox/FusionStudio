@@ -200,6 +200,31 @@ async def regenerate_variant(job_id: str, variant_index: int) -> None:
     asyncio.create_task(_run_regenerate(job_id, variant_index))
 
 
+CHECKLIST_KEYS = {"step5", "step6a", "step6b", "narration", "editing"}
+
+
+async def set_favorite(job_id: str, variant: int | None) -> None:
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if variant is not None and not (1 <= variant <= STEP4_VARIANTS):
+        raise ValueError(f"variant muss zwischen 1 und {STEP4_VARIANTS} sein oder null")
+    await _update_job(job_id, favorite_variant=variant)
+
+
+async def toggle_checklist(job_id: str, key: str, value: bool) -> None:
+    if key not in CHECKLIST_KEYS:
+        raise ValueError(
+            f"Ungueltiger Checklist-Key '{key}'. Erlaubt: {sorted(CHECKLIST_KEYS)}"
+        )
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    checklist = dict(job.get("checklist") or {})
+    checklist[key] = bool(value)
+    await _update_job(job_id, checklist=checklist)
+
+
 # ---------------------------------------------------------------------------
 # Internals - Runner
 # ---------------------------------------------------------------------------

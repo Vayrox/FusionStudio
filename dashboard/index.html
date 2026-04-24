@@ -225,6 +225,66 @@
   .meta-row { display: flex; gap: 16px; margin-top: 12px; font-size: 11px;
     color: var(--dim); font-family: 'JetBrains Mono', monospace; }
 
+  /* Favorite star auf Thumbnails */
+  .thumb .fav { position: absolute; bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); color: #fff;
+    border: 0; border-radius: 100px; width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px; opacity: 0;
+    transition: opacity 0.15s, transform 0.15s, background 0.15s, color 0.15s; }
+  .thumb:hover .fav { opacity: 1; }
+  .thumb .fav:hover { transform: scale(1.1); }
+  .thumb.favorite { box-shadow: 0 0 0 2px var(--primary),
+    0 20px 40px -20px rgba(255,107,71,0.45); border-color: var(--primary); }
+  .thumb.favorite .fav { opacity: 1; background: var(--primary); color: #fff;
+    box-shadow: 0 4px 16px -4px rgba(255,107,71,0.8); }
+
+  /* Next Steps panel */
+  .next-steps { margin-top: 20px; padding: 18px 20px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 14px; }
+  .next-steps-head { display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--muted); font-weight: 700; }
+  .next-steps-head::before { content: ''; width: 3px; height: 13px;
+    border-radius: 2px; background: var(--grad-acc); }
+  .next-steps-head .fav-state { margin-left: auto; text-transform: none;
+    letter-spacing: 0; font-size: 12px; font-weight: 500;
+    font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+  .next-steps-head .fav-state.set { color: var(--primary-2); }
+  .ns-item { display: grid; grid-template-columns: 22px 1fr auto;
+    align-items: start; gap: 12px; padding: 12px 0;
+    border-top: 1px solid var(--border); }
+  .ns-item:first-of-type { border-top: 0; padding-top: 0; }
+  .ns-check { appearance: none; width: 20px; height: 20px; margin-top: 2px;
+    border: 1.5px solid var(--border-hi); border-radius: 6px;
+    background: var(--card-2); cursor: pointer; position: relative;
+    transition: all 0.15s; flex: 0 0 auto; }
+  .ns-check:checked { background: var(--ok); border-color: transparent; }
+  .ns-check:checked::after { content: '✓'; position: absolute;
+    color: #0a0b10; font-weight: 800; font-size: 13px;
+    top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .ns-body { min-width: 0; }
+  .ns-title { font-size: 14px; font-weight: 600; letter-spacing: -0.1px;
+    margin-bottom: 2px; }
+  .ns-item.done .ns-title { color: var(--muted); text-decoration: line-through;
+    text-decoration-color: rgba(126,132,148,0.5); }
+  .ns-hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .ns-hint code { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--card-2); padding: 1px 6px; border-radius: 4px;
+    color: var(--primary-2); }
+  .ns-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .ns-btn { background: var(--card-hi); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 11px; font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; font-family: inherit;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    display: inline-flex; align-items: center; gap: 6px; box-shadow: none; }
+  .ns-btn:hover:not(:disabled) { border-color: var(--primary);
+    color: var(--primary-2); background: var(--card-hi); }
+  .ns-btn.copied { border-color: var(--ok); color: var(--ok); }
+  .ns-hint .no-fav { color: var(--warn); }
+  .ns-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
+
   .empty { color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center; }
   .empty .big { display: block; font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
 
@@ -591,14 +651,17 @@ function renderJob(job) {
   el.dataset.id = job.id;
 
   const cacheKey = encodeURIComponent(job.updated_at || job.id || '');
+  const fav = job.favorite_variant || null;
   const thumbs = (job.variants || []).map((v, i) => {
     const url = '/' + v.replace(/^\/+/, '');
     const idx = i + 1;
+    const isFav = fav === idx;
     return `
-      <div class="thumb">
+      <div class="thumb${isFav ? ' favorite' : ''}" data-idx="${idx}">
         <img src="${escapeAttr(url)}?v=${cacheKey}" alt="variant ${idx}" loading="lazy" />
         <div class="idx">v${idx}</div>
         <button class="regen" data-job="${job.id}" data-idx="${idx}" title="Regenerate variant ${idx}">&#8634;</button>
+        <button class="fav" data-job="${job.id}" data-idx="${idx}" title="${isFav ? 'Unset favorite' : 'Set as favorite'}">${isFav ? '&#9733;' : '&#9734;'}</button>
       </div>
     `;
   }).join('');
@@ -633,6 +696,7 @@ function renderJob(job) {
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
     ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ''}
     ${links.length ? `<div class="links">${links.join('')}</div>` : ''}
+    ${status === 'done' ? `<div class="next-steps" data-job="${job.id}"></div>` : ''}
     <div class="meta-row">
       ${job.created_at ? `<span>created ${escapeHtml(job.created_at)}</span>` : ''}
       ${job.updated_at ? `<span>updated ${escapeHtml(job.updated_at)}</span>` : ''}
@@ -640,7 +704,8 @@ function renderJob(job) {
   `;
 
   $$('.regen', el).forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const jobId = btn.dataset.job;
       const idx = +btn.dataset.idx;
       btn.disabled = true;
@@ -648,15 +713,206 @@ function renderJob(job) {
         await api(`/api/jobs/${jobId}/regenerate/${idx}`, {method: 'POST'});
         toast(`Regenerate v${idx} queued`);
         await refreshJobs();
-      } catch (e) {
-        toast(e.message, true);
+      } catch (err) {
+        toast(err.message, true);
       } finally {
         btn.disabled = false;
       }
     });
   });
 
+  $$('.fav', el).forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const jobId = btn.dataset.job;
+      const idx = +btn.dataset.idx;
+      const currentFav = job.favorite_variant || null;
+      const newFav = currentFav === idx ? null : idx;
+      btn.disabled = true;
+      try {
+        await api(`/api/jobs/${jobId}/favorite`, {
+          method: 'POST', body: JSON.stringify({variant: newFav}),
+        });
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  if (status === 'done') {
+    const ns = $('.next-steps', el);
+    if (ns) populateNextSteps(ns, job);
+  }
+
   return el;
+}
+
+// ---------------------------------------------------------------------------
+// Next Steps panel (favorite + checklist + copy-prompts)
+// ---------------------------------------------------------------------------
+
+const _metaCache = new Map();
+
+async function loadJobMeta(job) {
+  if (!job.files || !job.files.meta_json) return null;
+  if (_metaCache.has(job.id)) return _metaCache.get(job.id);
+  try {
+    const r = await fetch('/' + job.files.meta_json);
+    if (!r.ok) return null;
+    const m = await r.json();
+    _metaCache.set(job.id, m);
+    return m;
+  } catch (err) {
+    console.error('meta load failed', err);
+    return null;
+  }
+}
+
+function _buildStep6bText(step6, prepend, append) {
+  return `${prepend}\n\n${step6}\n\n${append}`;
+}
+
+const STEP6B_PREPEND = 'USE @image1 to lock the DESIGN of the character. Background must be consistent through all the shot. START FRAME: @image3';
+const STEP6B_APPEND  = '@image2 is your shot DIRECTOR, use it to create the perfect shot for each CUT';
+
+function populateNextSteps(container, job) {
+  const cachedMeta = _metaCache.get(job.id);
+  if (cachedMeta) {
+    _renderNextStepsContent(container, job, cachedMeta);
+    return;
+  }
+  container.innerHTML = '<div class="ns-empty">Lade Prompts...</div>';
+  loadJobMeta(job).then(meta => {
+    if (!meta) {
+      container.innerHTML = '<div class="ns-empty">Prompts nicht verfuegbar. _meta.json fehlt.</div>';
+      return;
+    }
+    _renderNextStepsContent(container, job, meta);
+  });
+}
+
+function _renderNextStepsContent(container, job, meta) {
+    const fav = job.favorite_variant || null;
+    const check = job.checklist || {};
+    const step5 = meta.step5_transformation || '';
+    const step6 = meta.step6_showcase || '';
+    const narrationDe = meta.narration_de || '';
+    const narrationEn = meta.narration_en || '';
+
+    const variantFile = fav ? `04_fusion_v${fav}.png` : null;
+    const favHint = fav
+      ? `variant: <code>v${fav}</code> &middot; <code>${escapeHtml(variantFile)}</code>`
+      : `<span class="no-fav">waehle oben eine Favoriten-Variante &#9733;</span>`;
+    const favState = fav
+      ? `<span class="fav-state set">&#9733; v${fav} selected</span>`
+      : `<span class="fav-state">no favorite yet</span>`;
+
+    const step6bText = _buildStep6bText(step6, STEP6B_PREPEND, STEP6B_APPEND);
+
+    const items = [
+      {
+        key: 'step5',
+        title: 'Step 5 &mdash; Transformation (Kling 2.5 / 3.0 Omni)',
+        hint: 'Start Frame: <code>03_start_frame.png</code> hochladen, Prompt rein, Kling rendern.',
+        copies: [{label: '&#128203; Copy Step 5 Prompt', text: step5}],
+      },
+      {
+        key: 'step6a',
+        title: 'Step 6A &mdash; Showcase (Seedance / Higgsfield)',
+        hint: `Als Reference-Image ${favHint}. Prompt rein, rendern.`,
+        copies: [{label: '&#128203; Copy Step 6A Prompt', text: step6}],
+      },
+      {
+        key: 'step6b',
+        title: 'Step 6B &mdash; Showcase (Kling Elements)',
+        hint: `@image1 = ${favHint}, @image3 = <code>03_start_frame.png</code>, @image2 optional.`,
+        copies: [{label: '&#128203; Copy Step 6B Prompt (wrapped)', text: step6bText}],
+      },
+      {
+        key: 'narration',
+        title: 'Narration aufnehmen (DE + EN)',
+        hint: 'Voice-Over synchronisiert mit Transformation + Showcase.',
+        copies: [
+          {label: '&#128203; Copy DE', text: narrationDe},
+          {label: '&#128203; Copy EN', text: narrationEn},
+        ],
+      },
+      {
+        key: 'editing',
+        title: 'Editing (Step 9)',
+        hint: 'Clips zusammenschneiden, Narration drueber, SFX + BGM. Editing-Notes siehe <code>video_prompts.md</code>.',
+        copies: [],
+      },
+    ];
+
+    const itemsHtml = items.map(it => {
+      const done = !!check[it.key];
+      const copyBtns = it.copies.map((c, i) =>
+        `<button class="ns-btn copy" data-key="${it.key}" data-copy-idx="${i}">${c.label}</button>`
+      ).join('');
+      return `
+        <div class="ns-item${done ? ' done' : ''}" data-key="${it.key}">
+          <input type="checkbox" class="ns-check" data-job="${job.id}" data-key="${it.key}" ${done ? 'checked' : ''} />
+          <div class="ns-body">
+            <div class="ns-title">${it.title}</div>
+            <div class="ns-hint">${it.hint}</div>
+          </div>
+          <div class="ns-actions">${copyBtns}</div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="next-steps-head">
+        <span>Next Steps</span>
+        ${favState}
+      </div>
+      ${itemsHtml}
+    `;
+
+    // Copy-Buttons
+    $$('.ns-btn.copy', container).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const key = btn.dataset.key;
+        const idx = +btn.dataset.copyIdx;
+        const item = items.find(x => x.key === key);
+        const text = item && item.copies[idx] ? item.copies[idx].text : '';
+        if (!text) { toast('Nichts zum Kopieren', true); return; }
+        try {
+          await navigator.clipboard.writeText(text);
+          const origHtml = btn.innerHTML;
+          btn.classList.add('copied');
+          btn.innerHTML = '&#10003; Copied';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = origHtml;
+          }, 1400);
+        } catch (err) {
+          toast('Clipboard-Fehler: ' + err.message, true);
+        }
+      });
+    });
+
+    // Checkboxes
+    $$('.ns-check', container).forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const key = cb.dataset.key;
+        const value = cb.checked;
+        try {
+          await api(`/api/jobs/${job.id}/checklist`, {
+            method: 'POST', body: JSON.stringify({key, value}),
+          });
+          const row = cb.closest('.ns-item');
+          if (row) row.classList.toggle('done', value);
+        } catch (err) {
+          toast(err.message, true);
+          cb.checked = !value;
+        }
+      });
+    });
 }
 
 // ---------------------------------------------------------------------------

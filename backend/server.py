@@ -41,6 +41,15 @@ class BatchRequest(BaseModel):
     ideas: list[FusionIdea]
 
 
+class FavoriteUpdate(BaseModel):
+    variant: int | None = None
+
+
+class ChecklistUpdate(BaseModel):
+    key: str
+    value: bool
+
+
 class SettingsUpdate(BaseModel):
     AIAUTO_API_KEY: str | None = None
     AIAUTO_BASE_URL: str | None = None
@@ -161,6 +170,24 @@ async def api_regenerate(job_id: str, variant_index: int) -> dict[str, str]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued"}
+
+
+@app.post("/api/jobs/{job_id}/favorite")
+async def api_set_favorite(job_id: str, req: FavoriteUpdate) -> dict[str, bool]:
+    try:
+        await runner.set_favorite(job_id, req.variant)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@app.post("/api/jobs/{job_id}/checklist")
+async def api_toggle_checklist(job_id: str, req: ChecklistUpdate) -> dict[str, bool]:
+    try:
+        await runner.toggle_checklist(job_id, req.key, req.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
