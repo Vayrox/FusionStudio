@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import shutil
 import time
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 from backend import prompts
+
+log = logging.getLogger("fusion-auto.pipeline")
 from backend.clients import aiauto_client, openai_client, pokemon_refs
 from backend.config import (
     MAX_PARALLEL_FUSIONS,
@@ -74,7 +77,18 @@ async def _update_job(job_id: str, **patch: Any) -> dict[str, Any]:
         job.update(patch)
         job["updated_at"] = _now_iso()
         await _save_state()
-        return dict(job)
+        snapshot = dict(job)
+    # Live-Log pro Step-Transition damit man im Terminal sieht wo jeder Job steht
+    if "current_step" in patch:
+        log.warning(
+            "job %s [%s x %s] -> %s (status=%s)",
+            job_id,
+            snapshot.get("pokemon_a"),
+            snapshot.get("pokemon_b"),
+            patch.get("current_step"),
+            snapshot.get("status"),
+        )
+    return snapshot
 
 
 async def get_job(job_id: str) -> dict[str, Any] | None:

@@ -3,15 +3,24 @@ GPT-4o Wrapper fuer alle Text-Generations der Pipeline.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import random
 import re
 from typing import Any
 
-from openai import AsyncOpenAI
+import httpx
+from openai import APIError, APITimeoutError, APIConnectionError, AsyncOpenAI, RateLimitError
 
 from backend.config import settings
 from backend import prompts
+
+log = logging.getLogger("fusion-auto.openai")
+
+# Pro Chat-Call: Hard-Timeout + Retries mit Exponential Backoff.
+_OPENAI_TIMEOUT_S = 120.0
+_OPENAI_RETRIES = 3
 
 
 def _client() -> AsyncOpenAI:
@@ -30,18 +39,56 @@ async def _chat(
     max_tokens: int | None = None,
 ) -> str:
     client = _client()
-    kwargs: dict[str, Any] = {
-        "model": settings.openai_model,
-        "temperature": temperature,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-    }
-    if max_tokens is not None:
-        kwargs["max_tokens"] = max_tokens
-    resp = await client.chat.completions.create(**kwargs)
-    return (resp.choices[0].message.content or "").strip()
+    last_exc: Exception | None = None
+    for attempt in range(1, _OPENAI_RETRIES + 1):
+        try:
+            kwargs: dict[str, Any] = {
+                "model": settings.openai_model,
+                "temperature": temperature,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "timeout": _OPENAI_TIMEOUT_S,
+            }
+            if max_tokens is not None:
+                kwargs["max_tokens"] = max_tokens
+            log.warning(
+                "OpenAI chat.completions attempt %d/%d (model=%s, max_tokens=%s)",
+                attempt, _OPENAI_RETRIES, settings.openai_model, max_tokens,
+            )
+            resp = await client.chat.completions.create(**kwargs)
+            text = (resp.choices[0].message.content or "").strip()
+            log.warning(
+                "OpenAI chat.completions attempt %d/%d -> %d chars",
+                attempt, _OPENAI_RETRIES, len(text),
+            )
+            return text
+        except (APITimeoutError, APIConnectionError, httpx.TimeoutException,
+                httpx.NetworkError) as exc:
+            last_exc = exc
+            log.warning(
+                "OpenAI network error on attempt %d/%d: %s",
+                attempt, _OPENAI_RETRIES, exc,
+            )
+        except RateLimitError as exc:
+            last_exc = exc
+            log.warning(
+                "OpenAI rate limit on attempt %d/%d: %s",
+                attempt, _OPENAI_RETRIES, exc,
+            )
+        except APIError as exc:
+            last_exc = exc
+            log.warning(
+                "OpenAI API error on attempt %d/%d: %s",
+                attempt, _OPENAI_RETRIES, exc,
+            )
+        if attempt < _OPENAI_RETRIES:
+            await asyncio.sleep(2 ** attempt)
+    assert last_exc is not None
+    raise RuntimeError(
+        f"OpenAI chat.completions fehlgeschlagen nach {_OPENAI_RETRIES} Versuchen: {last_exc}"
+    ) from last_exc
 
 
 # ---------------------------------------------------------------------------
