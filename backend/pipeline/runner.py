@@ -339,7 +339,18 @@ async def _run_batch_monitor(batch_id: str) -> None:
             fusions_for_narration
         )
 
-        # Narration-Datei schreiben
+        # Suno-Prompt fuer Background-Music
+        traits_summary = " | ".join(
+            (f.get("distinctive_traits") or "")[:200]
+            for f in fusions_for_narration
+        )[:1500]
+        suno_prompt = await openai_client.generate_suno_prompt(
+            narration_en,
+            fusion_count=len(fusions_for_narration),
+            overall_tone=traits_summary or "cinematic epic, hauntingly majestic",
+        )
+
+        # Narration + Suno-Datei schreiben
         batch_dir = OUTPUT_DIR / "batches"
         batch_dir.mkdir(parents=True, exist_ok=True)
         md_path = batch_dir / f"{batch_id}_narration.md"
@@ -351,7 +362,8 @@ async def _run_batch_monitor(batch_id: str) -> None:
             f"> Durchgehende DE + EN Narration fuer eine Fusion-Compilation.\n\n"
             f"Fusionen in Reihenfolge:\n{fusion_list}\n\n"
             f"---\n\n## Deutsch\n\n{narration_de}\n\n"
-            f"---\n\n## English\n\n{narration_en}\n"
+            f"---\n\n## English\n\n{narration_en}\n\n"
+            f"---\n\n## Suno Background Music Prompt\n\n{suno_prompt}\n"
         )
         md_path.write_text(md, encoding="utf-8")
 
@@ -360,6 +372,7 @@ async def _run_batch_monitor(batch_id: str) -> None:
             status="done",
             narration_de=narration_de,
             narration_en=narration_en,
+            suno_prompt=suno_prompt,
             narration_path=_relative_to_root(md_path),
             fusion_count=len(fusions_for_narration),
         )
@@ -582,7 +595,7 @@ async def cancel_batch(batch_id: str) -> int:
     return count
 
 
-CHECKLIST_KEYS = {"step5", "step6a", "step6b", "narration", "editing"}
+CHECKLIST_KEYS = {"step5", "step6a", "step6b", "narration", "suno", "editing"}
 
 
 async def set_favorite(job_id: str, variant: int | None) -> None:
@@ -824,8 +837,9 @@ async def _pipeline(job_id: str) -> None:
     step5_text, step6_text = await asyncio.gather(step5_task, step6_task)
 
     # Einzelne Narration ueberspringen, wenn Teil eines Batches -
-    # der Batch-Monitor generiert spaeter die gemeinsame Narration.
+    # der Batch-Monitor generiert spaeter die gemeinsame Narration + Suno-Prompt.
     is_batch_member = bool(job.get("batch_id"))
+    suno_prompt = ""
     if is_batch_member:
         narration_de = ""
         narration_en = ""
@@ -835,6 +849,12 @@ async def _pipeline(job_id: str) -> None:
             pokemon_a, pokemon_b,
             pokemon_a_de, pokemon_b_de,
             distinctive_traits, step5_text, step6_text,
+        )
+        await _update_job(job_id, current_step="gpt_suno_prompt")
+        suno_prompt = await openai_client.generate_suno_prompt(
+            narration_en,
+            fusion_count=1,
+            overall_tone=distinctive_traits,
         )
 
     # Dateien schreiben
@@ -852,6 +872,7 @@ async def _pipeline(job_id: str) -> None:
         "step6_showcase": step6_text,
         "narration_de": narration_de,
         "narration_en": narration_en,
+        "suno_prompt": suno_prompt,
         "files": {
             "step_2a": step2a_out.name,
             "step_2b": step2b_out.name,
@@ -874,7 +895,7 @@ async def _pipeline(job_id: str) -> None:
         step6=step6_text,
     )
     if not is_batch_member:
-        _write_narration_md(out_dir, narration_de, narration_en)
+        _write_narration_md(out_dir, narration_de, narration_en, suno_prompt)
 
     files_map = {
         "step_2a": _relative_to_root(step2a_out),
@@ -1039,7 +1060,9 @@ Only needed if Seedance rejects the design. Two-stage workflow:
     (out_dir / "video_prompts.md").write_text(md, encoding="utf-8")
 
 
-def _write_narration_md(out_dir: Path, narration_de: str, narration_en: str) -> None:
+def _write_narration_md(
+    out_dir: Path, narration_de: str, narration_en: str, suno_prompt: str = ""
+) -> None:
     md = f"""# Narration - DE / EN
 
 > Voice-over-Texte fuer den deutschen und englischen Account. Beide Versionen
@@ -1058,4 +1081,9 @@ def _write_narration_md(out_dir: Path, narration_de: str, narration_en: str) -> 
 
 {narration_en}
 """
+    if suno_prompt:
+        md += (
+            "\n---\n\n## Suno Background Music Prompt\n\n"
+            f"{suno_prompt}\n"
+        )
     (out_dir / "narration.md").write_text(md, encoding="utf-8")

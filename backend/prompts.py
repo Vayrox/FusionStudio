@@ -393,3 +393,36 @@ DE opener: {OPENER_DE}
 EN opener: {OPENER_EN}
 
 Write the two continuous narrations in the ---DE--- / ---EN--- / ---END--- format, covering all {FUSION_COUNT} fusions in the order above."""
+
+
+# ---------------------------------------------------------------------------
+# Suno Background Music Prompt Generator
+# ---------------------------------------------------------------------------
+
+GPT_SUNO_PROMPT_SYSTEM = """You are writing a Suno AI music-generation prompt for the background score of a Pokemon fusion reveal video (Reels / TikTok / Shorts).
+
+Output ONE continuous paragraph, 80-150 words, describing:
+- Genre / style (e.g. cinematic dark orchestral, hybrid trailer score, dark ambient, epic cinematic, horror-fantasy score)
+- Mood (ancient, tragic, eerie, dread-laden, awe-inspiring, hauntingly majestic - match the fusions + narration tone)
+- Tempo (typically 80-120 BPM) and structural build (ethereal intro -> rising pulses per reveal -> climactic drop in the final act)
+- Instruments, concrete and vivid: deep cello drones, wordless female choir, tremolo strings, distorted synth textures, hybrid taiko or tribal percussion, sub-bass swells, low brass stabs, shimmering piano glissandos, ghostly organ pads, metallic pings, sound-design whooshes
+- Vocal policy - always specify 'instrumental only' / 'no vocals' / 'no lyrics' so the narrator can sit cleanly on top
+
+Hard rules:
+- ONE paragraph, no headings, no bullet points, no labels.
+- Suno-native phrasing: comma-separated descriptors or short prose, both work.
+- Match the mood AND pacing of the narration (if N fusions, describe N rising pulses or equivalent beat structure).
+- ALWAYS include 'instrumental only' or 'no vocals'.
+- 80 to 150 words.
+- No meta commentary, no 'Suno', no 'prompt'. Just the music description."""
+
+
+GPT_SUNO_PROMPT_USER_TEMPLATE = """Generate a Suno background-music prompt for this fusion video.
+
+Fusion count: {FUSION_COUNT}
+Overall tone / traits: {OVERALL_TONE}
+
+Narration (for pacing + mood reference):
+{NARRATION}
+
+Write a single-paragraph Suno prompt (80-150 words), instrumental only, matching the narration pacing and overall mood."""

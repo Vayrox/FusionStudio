@@ -264,6 +264,30 @@ async def generate_narration(
     return de, en
 
 
+async def generate_suno_prompt(
+    narration: str,
+    fusion_count: int = 1,
+    overall_tone: str = "cinematic epic, hauntingly majestic",
+) -> str:
+    """Generiert einen Suno-Music-Prompt passend zur Narration.
+
+    Nimmt die englische Narration als Pacing/Mood-Referenz und den
+    overall_tone als zusaetzlichen Mood-Hint. Einpacken der Distinctive-
+    Traits in overall_tone ist sinnvoll wenn verfuegbar.
+    """
+    user = prompts.GPT_SUNO_PROMPT_USER_TEMPLATE.format(
+        FUSION_COUNT=fusion_count,
+        OVERALL_TONE=overall_tone,
+        NARRATION=narration,
+    )
+    return await _chat(
+        prompts.GPT_SUNO_PROMPT_SYSTEM,
+        user,
+        temperature=0.85,
+        max_tokens=400,
+    )
+
+
 async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, str]:
     """Generiert EINE durchgehende DE+EN Narration fuer eine Liste von Fusionen.
 
@@ -308,3 +332,27 @@ async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, 
     if not en.lower().startswith(prompts.NARRATION_OPENER_EN.lower()[:20]):
         en = prompts.NARRATION_OPENER_EN + " " + en
     return de, en
+
+
+async def generate_suno_prompt(
+    narration: str,
+    fusion_count: int = 1,
+    overall_tone: str = "cinematic epic, hauntingly majestic",
+) -> str:
+    """Generiert einen Suno-Music-Prompt passend zur Narration.
+
+    Nimmt die englische Narration als Pacing/Mood-Referenz und den
+    overall_tone als zusaetzlichen Mood-Hint. Einpacken der Distinctive-
+    Traits in overall_tone ist sinnvoll wenn verfuegbar.
+    """
+    user = prompts.GPT_SUNO_PROMPT_USER_TEMPLATE.format(
+        FUSION_COUNT=fusion_count,
+        OVERALL_TONE=overall_tone,
+        NARRATION=narration,
+    )
+    return await _chat(
+        prompts.GPT_SUNO_PROMPT_SYSTEM,
+        user,
+        temperature=0.85,
+        max_tokens=400,
+    )

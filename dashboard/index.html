@@ -859,6 +859,7 @@ function renderBatch(batch) {
     <div class="batch-actions">
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="de">&#128203; Copy DE Narration</button>` : ''}
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="en">&#128203; Copy EN Narration</button>` : ''}
+      ${batch.suno_prompt ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="suno">&#127928; Copy Suno Prompt</button>` : ''}
       ${batch.narration_path ? `<a class="ns-btn" style="text-decoration:none;" href="/${batch.narration_path}" target="_blank">&#128196; narration.md</a>` : ''}
       ${(status === 'error' || status === 'done' || status === 'cancelled') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
       ${(status === 'running' || status === 'queued' || status === 'generating_narration') ? `<button class="ns-btn stop" data-batch-stop="${batch.id}">&#9632; Stop Batch</button>` : ''}
@@ -955,8 +956,11 @@ function renderBatch(batch) {
   $$('.ns-btn.copy', el).forEach(btn => {
     btn.addEventListener('click', async () => {
       const lang = btn.dataset.lang;
-      const text = lang === 'de' ? batch.narration_de : batch.narration_en;
-      if (!text) { toast('Keine Narration', true); return; }
+      let text;
+      if (lang === 'de') text = batch.narration_de;
+      else if (lang === 'en') text = batch.narration_en;
+      else if (lang === 'suno') text = batch.suno_prompt;
+      if (!text) { toast('Nichts zum Kopieren', true); return; }
       try {
         await navigator.clipboard.writeText(text);
         const orig = btn.innerHTML;
@@ -1275,6 +1279,7 @@ function _renderNextStepsContent(container, job, meta) {
     const step6 = meta.step6_showcase || '';
     const narrationDe = meta.narration_de || '';
     const narrationEn = meta.narration_en || '';
+    const sunoPrompt = meta.suno_prompt || '';
 
     const variantFile = fav ? `04_fusion_v${fav}.png` : null;
     const favHint = fav
@@ -1331,6 +1336,17 @@ function _renderNextStepsContent(container, job, meta) {
         hint: job.batch_id
           ? `Diese Fusion ist Teil eines Compilation-Batches &mdash; die gemeinsame DE+EN Narration findest du im <b>Batch-Panel</b> oben in der Liste.`
           : 'Narration-Text noch nicht verfuegbar (Job laeuft noch oder fehlerhaft).',
+        copies: [],
+      },
+      sunoPrompt ? {
+        key: 'suno',
+        title: 'Background Music (Suno)',
+        hint: 'Copy den Prompt in Suno.ai, generieren, als Background-Track ueber die Narration legen.',
+        copies: [{label: '&#127928; Copy Suno Prompt', text: sunoPrompt}],
+      } : {
+        key: 'suno',
+        title: 'Background Music (Suno)',
+        hint: 'Suno-Prompt nicht verfuegbar (Job laeuft noch oder ist Teil eines Batches &mdash; Prompt dann im Batch-Panel).',
         copies: [],
       },
       {
