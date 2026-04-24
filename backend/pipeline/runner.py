@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import shutil
 import time
 import traceback
 import uuid
@@ -22,6 +23,7 @@ from backend.config import (
     MAX_PARALLEL_FUSIONS,
     OUTPUT_DIR,
     PROJECT_ROOT,
+    REALISTIC_CACHE_DIR,
     SIGNATURE_BACKGROUND_PATH,
     STATE_FILE,
     STEP4_VARIANTS,
@@ -113,6 +115,45 @@ def _relative_to_root(path: Path) -> str:
         return str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
     except ValueError:
         return str(path).replace("\\", "/")
+
+
+def _realistic_cache_path(pokemon_name: str) -> Path:
+    slug = pokemon_refs.pokemon_slug(pokemon_name)
+    return REALISTIC_CACHE_DIR / f"{slug}.png"
+
+
+async def _step2_realistic_cached(
+    pokemon_name: str, ref_image: Path, output_path: Path
+) -> tuple[Path, bool]:
+    """Step 2 mit Cache - gibt (output_path, used_cache) zurueck.
+
+    Cache-Key ist der PokeAPI-Slug. Bei Hit wird die gecachte Datei in
+    den Output-Ordner kopiert (so bleibt die Pipeline-Output-Struktur
+    konsistent). Bei Miss wird AI-Auto angefragt und das Ergebnis in
+    den Cache geschrieben (atomar via .tmp+rename).
+    """
+    cache_path = _realistic_cache_path(pokemon_name)
+    if cache_path.exists() and cache_path.stat().st_size > 0:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(cache_path, output_path)
+        return output_path, True
+
+    prompt = prompts.STEP2_REALISTIC_SINGLE.replace("{POKEMON}", pokemon_name)
+    await aiauto_client.generate_image(
+        prompt, output_path, reference_images=[ref_image]
+    )
+    if output_path.exists() and output_path.stat().st_size > 0:
+        tmp = cache_path.with_suffix(cache_path.suffix + ".tmp")
+        try:
+            shutil.copyfile(output_path, tmp)
+            tmp.replace(cache_path)
+        except Exception:
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+    return output_path, False
 
 
 # ---------------------------------------------------------------------------
@@ -212,20 +253,20 @@ async def _pipeline(job_id: str) -> None:
     step2a_out = out_dir / f"02a_realistic_{_folder_slug(pokemon_a)}.png"
     step2b_out = out_dir / f"02b_realistic_{_folder_slug(pokemon_b)}.png"
 
-    step2a_prompt = prompts.STEP2_REALISTIC_SINGLE.replace("{POKEMON}", pokemon_a)
-    step2b_prompt = prompts.STEP2_REALISTIC_SINGLE.replace("{POKEMON}", pokemon_b)
-
     step2a = asyncio.create_task(
-        aiauto_client.generate_image(
-            step2a_prompt, step2a_out, reference_images=[ref_a_path]
-        )
+        _step2_realistic_cached(pokemon_a, ref_a_path, step2a_out)
     )
     step2b = asyncio.create_task(
-        aiauto_client.generate_image(
-            step2b_prompt, step2b_out, reference_images=[ref_b_path]
-        )
+        _step2_realistic_cached(pokemon_b, ref_b_path, step2b_out)
     )
-    await asyncio.gather(step2a, step2b)
+    (_, cache_a), (_, cache_b) = await asyncio.gather(step2a, step2b)
+    if cache_a or cache_b:
+        await _update_job(
+            job_id,
+            cache_hits=[
+                p for p, hit in [(pokemon_a, cache_a), (pokemon_b, cache_b)] if hit
+            ],
+        )
 
     # 3) Start Frame - referenzen: signature background (=ref1), 2A, 2B
     await _update_job(job_id, current_step="step_3_start_frame")

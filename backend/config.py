@@ -26,7 +26,11 @@ SIGNATURE_BACKGROUND_PATH = ASSETS_DIR / "signature_background.png"
 STATE_FILE = STATE_DIR / "jobs.json"
 ENV_FILE = PROJECT_ROOT / ".env"
 
-for _dir in (ASSETS_DIR, POKEMON_REFS_DIR, OUTPUT_DIR, STATE_DIR):
+# Cache fuer Step-2 Realistic-Single-Outputs: spart pro wiederholtem
+# Pokemon einen kompletten AI-Auto-Roundtrip (~5min via 524-Fallback).
+REALISTIC_CACHE_DIR = POKEMON_REFS_DIR / "realistic"
+
+for _dir in (ASSETS_DIR, POKEMON_REFS_DIR, OUTPUT_DIR, STATE_DIR, REALISTIC_CACHE_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------

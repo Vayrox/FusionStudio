@@ -44,6 +44,12 @@ log = logging.getLogger("fusion-auto.aiauto")
 
 _SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_AIAUTO_CALLS)
 
+# Claimed-Set verhindert dass mehrere parallele Fallback-Calls
+# (z.B. die 5 identischen Step-4-Variant-Prompts) alle dieselbe
+# generation.id aus dem Listing greifen.
+_CLAIMED_IDS: set[str] = set()
+_CLAIM_LOCK = asyncio.Lock()
+
 
 class AIAutoError(RuntimeError):
     pass
@@ -190,6 +196,7 @@ async def _find_recent_generation(
                     needle = want_full[:match_len]
                     if len(needle) < 6:
                         continue
+                    candidates: list[tuple[str, float]] = []
                     for g in items:
                         if not isinstance(g, dict):
                             continue
@@ -203,11 +210,23 @@ async def _find_recent_generation(
                             continue
                         gen_id = g.get("id")
                         if gen_id:
+                            candidates.append((str(gen_id), ts if ts is not None else 0.0))
+                    if not candidates:
+                        continue
+                    # Bevorzuge Kandidaten zeitlich nah am submit_ts
+                    candidates.sort(key=lambda c: abs(c[1] - submit_ts) if c[1] else 1e9)
+                    async with _CLAIM_LOCK:
+                        for gen_id, _ts in candidates:
+                            if gen_id in _CLAIMED_IDS:
+                                continue
+                            _CLAIMED_IDS.add(gen_id)
                             log.warning(
-                                "AI-Auto fallback MATCH: id=%s prefix=%d source=%s",
-                                gen_id, match_len, src,
+                                "AI-Auto fallback CLAIM: id=%s prefix=%d source=%s "
+                                "(candidates=%d already-claimed=%d)",
+                                gen_id, match_len, src, len(candidates),
+                                sum(1 for c, _ in candidates if c in _CLAIMED_IDS) - 1,
                             )
-                            return str(gen_id)
+                            return gen_id
             except Exception as exc:  # noqa: BLE001
                 log.warning("AI-Auto listing %s attempt %d failed: %s",
                             list_url, attempt + 1, exc)
