@@ -122,7 +122,11 @@ async def _find_recent_generation(
         f"{settings.aiauto_base_url}/generations/images?limit=100",
         f"{settings.aiauto_base_url}/generations?limit=100",
     ]
-    prompt_prefix = (prompt or "")[:60].strip()
+    # Laenge bewusst grosszuegig: der Step-4-Prompt beginnt bei ALLEN Fusionen
+    # mit 'Create a new Pokemon specimen - a fusion between ...' (49 Chars),
+    # die Pokemon-Namen kommen erst danach. Zu kurze Prefixes matchen quer
+    # ueber Fusionen.
+    prompt_prefix = (prompt or "")[:220].strip()
     if not prompt_prefix:
         return None
 
@@ -130,7 +134,10 @@ async def _find_recent_generation(
         return " ".join((s or "").split()).lower()
 
     want_full = _normalize(prompt_prefix)
-    match_lens = [40, 25, 15, 8]
+    # Progressive Fallbacks: strikt -> locker. 180 Chars deckt garantiert
+    # die Pokemon-Namen + einige Descriptor-Woerter ab, sodass parallele
+    # Batch-Fusionen nicht cross-contaminieren.
+    match_lens = [180, 120, 80, 40, 25]
     last_samples: list[dict[str, Any]] = []
     last_raw_previews: list[str] = []
 

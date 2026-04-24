@@ -385,6 +385,33 @@
       0 20px 40px -16px rgba(168,139,255,0.4); }
     100% { box-shadow: none; }
   }
+
+  /* Modal for in-place fusion detail view */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(5,6,10,0.7);
+    backdrop-filter: blur(6px); z-index: 1000; display: none;
+    align-items: flex-start; justify-content: center; padding: 40px 20px;
+    overflow-y: auto; animation: fade-in 0.2s ease-out; }
+  .modal-backdrop.open { display: flex; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .modal-card { position: relative; width: 100%; max-width: 1100px;
+    background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+    border: 1px solid var(--border-hi); border-radius: 18px;
+    padding: 18px 22px 24px; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
+    animation: modal-in 0.25s cubic-bezier(0.2,0.7,0.3,1); }
+  @keyframes modal-in {
+    from { transform: translateY(20px) scale(0.98); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .modal-close { position: absolute; top: 12px; right: 12px;
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--card-hi); color: var(--text); border: 1px solid var(--border);
+    cursor: pointer; font-size: 18px; font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, background 0.15s; box-shadow: none; }
+  .modal-close:hover { border-color: var(--primary); color: var(--primary-2); }
+  .modal-card .job { border: 0; padding: 0; background: transparent; box-shadow: none; }
+  .modal-card .job:hover { border-color: transparent; box-shadow: none; }
+  html.modal-open { overflow: hidden; }
   .batch-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   .job .batch-chip { display: inline-flex; align-items: center; gap: 6px;
     padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
@@ -543,6 +570,13 @@
   </section>
 
 </main>
+
+<div class="modal-backdrop" id="job-modal">
+  <div class="modal-card">
+    <button class="modal-close" id="job-modal-close" title="Schliessen (Esc)">&times;</button>
+    <div id="job-modal-body"></div>
+  </div>
+</div>
 
 <script>
 const $ = (s, r=document) => r.querySelector(s);
@@ -751,8 +785,14 @@ async function refreshJobs() {
       api('/api/jobs'),
       api('/api/batches'),
     ]);
+    _currentJobs = jobsRes.jobs || [];
     renderBatches(batchesRes.batches || []);
-    renderJobs(jobsRes.jobs);
+    renderJobs(_currentJobs);
+    // Modal sync falls gerade offen
+    if (_modalJobId) {
+      const j = _currentJobs.find(x => x.id === _modalJobId);
+      if (j) _renderModal(j);
+    }
   } catch (e) {
     console.error(e);
   }
@@ -840,14 +880,7 @@ function renderBatch(batch) {
     $$('a[data-job-id]', placeholder).forEach(a => {
       a.addEventListener('click', (ev) => {
         ev.preventDefault();
-        const jid = a.dataset.jobId;
-        const target = document.querySelector(`.job[data-id="${CSS.escape(jid)}"]`);
-        if (!target) { toast('Job-Card nicht gefunden', true); return; }
-        target.scrollIntoView({behavior: 'smooth', block: 'start'});
-        target.classList.remove('flash');
-        void target.offsetWidth;
-        target.classList.add('flash');
-        setTimeout(() => target.classList.remove('flash'), 1300);
+        openJobModal(a.dataset.jobId);
       });
     });
 
@@ -894,6 +927,39 @@ function renderBatch(batch) {
 }
 
 const _jobCache = new Map(); // job.id -> {hash, element}
+let _modalJobId = null;
+let _currentJobs = [];
+
+function openJobModal(jobId) {
+  _modalJobId = jobId;
+  const job = _currentJobs.find(j => j.id === jobId);
+  if (!job) { toast('Job nicht gefunden', true); return; }
+  _renderModal(job);
+  document.documentElement.classList.add('modal-open');
+  $('#job-modal').classList.add('open');
+}
+
+function closeJobModal() {
+  _modalJobId = null;
+  $('#job-modal').classList.remove('open');
+  document.documentElement.classList.remove('modal-open');
+  $('#job-modal-body').innerHTML = '';
+}
+
+function _renderModal(job) {
+  const body = $('#job-modal-body');
+  const el = renderJob(job);
+  body.innerHTML = '';
+  body.appendChild(el);
+}
+
+$('#job-modal-close').addEventListener('click', closeJobModal);
+$('#job-modal').addEventListener('click', (ev) => {
+  if (ev.target.id === 'job-modal') closeJobModal();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && _modalJobId) closeJobModal();
+});
 
 function renderJobs(jobs) {
   const list = $('#jobs-list');
