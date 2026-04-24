@@ -134,6 +134,14 @@
   .idea .concept { color: var(--muted); font-size: 13px; margin-bottom: 10px;
     line-height: 1.45; }
   .idea .tone input { font-size: 12px; padding: 7px 10px; border-radius: 8px; }
+  .idea .remove { position: absolute; top: 8px; right: 10px;
+    background: transparent; color: var(--muted); border: 0; cursor: pointer;
+    font-size: 16px; opacity: 0; padding: 2px 8px; line-height: 1;
+    font-family: inherit; border-radius: 6px;
+    transition: opacity 0.15s, color 0.15s, background 0.15s; }
+  .idea:hover .remove { opacity: 0.7; }
+  .idea .remove:hover { color: var(--err); opacity: 1; background: rgba(255,94,107,0.08); }
+  .idea.approved .remove { display: none; }
 
   .ideas-actions { display: flex; align-items: center; gap: 14px; margin-top: 18px;
     padding-top: 18px; border-top: 1px solid var(--border); }
@@ -532,6 +540,12 @@ async function api(path, opts={}) {
 // ---------------------------------------------------------------------------
 // Ideas
 // ---------------------------------------------------------------------------
+function _ideaKey(i) {
+  const a = String(i.pokemon_a || '').trim().toLowerCase();
+  const b = String(i.pokemon_b || '').trim().toLowerCase();
+  return [a, b].sort().join('|'); // symmetrisch: A+B == B+A
+}
+
 async function generateIdeas() {
   const hint = $('#hint').value.trim();
   if (!hint) { toast('Hint fehlt', true); return; }
@@ -539,13 +553,34 @@ async function generateIdeas() {
   btn.disabled = true; btn.textContent = 'Generating...';
   try {
     const res = await api('/api/ideas', {method: 'POST', body: JSON.stringify({hint})});
-    currentIdeas = res.ideas.map(i => ({...i, approved: false, tone_hint: ''}));
+    // Approved behalten, neue anhaengen, Duplikate gegenueber bereits vorhandenen filtern
+    const keepers = currentIdeas.filter(i => i.approved);
+    const existingKeys = new Set(keepers.map(_ideaKey));
+    const incoming = res.ideas
+      .map(i => ({...i, approved: false, tone_hint: ''}))
+      .filter(i => {
+        const k = _ideaKey(i);
+        if (existingKeys.has(k)) return false;
+        existingKeys.add(k);
+        return true;
+      });
+    // Non-approved aus vorherigem Run verwerfen, nur approved bleiben + neue rein
+    currentIdeas = [...keepers, ...incoming];
     renderIdeas();
+    if (keepers.length) {
+      toast(`${keepers.length} approved behalten, ${incoming.length} neue Ideen`);
+    }
   } catch (e) {
     toast(e.message, true);
   } finally {
-    btn.disabled = false; btn.textContent = 'Generate 6';
+    btn.disabled = false; btn.textContent = currentIdeas.length ? '+ 6 weitere' : 'Generate 6';
   }
+}
+
+function _btnGenerateLabel() {
+  const lbl = currentIdeas.length ? '+ 6 weitere' : 'Generate 6';
+  const b = $('#btn-generate');
+  if (b && !b.disabled) b.textContent = lbl;
 }
 
 function renderIdeas() {
@@ -564,6 +599,7 @@ function renderIdeas() {
           <input type="text" data-idx="${idx}" placeholder="Tone Hint (optional)" value="${escapeAttr(idea.tone_hint || '')}" />
         </div>
       </div>
+      <button class="remove" data-idx="${idx}" title="Idee entfernen">&times;</button>
     `;
     list.appendChild(el);
   });
@@ -581,8 +617,17 @@ function renderIdeas() {
       currentIdeas[+e.target.dataset.idx].tone_hint = e.target.value;
     });
   });
+  $$('.remove', list).forEach(rm => {
+    rm.addEventListener('click', e => {
+      e.stopPropagation();
+      const i = +e.currentTarget.dataset.idx;
+      currentIdeas.splice(i, 1);
+      renderIdeas();
+    });
+  });
   $('#ideas-actions').style.display = currentIdeas.length ? 'flex' : 'none';
   updateApprovedCount();
+  _btnGenerateLabel();
 }
 
 function updateApprovedCount() {
