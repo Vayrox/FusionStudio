@@ -55,7 +55,11 @@ AIAUTO_POST_TIMEOUT_S = 100.0  # unter Cloudflare-524-Grenze (120s), dann Fallba
 AIAUTO_POLL_INTERVAL_S = 5.0
 AIAUTO_POLL_TIMEOUT_S = 900.0  # Nano Banana Pro kann lange brauchen
 AIAUTO_LIST_MATCH_ATTEMPTS = 30
-AIAUTO_LIST_MATCH_TOLERANCE_S = 300.0
+# Toleranz RUECKWAERTS vom submit_ts - nur Generations die hoechstens so
+# viele Sekunden vor unserem POST angelegt wurden, gelten als Treffer.
+# Bewusst eng, damit ALTE Generations aus frueheren Runs nicht
+# faelschlich uebernommen werden. 15s reicht fuer Server-Clock-Skew.
+AIAUTO_LIST_MATCH_TOLERANCE_S = 15.0
 
 POKEAPI_BASE_URL = "https://pokeapi.co/api/v2"
 
