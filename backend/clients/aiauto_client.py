@@ -100,9 +100,9 @@ async def _find_recent_generation(
 ) -> str | None:
     """Sucht die frisch gestartete Generation im User-Listing.
 
-    Match: mode=images, prompt startet mit unserem Prompt, created_at >=
-    submit_ts - Toleranz. Retryed mehrmals mit Delays, falls die Generation
-    noch nicht im Listing auftaucht.
+    Match: prompt startet mit unserem Prompt (normalized), created_at >=
+    submit_ts - Toleranz. Retryed mehrmals. Loggt pro Versuch was die API
+    an Generations liefert, damit man Matching-Probleme sehen kann.
     """
     # AI-Auto hat getrennte Listings fuer Videos (/generations) und
     # Bilder (/generations/images). Wir versuchen zuerst den Image-
@@ -118,7 +118,13 @@ async def _find_recent_generation(
     def _normalize(s: str) -> str:
         return " ".join((s or "").split()).lower()
 
-    want_prefix = _normalize(prompt_prefix)
+    want_full = _normalize(prompt_prefix)
+    # Matching-Kandidaten von strikt zu locker
+    match_lens = [40, 25, 15]
+    log.info(
+        "AI-Auto fallback matching: want-prefix(40)=%r submit_ts=%.0f tolerance=%.0fs",
+        want_full[:40], submit_ts, AIAUTO_LIST_MATCH_TOLERANCE_S,
+    )
 
     for attempt in range(AIAUTO_LIST_MATCH_ATTEMPTS):
         for list_url in list_urls:
@@ -134,29 +140,41 @@ async def _find_recent_generation(
                     continue
                 data = resp.json()
                 items = data.get("generations", []) if isinstance(data, dict) else []
-                for g in items:
-                    if not isinstance(g, dict):
-                        continue
-                    mode = (g.get("mode") or "").lower()
-                    if mode and mode not in ("images", "image"):
-                        continue
-                    g_prompt_norm = _normalize(g.get("prompt") or "")
-                    if not g_prompt_norm.startswith(want_prefix[: min(40, len(want_prefix))]):
-                        continue
-                    ts = _parse_iso_ts(str(g.get("created_at", "")))
-                    if ts is not None and ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
-                        continue
-                    gen_id = g.get("id")
-                    if gen_id:
-                        log.info(
-                            "AI-Auto fallback match: gen_id=%s via %s (attempt %d)",
-                            gen_id, list_url.rsplit("/", 1)[-1], attempt + 1,
-                        )
-                        return str(gen_id)
+                # Debug: zeige die ersten 3 Items beim ersten Versuch
+                if attempt == 0 and items:
+                    for g in items[:3]:
+                        if isinstance(g, dict):
+                            log.info(
+                                "AI-Auto listing sample: id=%s mode=%r status=%r created=%r prompt=%r",
+                                g.get("id"), g.get("mode"), g.get("status"),
+                                g.get("created_at"), (g.get("prompt") or "")[:60],
+                            )
+                for match_len in match_lens:
+                    needle = want_full[:match_len]
+                    for g in items:
+                        if not isinstance(g, dict):
+                            continue
+                        g_prompt_norm = _normalize(g.get("prompt") or "")
+                        if not g_prompt_norm.startswith(needle):
+                            continue
+                        ts = _parse_iso_ts(str(g.get("created_at", "")))
+                        if ts is not None and ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
+                            continue
+                        gen_id = g.get("id")
+                        if gen_id:
+                            log.info(
+                                "AI-Auto fallback match: gen_id=%s via %s prefix=%d (attempt %d)",
+                                gen_id, list_url.rsplit("/", 1)[-1], match_len, attempt + 1,
+                            )
+                            return str(gen_id)
             except Exception as exc:  # noqa: BLE001
                 log.warning("AI-Auto listing %s attempt %d failed: %s",
                             list_url, attempt + 1, exc)
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
+    log.warning(
+        "AI-Auto listing fallback exhausted %d attempts without match (prefix=%r)",
+        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40],
+    )
     return None
 
 
