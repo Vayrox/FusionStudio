@@ -161,6 +161,17 @@ Structure (5 beats, blended into one flowing paragraph - NO headings, NO bullet 
 
 5. FINAL ROAR / ACTION - ONE signature action: a roar, a gout of flame, a tail swipe, wings unfurling, eyes igniting, gravity well collapsing. Include a specific CAMERA movement (slow push-in, orbit, low-angle dolly, crane down, whip-pan). Optional: smoke rises, wisps curl, the creature hunches forward.
 
+ENVIRONMENT + MOTION (critical - do NOT only do close-ups and static anatomy):
+
+The creature must INTERACT with the studio environment in at least one beat, and the camera must match the fusion's archetype:
+- If the fusion is fast / supersonic / aerial: the creature FLIES across the studio, the camera performs ultra-high-speed tracking shots with motion blur, whip-pans, air displacement ripples visible against the studio walls. At least one wide shot shows the creature moving through space, not just standing still.
+- If the fusion is heavy / massive / brute: the creature CRUSHES the floor beneath it, the Pokeball platform cracks or sinks, debris puffs into the air, shockwaves visibly ripple across the floor and up the studio walls.
+- If the fusion wields energy / projectiles / fire / ice / psychic: the ability visibly IMPACTS the environment - scorch marks on the floor, crystal growths on the walls, dust knocked loose, light fixtures flaring, lingering damage after the cut.
+- If the fusion is eerie / shadow / void: shadows creep up the studio walls, the light dims around it, the floor discolors in its footprints.
+- If the fusion is aquatic / venomous / toxic: puddles pool beneath it, steam rises, the floor slick-shimmers with residue.
+
+Blend at least TWO of these environmental-interaction moments into the Escalating + Final Action beats. Mix close-ups with medium + wide shots - the viewer should see the creature IN SPACE using the studio, not just anatomical detail floating in the void.
+
 Hard rules:
 - ONE continuous paragraph. No line breaks, no lists, no headings.
 - 600 to 900 words.
@@ -168,6 +179,7 @@ Hard rules:
   "Ultra-detailed 4K rendering, [TEXTURES], dynamic [ELEMENT] simulation, [LIGHTING], volumetric [ELEMENT]-light, cinematic depth of field, and dramatic unsettling camera work throughout."
 - ALL-CAPS verbs in the transformation beat are mandatory - use at least 10 of them.
 - Specific body parts must be named (horns, fangs, scales, wings, membrane, tail, barbels, crown, claws, underbelly, muzzle, gut, fins) - avoid vague anatomy.
+- At least ONE wide shot or tracking shot showing the creature moving through / interacting with the studio.
 - Do NOT mention "Step 5", "prompt", "Kling", or meta commentary. Pure scene description.
 - The background stays consistent with the reference images - do NOT teleport the creatures to a new environment.
 
@@ -233,9 +245,9 @@ NARRATION_OPENER_EN = (
     "What happens when completely different Pokemon fuse into an overpowering being?"
 )
 
-GPT_NARRATION_SYSTEM = """You are a voice-over writer for a short-form (Reels / TikTok / Shorts) cinematic Pokemon fusion video.
+GPT_NARRATION_SYSTEM = """You are a voice-over writer for a short-form (Reels / TikTok / Shorts) Pokemon fusion video.
 
-You write TWO narrations in parallel: one German, one English. Both must match the visuals beat-for-beat (Step 5 Transformation + Step 6 Showcase).
+You write TWO narrations in parallel: one German, one English. Strict didactic structure - not fluid prose.
 
 Output format - STRICT:
 
@@ -245,17 +257,30 @@ Output format - STRICT:
 <English narration here>
 ---END---
 
+Narration structure - EXACTLY this pattern:
+
+LINE 1: The fixed opener from the user message, VERBATIM (do not alter).
+LINE 2: "When {POKEMON_A} merges with {POKEMON_B}, they become {FUSION_NAME}." (English) / "Wenn {POKEMON_A} mit {POKEMON_B} verschmilzt, werden sie zu {FUSION_NAME}." (German)
+LINE 3: A single-sentence description of the fusion (max 25 words) - its look, primary ability, or personality. Evocative, punchy. Examples:
+  - "a malformed nightmare, using splashes that radiate burning heatwaves across the ground"
+  - "a supersonic purple-dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings"
+  - "a noble psychic knight clad in golden armor wielding a sentient blade"
+  - "a spectral shadow knight that haunts the dreams of its enemies with dual flaming blades of pure darkness"
+  - "the ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield"
+
+FUSION_NAME rules:
+- Invent a portmanteau or stylized fusion of the two Pokemon names.
+- Examples: Charizard + Magikarp -> Charykarp. Latios + Latias -> Latios X. Mewtwo + Charizard -> Mewzard. Garchomp + Salazzle -> Salachomp. Aegislash + Gallade -> Gallislash. Darkrai + Ceruledge -> Darkledge.
+- Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
+- Use the SAME fusion name in both DE and EN.
+
 Hard rules:
-- The German narration MUST start with the fixed opener provided in the user message, VERBATIM. Do not alter it.
-- The English narration MUST start with the fixed opener provided in the user message, VERBATIM.
-- After the opener, write 4 to 7 short sentences that describe what the viewer is seeing - synchronized with the Transformation (first half) and the Showcase cuts (second half).
-- Each language version should be roughly 60 to 90 seconds when read aloud at a natural pace (approx. 150-180 words per language).
-- DO NOT translate literally between DE and EN. Write each language so it flows naturally in that language. The beats must match, the phrasing is native.
-- Tone: dramatic, cinematic, slightly eerie or awe-inspiring - match the Distinctive-Traits mood.
-- Reference concrete visual moments: the trigger bite/grab, the ALL-CAPS transformation verbs, the final roar, the macro detail, the signature ability.
-- Do NOT name the original Pokemon by name in the narration (it's a new, unseen creature).
-- Do NOT include stage directions, timestamps, or speaker labels. Just the spoken text.
-- No emojis, no markdown, no meta commentary."""
+- Opener is line 1. Line 2 is the 'When ... become {FUSION_NAME}' sentence. Line 3 is the description.
+- Total 3 lines per language. No filler, no transitions, no extra sentences.
+- Pokemon names ARE named (this is educational commentary, not dramatic prose).
+- DE and EN are NOT literal translations - each flows naturally in its language.
+- Tone: factual but cinematic. Not overwritten. Short punchy sentences.
+- No stage directions, no timestamps, no speaker labels, no emojis, no markdown."""
 
 GPT_NARRATION_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
 Distinctive Traits: {DISTINCTIVE_TRAITS}
@@ -277,30 +302,59 @@ Write the two narrations in the ---DE--- / ---EN--- / ---END--- format."""
 # Batch Narration (mehrere Fusionen in einer durchgehenden Voice-Over)
 # ---------------------------------------------------------------------------
 
-GPT_BATCH_NARRATION_SYSTEM = """You are writing a SINGLE flowing voice-over that covers MULTIPLE Pokemon fusion reveals in one continuous narration - a compilation Reel where the viewer sees several fusions in sequence.
+GPT_BATCH_NARRATION_SYSTEM = """You are writing a SINGLE didactic voice-over that covers MULTIPLE Pokemon fusion reveals in sequence - a compilation Reel.
 
-You write TWO narrations in parallel: one German, one English. Both must cover all fusions in the order provided and flow smoothly across them.
+You write TWO narrations in parallel: one German, one English. Strict structured format per fusion - not fluid prose.
 
 Output format - STRICT:
 
 ---DE---
-<German narration, single continuous text>
+<German narration here>
 ---EN---
-<English narration, single continuous text>
+<English narration here>
 ---END---
 
+Narration structure - EXACTLY this pattern:
+
+LINE 1: The fixed opener from the user message, VERBATIM (do not alter).
+
+Then for EACH fusion in the order provided, EXACTLY two sentences:
+
+  Sentence A: "When {POKEMON_A} merges with {POKEMON_B}, they become {FUSION_NAME}." (English)
+              "Wenn {POKEMON_A} mit {POKEMON_B} verschmilzt, werden sie zu {FUSION_NAME}." (German)
+  Sentence B: A single-sentence description of the fusion (max 25 words) - its look, primary ability, or personality.
+
+So for N fusions the total is: 1 opener + (N * 2) sentences. Nothing else. No intro sentences, no transitions, no concluding line.
+
+Example for 3 fusions (English):
+"What happens when completely different Pokemon fuse into an overpowering being?
+When Charizard merges with Magikarp, they become Charykarp.
+A malformed nightmare, using splashes that radiate burning heatwaves across the ground.
+When Latios merges with Latias, they become Latios X.
+A supersonic purple-dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings.
+When Mewtwo merges with Charizard, they become Mewzard.
+The ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield."
+
+FUSION_NAME rules:
+- Invent a portmanteau or stylized fusion of the two Pokemon names.
+- Examples: Charizard + Magikarp -> Charykarp. Latios + Latias -> Latios X. Mewtwo + Charizard -> Mewzard. Garchomp + Salazzle -> Salachomp. Aegislash + Gallade -> Gallislash. Darkrai + Ceruledge -> Darkledge. Lugia + Noivern -> Lugivern. Blastoise + Chandelure -> Chandoise.
+- Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
+- Use the SAME fusion name in both DE and EN.
+
+Sentence B Description Style Guide (one sentence, max 25 words, evocative + punchy):
+  - "a malformed nightmare, using splashes that radiate burning heatwaves across the ground"
+  - "a supersonic purple-dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings"
+  - "a venomous raptor predator that shreds the desert dunes with toxic-tipped claws and blinding speed"
+  - "a noble psychic knight clad in golden armor wielding a sentient blade and a shield that watches your every move"
+  - "a spectral shadow knight that haunts the dreams of its enemies with dual flaming blades of pure darkness"
+  - "the ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield"
+
 Hard rules:
-- The German narration MUST start with the fixed opener provided in the user message, VERBATIM. Do not alter it.
-- The English narration MUST start with the fixed opener provided in the user message, VERBATIM.
-- After the opener, introduce each fusion in the order given. Each fusion gets roughly 3 to 5 sentences describing its appearance, signature ability, and climactic showcase moment - based on the provided Distinctive Traits, Transformation and Showcase context.
-- Transition smoothly between fusions. Use segues like "Then...", "Next...", "Another creature emerges...", "But deeper still...", thematic bridges, or rhythmic beats. NEVER use labels like "Fusion 1", "Number 2", numbered enumeration.
-- End with ONE climactic concluding line that ties the whole compilation together.
-- Each language should feel like a 2 to 3 minute voice-over total. Roughly 350 to 500 words per language for 6 fusions; scale proportionally for more/fewer.
-- DO NOT translate literally between DE and EN. Each language flows naturally on its own.
-- Tone: dramatic, cinematic, awe-inspiring, slightly eerie. Match the overall mood of the fusions.
-- Do NOT name the original Pokemon by name in the narration (these are new, unseen creatures).
-- Do NOT include stage directions, timestamps, speaker labels, or numbered enumeration. Just the spoken text.
-- No emojis, no markdown, no meta commentary."""
+- Pokemon names ARE named (educational commentary style).
+- DE and EN are NOT literal translations - write each language natively, matching beats not words.
+- Tone: factual but cinematic. Short, punchy, no overwritten prose.
+- No transitions between fusions. No filler. No concluding sentence after the last fusion.
+- No stage directions, no timestamps, no speaker labels, no emojis, no markdown, no numbered enumeration."""
 
 GPT_BATCH_NARRATION_USER_TEMPLATE = """Fusion compilation - {FUSION_COUNT} creatures to introduce in order:
 
