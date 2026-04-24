@@ -319,6 +319,8 @@ async def _run_batch_monitor(batch_id: str) -> None:
             fusions_for_narration.append({
                 "pokemon_a": meta.get("pokemon_a", ""),
                 "pokemon_b": meta.get("pokemon_b", ""),
+                "pokemon_a_de": meta.get("pokemon_a_de", meta.get("pokemon_a", "")),
+                "pokemon_b_de": meta.get("pokemon_b_de", meta.get("pokemon_b", "")),
                 "distinctive_traits": meta.get("distinctive_traits", ""),
                 "step5_transformation": meta.get("step5_transformation", ""),
                 "step6_showcase": meta.get("step6_showcase", ""),
@@ -738,11 +740,17 @@ async def _pipeline(job_id: str) -> None:
     out_dir = _make_output_dir(pokemon_a, pokemon_b)
     await _update_job(job_id, output_dir=_relative_to_root(out_dir))
 
-    # 1) PokeAPI-Refs laden (parallel)
+    # 1) PokeAPI-Refs laden (parallel) + deutsche Namen
     await _update_job(job_id, current_step="pokeapi_refs")
     ref_a_task = asyncio.create_task(pokemon_refs.fetch_official_artwork(pokemon_a))
     ref_b_task = asyncio.create_task(pokemon_refs.fetch_official_artwork(pokemon_b))
-    ref_a_path, ref_b_path = await asyncio.gather(ref_a_task, ref_b_task)
+    names_a_task = asyncio.create_task(pokemon_refs.get_localized_names(pokemon_a))
+    names_b_task = asyncio.create_task(pokemon_refs.get_localized_names(pokemon_b))
+    ref_a_path, ref_b_path, names_a, names_b = await asyncio.gather(
+        ref_a_task, ref_b_task, names_a_task, names_b_task
+    )
+    pokemon_a_de = names_a.get("de", pokemon_a)
+    pokemon_b_de = names_b.get("de", pokemon_b)
 
     # 2A + 2B) Realistic Singles - parallel (Semaphore drosselt)
     await _update_job(job_id, current_step="step_2_realistic_singles")
@@ -824,7 +832,9 @@ async def _pipeline(job_id: str) -> None:
     else:
         await _update_job(job_id, current_step="gpt_narration")
         narration_de, narration_en = await openai_client.generate_narration(
-            pokemon_a, pokemon_b, distinctive_traits, step5_text, step6_text
+            pokemon_a, pokemon_b,
+            pokemon_a_de, pokemon_b_de,
+            distinctive_traits, step5_text, step6_text,
         )
 
     # Dateien schreiben
@@ -833,6 +843,8 @@ async def _pipeline(job_id: str) -> None:
         "id": job_id,
         "pokemon_a": pokemon_a,
         "pokemon_b": pokemon_b,
+        "pokemon_a_de": pokemon_a_de,
+        "pokemon_b_de": pokemon_b_de,
         "concept": concept,
         "tone_hint": tone_hint,
         "distinctive_traits": distinctive_traits,

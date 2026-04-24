@@ -222,14 +222,22 @@ _NARRATION_SPLIT_RE = re.compile(
 async def generate_narration(
     pokemon_a: str,
     pokemon_b: str,
+    pokemon_a_de: str,
+    pokemon_b_de: str,
     distinctive_traits: str,
     step5: str,
     step6: str,
 ) -> tuple[str, str]:
-    """Gibt (narration_de, narration_en) zurueck."""
+    """Gibt (narration_de, narration_en) zurueck.
+
+    Die DE-Namen werden in der deutschen Narration verwendet, EN-Namen
+    in der englischen. FUSION_NAME ist identisch in beiden Sprachen.
+    """
     user = prompts.GPT_NARRATION_USER_TEMPLATE.format(
         POKEMON_A=pokemon_a,
         POKEMON_B=pokemon_b,
+        POKEMON_A_DE=pokemon_a_de,
+        POKEMON_B_DE=pokemon_b_de,
         DISTINCTIVE_TRAITS=distinctive_traits,
         STEP5=step5,
         STEP6=step6,
@@ -266,8 +274,12 @@ async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, 
         raise ValueError("Keine Fusionen fuer Batch-Narration uebergeben.")
     parts: list[str] = []
     for i, f in enumerate(fusions, start=1):
+        en_pair = f"{f.get('pokemon_a', '?')} + {f.get('pokemon_b', '?')}"
+        de_pair = f"{f.get('pokemon_a_de', f.get('pokemon_a', '?'))} + {f.get('pokemon_b_de', f.get('pokemon_b', '?'))}"
         parts.append(
-            f"### Fusion {i}: {f.get('pokemon_a', '?')} + {f.get('pokemon_b', '?')}\n"
+            f"### Fusion {i}\n"
+            f"English names: {en_pair}\n"
+            f"German names: {de_pair}\n"
             f"Distinctive Traits: {f.get('distinctive_traits', '')}\n\n"
             f"Transformation context:\n{f.get('step5_transformation', '')}\n\n"
             f"Showcase context:\n{f.get('step6_showcase', '')}\n"

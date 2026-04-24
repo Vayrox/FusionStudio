@@ -260,7 +260,11 @@ Output format - STRICT:
 Narration structure - EXACTLY this pattern:
 
 LINE 1: The fixed opener from the user message, VERBATIM (do not alter).
-LINE 2: "When {POKEMON_A} merges with {POKEMON_B}, they become {FUSION_NAME}." (English) / "Wenn {POKEMON_A} mit {POKEMON_B} verschmilzt, werden sie zu {FUSION_NAME}." (German)
+LINE 2 (English): "When {POKEMON_A_EN} merges with {POKEMON_B_EN}, they become {FUSION_NAME}."
+LINE 2 (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden sie zu {FUSION_NAME}."
+
+IMPORTANT - use the GERMAN Pokemon names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu, Noivern -> UHaFnir, Mimikyu -> Mimigma). The user message provides both name sets per fusion.
+
 LINE 3: A single-sentence description of the fusion (max 25 words) - its look, primary ability, or personality. Evocative, punchy. Examples:
   - "a malformed nightmare, using splashes that radiate burning heatwaves across the ground"
   - "a supersonic purple-dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings"
@@ -278,11 +282,16 @@ Hard rules:
 - Opener is line 1. Line 2 is the 'When ... become {FUSION_NAME}' sentence. Line 3 is the description.
 - Total 3 lines per language. No filler, no transitions, no extra sentences.
 - Pokemon names ARE named (this is educational commentary, not dramatic prose).
+- Use ENGLISH Pokemon names in the English narration; use GERMAN Pokemon names in the German narration. The user message supplies both sets. Fusion name stays identical in both.
 - DE and EN are NOT literal translations - each flows naturally in its language.
 - Tone: factual but cinematic. Not overwritten. Short punchy sentences.
 - No stage directions, no timestamps, no speaker labels, no emojis, no markdown."""
 
-GPT_NARRATION_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
+
+GPT_NARRATION_USER_TEMPLATE = """Fusion:
+  English: {POKEMON_A} + {POKEMON_B}
+  German:  {POKEMON_A_DE} + {POKEMON_B_DE}
+
 Distinctive Traits: {DISTINCTIVE_TRAITS}
 
 --- Step 5 Transformation (context) ---
@@ -295,7 +304,9 @@ Distinctive Traits: {DISTINCTIVE_TRAITS}
 DE opener: {OPENER_DE}
 EN opener: {OPENER_EN}
 
-Write the two narrations in the ---DE--- / ---EN--- / ---END--- format."""
+Write the two narrations in the ---DE--- / ---EN--- / ---END--- format.
+Use English names in the EN narration, German names in the DE narration.
+The FUSION_NAME (portmanteau) is identical in both languages."""
 
 
 # ---------------------------------------------------------------------------
@@ -320,9 +331,11 @@ LINE 1: The fixed opener from the user message, VERBATIM (do not alter).
 
 Then for EACH fusion in the order provided, EXACTLY two sentences:
 
-  Sentence A: "When {POKEMON_A} merges with {POKEMON_B}, they become {FUSION_NAME}." (English)
-              "Wenn {POKEMON_A} mit {POKEMON_B} verschmilzt, werden sie zu {FUSION_NAME}." (German)
+  Sentence A (English): "When {POKEMON_A_EN} merges with {POKEMON_B_EN}, they become {FUSION_NAME}."
+  Sentence A (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden sie zu {FUSION_NAME}."
   Sentence B: A single-sentence description of the fusion (max 25 words) - its look, primary ability, or personality.
+
+IMPORTANT - the user message provides both English and German names per fusion. Use the GERMAN names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu). FUSION_NAME stays identical across both languages.
 
 So for N fusions the total is: 1 opener + (N * 2) sentences. Nothing else. No intro sentences, no transitions, no concluding line.
 
@@ -351,6 +364,8 @@ Sentence B Description Style Guide (one sentence, max 25 words, evocative + punc
 
 Hard rules:
 - Pokemon names ARE named (educational commentary style).
+- Use ENGLISH Pokemon names in the English narration; use GERMAN Pokemon names in the German narration. Both sets are provided per fusion.
+- Fusion name (portmanteau) is IDENTICAL across both languages.
 - DE and EN are NOT literal translations - write each language natively, matching beats not words.
 - Tone: factual but cinematic. Short, punchy, no overwritten prose.
 - No transitions between fusions. No filler. No concluding sentence after the last fusion.

@@ -87,6 +87,43 @@ def cached_path(slug: str) -> Path:
     return POKEMON_REFS_DIR / f"{slug}.png"
 
 
+# In-Memory-Cache fuer lokalisierte Namen - spart PokeAPI-Calls bei
+# wiederholtem Zugriff innerhalb einer Server-Session.
+_LOCALIZED_NAMES_CACHE: dict[str, dict[str, str]] = {}
+
+
+async def get_localized_names(name: str) -> dict[str, str]:
+    """Holt alle Sprachvarianten des Pokemon-Namens von PokeAPI.
+
+    Rueckgabe: dict {lang_code: localized_name}, z.B.
+    {"en": "Charizard", "de": "Glurak", "fr": "Dracaufeu", ...}.
+    Falls PokeAPI keine species liefert (selten), wird der Input
+    als Fallback sowohl fuer 'en' als auch 'de' genommen.
+    """
+    slug = pokemon_slug(name)
+    if slug in _LOCALIZED_NAMES_CACHE:
+        return _LOCALIZED_NAMES_CACHE[slug]
+
+    out: dict[str, str] = {}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon-species/{slug}")
+            if resp.status_code == 200:
+                species = resp.json()
+                for entry in species.get("names") or []:
+                    lang = (entry.get("language") or {}).get("name")
+                    nm = entry.get("name")
+                    if lang and nm:
+                        out[lang] = nm
+    except Exception:  # noqa: BLE001
+        pass
+
+    out.setdefault("en", name)
+    out.setdefault("de", out["en"])
+    _LOCALIZED_NAMES_CACHE[slug] = out
+    return out
+
+
 async def _fetch_pokemon_data(client: httpx.AsyncClient, slug: str) -> dict | None:
     """GET /pokemon/{slug} oder None bei 404."""
     resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon/{slug}")
