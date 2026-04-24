@@ -816,7 +816,9 @@ function _renderNextStepsContent(container, job, meta) {
       {
         key: 'step5',
         title: 'Step 5 &mdash; Transformation (Kling 2.5 / 3.0 Omni)',
-        hint: 'Start Frame: <code>03_start_frame.png</code> hochladen, Prompt rein, Kling rendern.',
+        hint: fav
+          ? `First-Last-Frame Modus. Start: <code>03_start_frame.png</code> (beide Pokemon) &middot; End: <code>${escapeHtml(variantFile)}</code> (Fusion). Prompt beschreibt die Transformation dazwischen.`
+          : `First-Last-Frame Modus. Start: <code>03_start_frame.png</code>. <span class="no-fav">Waehle oben eine Favoriten-Variante &#9733; fuer den End Frame.</span>`,
         copies: [{label: '&#128203; Copy Step 5 Prompt', text: step5}],
       },
       {

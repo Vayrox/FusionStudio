@@ -477,7 +477,17 @@ def _write_video_prompts_md(
 
 ## Step 5 - Transformation (Kling 2.5 / Kling 3.0 Omni)
 
-Paste this as a single paragraph into Kling. Start frame: `03_start_frame.png`.
+Use Kling's First-Last-Frame mode (best results) and paste the prompt
+as a single paragraph. Let the prompt steer the transformation between
+the two frames.
+
+- Start Frame: `03_start_frame.png`  (the two Pokemon side by side)
+- End Frame:   `04_fusion_vX.png`    (your chosen favorite - one of v1..v5)
+
+If your Kling tier only offers a single start frame (no end-frame slot),
+upload `03_start_frame.png` and rely on the prompt to describe the
+final creature - the End Frame enforces the favorite design much more
+precisely though.
 
 ```
 {step5}
