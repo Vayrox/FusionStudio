@@ -495,10 +495,12 @@ precisely though.
 
 ---
 
-## Step 6A - Showcase (Seedance via Higgsfield)
+## Step 6A - Showcase (Seedance 2 via Higgsfield) - PRIMARY
 
-Paste this into Higgsfield / Seedance. Use one of the Step-4 variants as a
-reference image (pick the best one).
+Upload your chosen Step-4 variant (one of `04_fusion_v1.png` ... `v5.png`)
+as the reference image. Seedance will check if the design is eligible;
+if yes, paste the prompt, set 16:9, and render. You get a 10s clip with
+5 cuts in one go.
 
 ```
 {step6}
@@ -506,15 +508,23 @@ reference image (pick the best one).
 
 ---
 
-## Step 6B - Showcase (Kling Elements)
+## Step 6B - Showcase Fallback (Flow -> Kling Elements)
 
-Upload these three images before running:
-- `@image1` = chosen Step-4 fusion variant (locks the DESIGN)
-- `@image2` = shot director reference (e.g. a cinematic still that matches
-  the vibe; optional - if you don't have one, reuse `@image1`)
-- `@image3` = `03_start_frame.png` (START FRAME)
+Only needed if Seedance rejects the design. Two-stage workflow:
 
-Prompt (already wrapped with prepend + append magic instructions):
+1. In **Flow**: paste the Step-6 showcase prompt and add your chosen
+   fusion variant as reference. Set aspect ratio to 16:9. Flow returns
+   a static composition image (a visual blueprint of all 5 cuts stacked
+   into one frame). Save it as `blueprint.png`.
+
+2. In **Kling 3.0 Omni**, switch to **ELEMENTS mode (NOT Images)** and
+   upload three elements:
+   - `@image1` = `04_fusion_vX.png`       (your favorite variant - locks DESIGN)
+   - `@image2` = `blueprint.png`          (shot director from Flow)
+   - `@image3` = `03_start_frame.png`     (background consistency)
+
+   Paste the wrapped prompt below (already has the `@image1..3` magic
+   instructions prepended/appended):
 
 ```
 {step6b_wrapped}

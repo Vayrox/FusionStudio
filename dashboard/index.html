@@ -823,15 +823,24 @@ function _renderNextStepsContent(container, job, meta) {
       },
       {
         key: 'step6a',
-        title: 'Step 6A &mdash; Showcase (Seedance / Higgsfield)',
-        hint: `Als Reference-Image ${favHint}. Prompt rein, rendern.`,
-        copies: [{label: '&#128203; Copy Step 6A Prompt', text: step6}],
+        title: 'Step 6A &mdash; Showcase (Seedance 2 via Higgsfield) &middot; PRIMARY',
+        hint: fav
+          ? `Upload <code>${escapeHtml(variantFile)}</code> als Reference. Seedance checkt Eligibility &mdash; wenn OK, Prompt rein, 16:9, rendern (10s, 5 Cuts).`
+          : `Wenn verfuegbar der kuerzeste Weg. <span class="no-fav">Waehle oben eine Favoriten-Variante &#9733;.</span>`,
+        copies: [{label: '&#128203; Copy Showcase Prompt', text: step6}],
       },
       {
         key: 'step6b',
-        title: 'Step 6B &mdash; Showcase (Kling Elements)',
-        hint: `@image1 = ${favHint}, @image3 = <code>03_start_frame.png</code>, @image2 optional.`,
-        copies: [{label: '&#128203; Copy Step 6B Prompt (wrapped)', text: step6bText}],
+        title: 'Step 6B &mdash; Showcase Fallback (Flow &rarr; Kling Elements)',
+        hint: fav
+          ? `<b>Nur falls Seedance abweist.</b><br/>
+             1. In <b>Flow</b>: Prompt + <code>${escapeHtml(variantFile)}</code> als Reference, 16:9 &rarr; static blueprint image (Composition aller 5 Cuts). Speichern als <code>blueprint.png</code>.<br/>
+             2. In <b>Kling 3.0 Omni &rarr; ELEMENTS mode</b> (NICHT Images!). Elements: @image1=<code>${escapeHtml(variantFile)}</code> (Fusion) &middot; @image2=<code>blueprint.png</code> (Shot Director) &middot; @image3=<code>03_start_frame.png</code> (Background).`
+          : `<b>Nur falls Seedance abweist.</b> Zweistufig: Flow generiert Blueprint-Image, Kling Elements kombiniert dann 3 Elements. <span class="no-fav">Waehle oben einen Favoriten &#9733;.</span>`,
+        copies: [
+          {label: '&#128203; Prompt fuer Flow', text: step6},
+          {label: '&#128203; Prompt fuer Kling Elements (wrapped)', text: step6bText},
+        ],
       },
       {
         key: 'narration',
