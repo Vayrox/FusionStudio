@@ -113,6 +113,7 @@ async def _find_recent_generation(
     want_full = _normalize(prompt_prefix)
     match_lens = [40, 25, 15, 8]
     last_samples: list[dict[str, Any]] = []
+    last_raw_previews: list[str] = []
 
     log.warning(
         "AI-Auto fallback START: want-prefix=%r submit_ts=%.0f",
@@ -131,23 +132,47 @@ async def _find_recent_generation(
                         list_url, resp.status_code, resp.text[:200],
                     )
                     continue
-                data = resp.json()
-                items = data.get("generations", []) if isinstance(data, dict) else []
+                raw_text = resp.text
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = None
 
-                # Samples merken (ueberschreibt bei jedem Attempt)
-                last_samples = [
-                    {
-                        "id": g.get("id"),
-                        "mode": g.get("mode"),
-                        "status": g.get("status"),
-                        "created_at": g.get("created_at"),
-                        "prompt_prefix": (g.get("prompt") or "")[:80],
-                        "source": list_url.rsplit("/", 1)[-1].split("?")[0],
-                    }
-                    for g in items[:5] if isinstance(g, dict)
-                ]
+                # Items aus verschiedenen moeglichen Shapes extrahieren
+                items: list[Any] = []
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict):
+                    for key in ("generations", "images", "results", "data", "items"):
+                        v = data.get(key)
+                        if isinstance(v, list):
+                            items = v
+                            break
 
-                # Strikter Match: prefix + substring
+                # Raw-Preview des Responses merken
+                src = list_url.rsplit("/", 1)[-1].split("?")[0]
+                preview = raw_text[:250].replace("\n", " ")
+                last_raw_previews.append(
+                    f"[{src}] attempt={attempt+1} items={len(items)} "
+                    f"top-level-keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__} "
+                    f"raw={preview!r}"
+                )
+                # Nur die letzten 3 Previews behalten
+                last_raw_previews = last_raw_previews[-3:]
+
+                if items:
+                    last_samples = [
+                        {
+                            "id": g.get("id") if isinstance(g, dict) else None,
+                            "mode": g.get("mode") if isinstance(g, dict) else None,
+                            "status": g.get("status") if isinstance(g, dict) else None,
+                            "created_at": g.get("created_at") if isinstance(g, dict) else None,
+                            "prompt_prefix": (g.get("prompt") or "")[:80] if isinstance(g, dict) else "",
+                            "source": src,
+                        }
+                        for g in items[:5]
+                    ]
+
                 for match_len in match_lens:
                     needle = want_full[:match_len]
                     if len(needle) < 6:
@@ -158,7 +183,6 @@ async def _find_recent_generation(
                         g_prompt_norm = _normalize(g.get("prompt") or "")
                         if not g_prompt_norm:
                             continue
-                        # Erst startswith, dann contains als Fallback
                         if not (g_prompt_norm.startswith(needle) or needle in g_prompt_norm[:200]):
                             continue
                         ts = _parse_iso_ts(str(g.get("created_at", "")))
@@ -168,8 +192,7 @@ async def _find_recent_generation(
                         if gen_id:
                             log.warning(
                                 "AI-Auto fallback MATCH: id=%s prefix=%d source=%s",
-                                gen_id, match_len,
-                                list_url.rsplit("/", 1)[-1].split("?")[0],
+                                gen_id, match_len, src,
                             )
                             return str(gen_id)
             except Exception as exc:  # noqa: BLE001
@@ -177,24 +200,22 @@ async def _find_recent_generation(
                             list_url, attempt + 1, exc)
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
 
-    # Samples in die Error-Message packen damit sie sichtbar sind
     sample_repr = "\n".join(
         f"  - [{s['source']}] id={s['id']} mode={s['mode']!r} status={s['status']!r} "
         f"created={s['created_at']!r} prompt={s['prompt_prefix']!r}"
         for s in last_samples
     ) or "  (listing was empty)"
+    raw_repr = "\n".join(f"  {p}" for p in last_raw_previews) or "  (no raw responses)"
     log.warning(
-        "AI-Auto listing fallback EXHAUSTED %d attempts. want-prefix=%r\nSamples:\n%s",
-        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40], sample_repr,
+        "AI-Auto listing fallback EXHAUSTED %d attempts. want-prefix=%r\nSamples:\n%s\nLast raw:\n%s",
+        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40], sample_repr, raw_repr,
     )
-    # Samples in ein Attribut hängen, damit der Caller sie in den Error
-    # packen kann (globaler Zustand waere haesslich, also hier als Side-
-    # Channel via exception).
     raise AIAutoError(
         "AI-Auto POST /generate hat nicht geantwortet und die Generation "
         "wurde auch nicht im Listing gefunden.\n"
         f"Gesuchter Prompt-Prefix: {want_full[:60]!r}\n"
-        f"Zuletzt gesehene Generations:\n{sample_repr}"
+        f"Zuletzt gesehene Generations:\n{sample_repr}\n"
+        f"Letzte Raw-Responses:\n{raw_repr}"
     )
 
 
