@@ -264,30 +264,6 @@ async def generate_narration(
     return de, en
 
 
-async def generate_suno_prompt(
-    narration: str,
-    fusion_count: int = 1,
-    overall_tone: str = "cinematic epic, hauntingly majestic",
-) -> str:
-    """Generiert einen Suno-Music-Prompt passend zur Narration.
-
-    Nimmt die englische Narration als Pacing/Mood-Referenz und den
-    overall_tone als zusaetzlichen Mood-Hint. Einpacken der Distinctive-
-    Traits in overall_tone ist sinnvoll wenn verfuegbar.
-    """
-    user = prompts.GPT_SUNO_PROMPT_USER_TEMPLATE.format(
-        FUSION_COUNT=fusion_count,
-        OVERALL_TONE=overall_tone,
-        NARRATION=narration,
-    )
-    return await _chat(
-        prompts.GPT_SUNO_PROMPT_SYSTEM,
-        user,
-        temperature=0.85,
-        max_tokens=400,
-    )
-
-
 async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, str]:
     """Generiert EINE durchgehende DE+EN Narration fuer eine Liste von Fusionen.
 
@@ -356,3 +332,49 @@ async def generate_suno_prompt(
         temperature=0.85,
         max_tokens=400,
     )
+
+
+_YT_SEO_RE = re.compile(
+    r"---\s*TITLE\s*---\s*(?P<title>.*?)\s*---\s*DESCRIPTION\s*---\s*(?P<desc>.*?)\s*---\s*END\s*---",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+async def generate_yt_seo(
+    narration: str,
+    fusions: list[dict[str, str]],
+    overall_tone: str = "cinematic epic, hauntingly majestic",
+) -> tuple[str, str]:
+    """Gibt (title, description) fuer YouTube Shorts zurueck.
+
+    Title: 40-70 chars, mit Hook + Emoji.
+    Description: erste Zeile als Feed-Hook, Fusion-Liste, CTA, 12-18 Hashtags.
+    """
+    fusion_count = len(fusions)
+    mode = "compilation_batch" if fusion_count > 1 else "single_fusion"
+    fusions_list = "\n".join(
+        f"- {f.get('pokemon_a', '?')} x {f.get('pokemon_b', '?')}"
+        for f in fusions
+    ) or "- (none)"
+
+    user = prompts.GPT_YT_SEO_USER_TEMPLATE.format(
+        MODE=mode,
+        FUSION_COUNT=fusion_count,
+        FUSIONS_LIST=fusions_list,
+        OVERALL_TONE=overall_tone,
+        NARRATION=narration,
+    )
+    raw = await _chat(
+        prompts.GPT_YT_SEO_SYSTEM,
+        user,
+        temperature=0.85,
+        max_tokens=1200,
+    )
+    match = _YT_SEO_RE.search(raw)
+    if not match:
+        raise ValueError(f"Konnte YT-SEO-Output nicht parsen: {raw!r}")
+    title = match.group("title").strip()
+    desc = match.group("desc").strip()
+    if not title or not desc:
+        raise ValueError("YT-SEO Title oder Description leer.")
+    return title, desc

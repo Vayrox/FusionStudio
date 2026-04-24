@@ -860,6 +860,8 @@ function renderBatch(batch) {
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="de">&#128203; Copy DE Narration</button>` : ''}
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="en">&#128203; Copy EN Narration</button>` : ''}
       ${batch.suno_prompt ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="suno">&#127928; Copy Suno Prompt</button>` : ''}
+      ${batch.yt_title ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="yt_title">&#128250; Copy YT Title</button>` : ''}
+      ${batch.yt_description ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="yt_description">&#128221; Copy YT Description</button>` : ''}
       ${batch.narration_path ? `<a class="ns-btn" style="text-decoration:none;" href="/${batch.narration_path}" target="_blank">&#128196; narration.md</a>` : ''}
       ${(status === 'error' || status === 'done' || status === 'cancelled') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
       ${(status === 'running' || status === 'queued' || status === 'generating_narration') ? `<button class="ns-btn stop" data-batch-stop="${batch.id}">&#9632; Stop Batch</button>` : ''}
@@ -960,6 +962,8 @@ function renderBatch(batch) {
       if (lang === 'de') text = batch.narration_de;
       else if (lang === 'en') text = batch.narration_en;
       else if (lang === 'suno') text = batch.suno_prompt;
+      else if (lang === 'yt_title') text = batch.yt_title;
+      else if (lang === 'yt_description') text = batch.yt_description;
       if (!text) { toast('Nichts zum Kopieren', true); return; }
       try {
         await navigator.clipboard.writeText(text);
@@ -1280,6 +1284,8 @@ function _renderNextStepsContent(container, job, meta) {
     const narrationDe = meta.narration_de || '';
     const narrationEn = meta.narration_en || '';
     const sunoPrompt = meta.suno_prompt || '';
+    const ytTitle = meta.yt_title || '';
+    const ytDescription = meta.yt_description || '';
 
     const variantFile = fav ? `04_fusion_v${fav}.png` : null;
     const favHint = fav
@@ -1347,6 +1353,20 @@ function _renderNextStepsContent(container, job, meta) {
         key: 'suno',
         title: 'Background Music (Suno)',
         hint: 'Suno-Prompt nicht verfuegbar (Job laeuft noch oder ist Teil eines Batches &mdash; Prompt dann im Batch-Panel).',
+        copies: [],
+      },
+      (ytTitle && ytDescription) ? {
+        key: 'youtube',
+        title: 'YouTube Shorts SEO',
+        hint: `<b>Title:</b> ${escapeHtml(ytTitle)}<br/><b>Description:</b> erste 100 chars: <i>${escapeHtml(ytDescription.slice(0, 110))}...</i>`,
+        copies: [
+          {label: '&#128250; Copy Title', text: ytTitle},
+          {label: '&#128221; Copy Description', text: ytDescription},
+        ],
+      } : {
+        key: 'youtube',
+        title: 'YouTube Shorts SEO',
+        hint: 'YT-SEO nicht verfuegbar (Job laeuft noch oder ist Teil eines Batches &mdash; SEO dann im Batch-Panel).',
         copies: [],
       },
       {

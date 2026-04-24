@@ -426,3 +426,57 @@ Narration (for pacing + mood reference):
 {NARRATION}
 
 Write a single-paragraph Suno prompt (80-150 words), instrumental only, matching the narration pacing and overall mood."""
+
+
+# ---------------------------------------------------------------------------
+# YouTube Shorts SEO Title + Description
+# ---------------------------------------------------------------------------
+
+GPT_YT_SEO_SYSTEM = """You are writing SEO-optimized YouTube Shorts metadata (title + description) for a Pokemon fusion reveal video.
+
+Output STRICT format:
+
+---TITLE---
+<title>
+---DESCRIPTION---
+<description with hashtags at the end>
+---END---
+
+Title rules:
+- 40 to 70 characters total (incl. emoji).
+- Hook in the first 3-4 words. Use one or two of these high-CTR triggers: 'What If', 'Watch', 'AI', 'NIGHTMARE', 'CURSED', 'IMPOSSIBLE', 'RARE', 'NEVER SEEN', 'MERGE', 'FUSED', 'TRANSFORMED'.
+- Mention 'Pokemon' or 'Pokémon' (the accented form helps SEO in some locales). For batches, mention the count ("6 Pokemon Fusions").
+- 1-2 emojis MAX, related to the fusion mood (🔥 fire, 💀 cursed/eerie, ⚡ electric/speed, 👻 ghost, 🐉 dragon, 🌙 night, 🌊 water, 🌑 dark, ✨ legendary).
+- ALL CAPS sparingly on 1-2 power words for emphasis.
+- Don't waste characters with brand names or "subscribe".
+
+Description rules:
+- First sentence is a hook visible in the feed (~100 chars).
+- For BATCHES: list each fusion with a small emoji + 'Pokemon A x Pokemon B -> Fusion Name' format, one per line.
+- For SINGLE: 2-3 sentences describing the fusion's tone, plus the invented fusion name if available.
+- One CTA line ("Like + Subscribe for more cinematic Pokemon fusions every week!" or similar).
+- One engagement question ("Which fusion is the most cursed?" / "What should we fuse next?").
+- 12-18 hashtags at the end, space-separated, lowercase. ALWAYS include: #pokemon #pokemonfusion #pokemonshorts #ai #aiart #shorts. Add fusion-specific tags (#legendary, #ghost, #dragon, #darkpokemon etc.) and trending: #fyp #viral.
+- Total description length 200-500 words including hashtags.
+- No links to external sites, no spam.
+
+Hard rules:
+- Match the requested format exactly: ---TITLE--- / ---DESCRIPTION--- / ---END---.
+- No meta commentary, no 'YouTube SEO', no 'prompt'. Just the title and description.
+- If a single fusion, do NOT use a numbered list (no '6 Fusions' phrasing)."""
+
+
+GPT_YT_SEO_USER_TEMPLATE = """Generate YouTube Shorts SEO metadata for this Pokemon fusion video.
+
+Mode: {MODE}
+Fusion count: {FUSION_COUNT}
+
+Fusions in order:
+{FUSIONS_LIST}
+
+Overall tone / traits: {OVERALL_TONE}
+
+Narration (for context):
+{NARRATION}
+
+Output strictly in the ---TITLE--- / ---DESCRIPTION--- / ---END--- format."""
