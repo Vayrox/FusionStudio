@@ -22,7 +22,7 @@ import base64
 import logging
 import mimetypes
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -84,13 +84,26 @@ def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
 
 
 def _parse_iso_ts(raw: str) -> float | None:
+    """Parsed einen ISO-Timestamp zu Unix-Sekunden.
+
+    Wichtig: AI-Auto liefert created_at oft OHNE Timezone-Suffix
+    (z.B. '2026-04-24T01:45:21.736871'). datetime.fromisoformat erzeugt
+    dann ein naives datetime, dessen .timestamp() die lokale Zone annimmt
+    und bei UTC+2 falsche Werte liefert. Wir treat'en naive Timestamps
+    deshalb explizit als UTC.
+    """
     if not raw:
         return None
-    s = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    s = raw.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
     try:
-        return datetime.fromisoformat(s).timestamp()
+        dt = datetime.fromisoformat(s)
     except Exception:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
 
 
 async def _find_recent_generation(
