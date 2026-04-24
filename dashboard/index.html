@@ -1514,6 +1514,12 @@ $('#btn-generate').addEventListener('click', generateIdeas);
 $('#btn-run-approved').addEventListener('click', runApproved);
 $('#btn-run-manual').addEventListener('click', runManual);
 $('#btn-add-manual').addEventListener('click', addManualToPool);
+['#m-a', '#m-b', '#m-tone'].forEach(sel => {
+  const el = $(sel);
+  if (el) el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addManualToPool(); }
+  });
+});
 $('#btn-save-settings').addEventListener('click', saveSettings);
 $('#hint').addEventListener('keydown', e => { if (e.key === 'Enter') generateIdeas(); });
 
