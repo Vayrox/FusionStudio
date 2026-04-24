@@ -180,6 +180,10 @@
     border-color: rgba(16,220,141,0.3); }
   .badge.error { background: rgba(255,94,107,0.12); color: var(--err);
     border-color: rgba(255,94,107,0.3); }
+  .badge.cancelled { background: rgba(126,132,148,0.12); color: var(--muted);
+    border-color: rgba(126,132,148,0.3); }
+  .ns-btn.stop { border-color: rgba(255,94,107,0.3); color: var(--err); }
+  .ns-btn.stop:hover:not(:disabled) { border-color: var(--err); background: rgba(255,94,107,0.08); color: var(--err); }
   @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); }
                      50% { opacity: 0.4; transform: scale(1.4); } }
 
@@ -856,7 +860,8 @@ function renderBatch(batch) {
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="de">&#128203; Copy DE Narration</button>` : ''}
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="en">&#128203; Copy EN Narration</button>` : ''}
       ${batch.narration_path ? `<a class="ns-btn" style="text-decoration:none;" href="/${batch.narration_path}" target="_blank">&#128196; narration.md</a>` : ''}
-      ${(status === 'error' || status === 'done') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
+      ${(status === 'error' || status === 'done' || status === 'cancelled') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
+      ${(status === 'running' || status === 'queued' || status === 'generating_narration') ? `<button class="ns-btn stop" data-batch-stop="${batch.id}">&#9632; Stop Batch</button>` : ''}
     </div>
   `;
 
@@ -903,6 +908,26 @@ function renderBatch(batch) {
           btn.disabled = false;
         }
       });
+    });
+  });
+
+  // Stop-Batch-Handler
+  $$('button[data-batch-stop]', el).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Kompletten Batch stoppen? Alle laufenden Fusionen werden abgebrochen.')) return;
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '&#8230; stopping';
+      try {
+        const res = await api(`/api/batches/${batch.id}/cancel`, {method: 'POST'});
+        toast(`${res.cancelled_count || 0} Job(s) gestoppt`);
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
     });
   });
 
@@ -1086,6 +1111,7 @@ function renderJob(job) {
       <span class="pair">${escapeHtml(job.pokemon_a)} &times; ${escapeHtml(job.pokemon_b)}</span>
       <span class="badge ${status}">${status}</span>
       ${job.batch_id ? `<span class="batch-chip" title="Teil eines Compilation-Batches">&#11054; ${escapeHtml(job.batch_id)}</span>` : ''}
+      ${(status === 'running' || status === 'queued') ? `<button class="ns-btn stop tiny" data-job-stop="${job.id}" style="margin-left:8px;">&#9632; Stop</button>` : ''}
       <span class="id">${escapeHtml(job.id)}</span>
     </div>
     ${job.concept ? `<div class="concept-line">${escapeHtml(job.concept)}</div>` : ''}
@@ -1125,6 +1151,27 @@ function renderJob(job) {
       }
     });
   });
+
+  const stopBtn = $('button[data-job-stop]', el);
+  if (stopBtn) {
+    stopBtn.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      if (!confirm('Diesen Job stoppen? Laufender Pipeline-Schritt wird abgebrochen.')) return;
+      stopBtn.disabled = true;
+      const orig = stopBtn.innerHTML;
+      stopBtn.innerHTML = '&#8230;';
+      try {
+        await api(`/api/jobs/${job.id}/cancel`, {method: 'POST'});
+        toast('Job gestoppt');
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        stopBtn.disabled = false;
+        stopBtn.innerHTML = orig;
+      }
+    });
+  }
 
   const regenAllBtn = $('.btn-regen-all', el);
   if (regenAllBtn) {

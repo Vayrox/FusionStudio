@@ -41,6 +41,15 @@ _FUSION_SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_FUSIONS)
 _STATE_LOCK = asyncio.Lock()
 _STATE_CACHE: dict[str, Any] | None = None
 
+# Laufende asyncio-Tasks pro job_id, damit Stop-Endpoints sie abbrechen koennen.
+# Der Key ist die job_id (oder "batch:<id>" fuer Batch-Monitore).
+_TASKS: dict[str, asyncio.Task[Any]] = {}
+
+
+def _register_task(key: str, task: asyncio.Task[Any]) -> None:
+    _TASKS[key] = task
+    task.add_done_callback(lambda _t, k=key: _TASKS.pop(k, None))
+
 
 def _now_iso() -> str:
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
@@ -234,7 +243,7 @@ async def submit_fusion(
         variants=[],
         created_at=_now_iso(),
     )
-    asyncio.create_task(_run_fusion(job_id))
+    _register_task(job_id, asyncio.create_task(_run_fusion(job_id)))
     return job_id
 
 
@@ -268,7 +277,7 @@ async def submit_batch(ideas: list[dict[str, Any]]) -> tuple[str, list[str]]:
         error=None,
         created_at=_now_iso(),
     )
-    asyncio.create_task(_run_batch_monitor(batch_id))
+    _register_task(f"batch:{batch_id}", asyncio.create_task(_run_batch_monitor(batch_id)))
     return batch_id, job_ids
 
 
@@ -404,7 +413,7 @@ async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
         narration_en=None,
         narration_path=None,
     )
-    asyncio.create_task(_run_batch_monitor(batch_id))
+    _register_task(f"batch:{batch_id}", asyncio.create_task(_run_batch_monitor(batch_id)))
     return batch_id, new_ids
 
 
@@ -418,7 +427,7 @@ async def regenerate_variant(job_id: str, variant_index: int) -> None:
     if not (1 <= variant_index <= STEP4_VARIANTS):
         raise ValueError(f"variant_index muss zwischen 1 und {STEP4_VARIANTS} liegen")
 
-    asyncio.create_task(_run_regenerate(job_id, variant_index))
+    _register_task(job_id, asyncio.create_task(_run_regenerate(job_id, variant_index)))
 
 
 async def regenerate_all_variants(job_id: str) -> None:
@@ -433,7 +442,7 @@ async def regenerate_all_variants(job_id: str) -> None:
         raise ValueError(f"Job {job_id} nicht gefunden")
     if job.get("status") != "done":
         raise ValueError("Regenerate-All nur erlaubt, wenn Job bereits 'done' ist.")
-    asyncio.create_task(_run_regenerate_all(job_id))
+    _register_task(job_id, asyncio.create_task(_run_regenerate_all(job_id)))
 
 
 async def _run_regenerate_all(job_id: str) -> None:
@@ -491,9 +500,81 @@ async def _run_regenerate_all(job_id: str) -> None:
                 current_step="done",
                 variants=[_relative_to_root(p) for p in variant_paths],
             )
+        except asyncio.CancelledError:
+            await _update_job(
+                job_id,
+                status="cancelled",
+                current_step="cancelled",
+                error="Regenerate-All wurde abgebrochen.",
+            )
+            raise
         except Exception as exc:  # noqa: BLE001
             err = f"{type(exc).__name__}: {exc}"
             await _update_job(job_id, status="error", current_step="error", error=err)
+
+
+# ---------------------------------------------------------------------------
+# Cancellation
+# ---------------------------------------------------------------------------
+
+
+async def cancel_job(job_id: str) -> bool:
+    """Bricht einen laufenden Job ab. Gibt True zurueck wenn ein Task
+    cancelled wurde, False wenn kein laufender Task bekannt war."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") not in ("running", "queued"):
+        raise ValueError(
+            f"Job ist bereits im Zustand '{job.get('status')}' - nichts zu canceln."
+        )
+    task = _TASKS.get(job_id)
+    showcase_task = _TASKS.get(f"showcase:{job_id}")
+    cancelled = False
+    if task and not task.done():
+        task.cancel()
+        cancelled = True
+    if showcase_task and not showcase_task.done():
+        showcase_task.cancel()
+        cancelled = True
+    if not cancelled:
+        # Kein aktiver Task, aber State sagt running - direkt aufraeumen
+        await _update_job(
+            job_id,
+            status="cancelled",
+            current_step="cancelled",
+            error="Manuell abgebrochen (kein aktiver Task gefunden).",
+        )
+    return cancelled
+
+
+async def cancel_batch(batch_id: str) -> int:
+    """Bricht alle laufenden Jobs eines Batches + den Monitor ab.
+    Gibt Anzahl der abgebrochenen Jobs zurueck."""
+    batch = await get_batch(batch_id)
+    if not batch:
+        raise ValueError(f"Batch {batch_id} nicht gefunden")
+    count = 0
+    monitor = _TASKS.get(f"batch:{batch_id}")
+    if monitor and not monitor.done():
+        monitor.cancel()
+    for jid in batch.get("job_ids") or []:
+        j = await get_job(jid)
+        if not j or j.get("status") not in ("running", "queued"):
+            continue
+        try:
+            if await cancel_job(jid):
+                count += 1
+            else:
+                count += 1  # auch wenn kein task da war, state wurde aufgeraeumt
+        except ValueError:
+            pass
+    await _update_batch(
+        batch_id,
+        status="cancelled",
+        error=f"Batch manuell abgebrochen ({count} Job(s) gestoppt).",
+    )
+    return count
 
 
 CHECKLIST_KEYS = {"step5", "step6a", "step6b", "narration", "editing"}
@@ -538,7 +619,10 @@ async def generate_showcase_images(job_id: str) -> None:
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
-    asyncio.create_task(_run_showcase_generation(job_id, step6_prompt, fav_path))
+    _register_task(
+        f"showcase:{job_id}",
+        asyncio.create_task(_run_showcase_generation(job_id, step6_prompt, fav_path)),
+    )
 
 
 async def _run_showcase_generation(
@@ -612,6 +696,14 @@ async def _run_fusion(job_id: str) -> None:
             await _update_job(job_id, status="running", current_step="starting")
             await _pipeline(job_id)
             await _update_job(job_id, status="done", current_step="done")
+        except asyncio.CancelledError:
+            await _update_job(
+                job_id,
+                status="cancelled",
+                current_step="cancelled",
+                error="Job wurde manuell abgebrochen.",
+            )
+            raise
         except Exception as exc:  # noqa: BLE001
             err = f"{type(exc).__name__}: {exc}"
             tb = traceback.format_exc()

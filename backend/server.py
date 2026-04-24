@@ -170,6 +170,24 @@ async def api_rerun_batch(batch_id: str) -> dict[str, Any]:
     return {"batch_id": bid, "new_job_ids": new_ids}
 
 
+@app.post("/api/jobs/{job_id}/cancel")
+async def api_cancel_job(job_id: str) -> dict[str, Any]:
+    try:
+        cancelled = await runner.cancel_job(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"cancelled": cancelled}
+
+
+@app.post("/api/batches/{batch_id}/cancel")
+async def api_cancel_batch(batch_id: str) -> dict[str, Any]:
+    try:
+        count = await runner.cancel_batch(batch_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"cancelled_count": count}
+
+
 # ---------------------------------------------------------------------------
 # API - Jobs
 # ---------------------------------------------------------------------------
