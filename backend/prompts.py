@@ -68,7 +68,15 @@ STEP4_FUSION_DESIGN = (
     "Distinctive traits: {DISTINCTIVE_TRAITS}\n\n"
     "HARD CONSTRAINT: it must be a COMPLETELY NEW Pokemon, barely traceable to the "
     "two original Pokemon. Keep the Pokemon style, NOT DIGIMON - so a simple creature "
-    "but with a striking design."
+    "but with a striking design.\n\n"
+    "RENDER STYLE (critical): Match the EXACT photorealistic 3D-sculpted look of "
+    "references 2 and 3 - physically-based materials with tangible skin, scale, fur "
+    "and claw textures; studio-quality lighting; sharp micro-details; photographic "
+    "depth and contact shadows on the ground. The creature must look like a real, "
+    "physical sculpture captured on camera - NOT a stylized illustration, NOT 2D "
+    "digital painting, NOT concept art, NOT cel-shading. Every surface (eyes, teeth, "
+    "horns, scales, skin) must have the same photoreal material fidelity as the "
+    "single Pokemon in references 2 and 3."
 )
 
 # ---------------------------------------------------------------------------
