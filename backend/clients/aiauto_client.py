@@ -98,15 +98,7 @@ async def _find_recent_generation(
     prompt: str,
     submit_ts: float,
 ) -> str | None:
-    """Sucht die frisch gestartete Generation im User-Listing.
-
-    Match: prompt startet mit unserem Prompt (normalized), created_at >=
-    submit_ts - Toleranz. Retryed mehrmals. Loggt pro Versuch was die API
-    an Generations liefert, damit man Matching-Probleme sehen kann.
-    """
-    # AI-Auto hat getrennte Listings fuer Videos (/generations) und
-    # Bilder (/generations/images). Wir versuchen zuerst den Image-
-    # Endpoint, dann als Fallback /generations.
+    """Sucht die frisch gestartete Generation im User-Listing."""
     list_urls = [
         f"{settings.aiauto_base_url}/generations/images?limit=100",
         f"{settings.aiauto_base_url}/generations?limit=100",
@@ -119,11 +111,12 @@ async def _find_recent_generation(
         return " ".join((s or "").split()).lower()
 
     want_full = _normalize(prompt_prefix)
-    # Matching-Kandidaten von strikt zu locker
-    match_lens = [40, 25, 15]
-    log.info(
-        "AI-Auto fallback matching: want-prefix(40)=%r submit_ts=%.0f tolerance=%.0fs",
-        want_full[:40], submit_ts, AIAUTO_LIST_MATCH_TOLERANCE_S,
+    match_lens = [40, 25, 15, 8]
+    last_samples: list[dict[str, Any]] = []
+
+    log.warning(
+        "AI-Auto fallback START: want-prefix=%r submit_ts=%.0f",
+        want_full[:40], submit_ts,
     )
 
     for attempt in range(AIAUTO_LIST_MATCH_ATTEMPTS):
@@ -140,42 +133,69 @@ async def _find_recent_generation(
                     continue
                 data = resp.json()
                 items = data.get("generations", []) if isinstance(data, dict) else []
-                # Debug: zeige die ersten 3 Items beim ersten Versuch
-                if attempt == 0 and items:
-                    for g in items[:3]:
-                        if isinstance(g, dict):
-                            log.info(
-                                "AI-Auto listing sample: id=%s mode=%r status=%r created=%r prompt=%r",
-                                g.get("id"), g.get("mode"), g.get("status"),
-                                g.get("created_at"), (g.get("prompt") or "")[:60],
-                            )
+
+                # Samples merken (ueberschreibt bei jedem Attempt)
+                last_samples = [
+                    {
+                        "id": g.get("id"),
+                        "mode": g.get("mode"),
+                        "status": g.get("status"),
+                        "created_at": g.get("created_at"),
+                        "prompt_prefix": (g.get("prompt") or "")[:80],
+                        "source": list_url.rsplit("/", 1)[-1].split("?")[0],
+                    }
+                    for g in items[:5] if isinstance(g, dict)
+                ]
+
+                # Strikter Match: prefix + substring
                 for match_len in match_lens:
                     needle = want_full[:match_len]
+                    if len(needle) < 6:
+                        continue
                     for g in items:
                         if not isinstance(g, dict):
                             continue
                         g_prompt_norm = _normalize(g.get("prompt") or "")
-                        if not g_prompt_norm.startswith(needle):
+                        if not g_prompt_norm:
+                            continue
+                        # Erst startswith, dann contains als Fallback
+                        if not (g_prompt_norm.startswith(needle) or needle in g_prompt_norm[:200]):
                             continue
                         ts = _parse_iso_ts(str(g.get("created_at", "")))
                         if ts is not None and ts + AIAUTO_LIST_MATCH_TOLERANCE_S < submit_ts:
                             continue
                         gen_id = g.get("id")
                         if gen_id:
-                            log.info(
-                                "AI-Auto fallback match: gen_id=%s via %s prefix=%d (attempt %d)",
-                                gen_id, list_url.rsplit("/", 1)[-1], match_len, attempt + 1,
+                            log.warning(
+                                "AI-Auto fallback MATCH: id=%s prefix=%d source=%s",
+                                gen_id, match_len,
+                                list_url.rsplit("/", 1)[-1].split("?")[0],
                             )
                             return str(gen_id)
             except Exception as exc:  # noqa: BLE001
                 log.warning("AI-Auto listing %s attempt %d failed: %s",
                             list_url, attempt + 1, exc)
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
+
+    # Samples in die Error-Message packen damit sie sichtbar sind
+    sample_repr = "\n".join(
+        f"  - [{s['source']}] id={s['id']} mode={s['mode']!r} status={s['status']!r} "
+        f"created={s['created_at']!r} prompt={s['prompt_prefix']!r}"
+        for s in last_samples
+    ) or "  (listing was empty)"
     log.warning(
-        "AI-Auto listing fallback exhausted %d attempts without match (prefix=%r)",
-        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40],
+        "AI-Auto listing fallback EXHAUSTED %d attempts. want-prefix=%r\nSamples:\n%s",
+        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40], sample_repr,
     )
-    return None
+    # Samples in ein Attribut hängen, damit der Caller sie in den Error
+    # packen kann (globaler Zustand waere haesslich, also hier als Side-
+    # Channel via exception).
+    raise AIAutoError(
+        "AI-Auto POST /generate hat nicht geantwortet und die Generation "
+        "wurde auch nicht im Listing gefunden.\n"
+        f"Gesuchter Prompt-Prefix: {want_full[:60]!r}\n"
+        f"Zuletzt gesehene Generations:\n{sample_repr}"
+    )
 
 
 async def _fetch_image_with_polling(
@@ -311,14 +331,8 @@ async def generate_image(
             sync_bytes, generation_id = await _post_generate(client, url, body)
 
             if sync_bytes is None and generation_id is None:
-                # POST timed out / 524 - listing-fallback
+                # POST timed out / 524 - listing-fallback (raised AIAutoError bei Miss)
                 generation_id = await _find_recent_generation(client, prompt, submit_ts)
-                if not generation_id:
-                    raise AIAutoError(
-                        "AI-Auto POST /generate hat nicht geantwortet und die "
-                        "Generation wurde auch nicht im Listing gefunden. "
-                        "Check https://ai-auto.io/my-generations"
-                    )
 
             if sync_bytes is None:
                 assert generation_id is not None
