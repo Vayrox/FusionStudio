@@ -24,6 +24,7 @@ from backend.config import (
     OUTPUT_DIR,
     PROJECT_ROOT,
     REALISTIC_CACHE_DIR,
+    SHOWCASE_VARIANTS,
     SIGNATURE_BACKGROUND_PATH,
     STATE_FILE,
     STEP4_VARIANTS,
@@ -210,6 +211,86 @@ async def set_favorite(job_id: str, variant: int | None) -> None:
     if variant is not None and not (1 <= variant <= STEP4_VARIANTS):
         raise ValueError(f"variant muss zwischen 1 und {STEP4_VARIANTS} sein oder null")
     await _update_job(job_id, favorite_variant=variant)
+
+
+async def generate_showcase_images(job_id: str) -> None:
+    """Generiert SHOWCASE_VARIANTS (default 4) statische Showcase-Composition-
+    Images als Blueprint-Kandidaten fuer den Kling-Elements-Fallback (Step 7).
+
+    Nutzt die Favoriten-Fusion-Variante als Reference und den Step-6-
+    Showcase-Prompt, rendert in 16:9.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Showcase-Generation nur fuer abgeschlossene Jobs erlaubt.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v5).")
+    if job.get("showcase_status") == "running":
+        raise ValueError("Showcase-Generation laeuft bereits fuer diesen Job.")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt - Job-Output unvollstaendig.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    step6_prompt = meta.get("step6_showcase")
+    if not step6_prompt:
+        raise RuntimeError("step6_showcase fehlt in _meta.json")
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
+
+    asyncio.create_task(_run_showcase_generation(job_id, step6_prompt, fav_path))
+
+
+async def _run_showcase_generation(
+    job_id: str, prompt: str, fav_path: Path
+) -> None:
+    try:
+        await _update_job(
+            job_id,
+            showcase_status="running",
+            showcase_error=None,
+            showcase_variants=[],
+        )
+        job = await get_job(job_id)
+        assert job is not None
+        out_dir = PROJECT_ROOT / job["output_dir"]
+
+        tasks = []
+        paths: list[Path] = []
+        for i in range(1, SHOWCASE_VARIANTS + 1):
+            spath = out_dir / f"07_showcase_v{i}.png"
+            paths.append(spath)
+            tasks.append(
+                aiauto_client.generate_image(
+                    prompt, spath,
+                    reference_images=[fav_path],
+                    aspect_ratio="16:9",
+                )
+            )
+        await asyncio.gather(*tasks)
+
+        await _update_job(
+            job_id,
+            showcase_status="done",
+            showcase_variants=[_relative_to_root(p) for p in paths],
+        )
+    except Exception as exc:  # noqa: BLE001
+        err = f"{type(exc).__name__}: {exc}"
+        await _update_job(job_id, showcase_status="error", showcase_error=err)
+
+
+async def set_showcase_pick(job_id: str, variant: int | None) -> None:
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if variant is not None and not (1 <= variant <= SHOWCASE_VARIANTS):
+        raise ValueError(f"variant muss zwischen 1 und {SHOWCASE_VARIANTS} sein oder null")
+    await _update_job(job_id, showcase_pick=variant)
 
 
 async def toggle_checklist(job_id: str, key: str, value: bool) -> None:

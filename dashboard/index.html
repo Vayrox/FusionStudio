@@ -285,6 +285,43 @@
   .ns-hint .no-fav { color: var(--warn); }
   .ns-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
+  /* Showcase-Thumbnails (16:9 statt 9:16) */
+  .showcase-row { margin-top: 12px; }
+  .showcase-label { font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.8px; font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 10px; }
+  .showcase-label .state { text-transform: none; letter-spacing: 0;
+    color: var(--run); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+  .showcase-label .state.done { color: var(--ok); }
+  .showcase-label .state.error { color: var(--err); }
+  .showcase-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 900px) { .showcase-thumbs { grid-template-columns: repeat(2, 1fr); } }
+  .sc-thumb { position: relative; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px;
+    aspect-ratio: 16/9; overflow: hidden; cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+  .sc-thumb:hover { transform: translateY(-2px); border-color: var(--border-hi);
+    box-shadow: 0 16px 32px -16px rgba(0,0,0,0.7); }
+  .sc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sc-thumb .idx { position: absolute; top: 6px; left: 6px;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+    color: #fff; font-weight: 700; font-size: 10px;
+    padding: 2px 7px; border-radius: 5px; letter-spacing: 0.5px; }
+  .sc-thumb .pick { position: absolute; bottom: 6px; right: 6px;
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); color: #fff;
+    border: 0; border-radius: 100px; width: 26px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; opacity: 0;
+    transition: opacity 0.15s, transform 0.15s, background 0.15s; }
+  .sc-thumb:hover .pick { opacity: 1; }
+  .sc-thumb.picked { box-shadow: 0 0 0 2px var(--violet),
+    0 16px 32px -16px rgba(168,139,255,0.45); border-color: var(--violet); }
+  .sc-thumb.picked .pick { opacity: 1; background: var(--violet); color: #fff; }
+  .sc-err { color: var(--err); font-size: 12px; margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace; white-space: pre-wrap;
+    background: rgba(255,94,107,0.06); border: 1px solid rgba(255,94,107,0.2);
+    padding: 8px 10px; border-radius: 8px; }
+
   .empty { color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center; }
   .empty .big { display: block; font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
 
@@ -795,6 +832,7 @@ function populateNextSteps(container, job) {
 }
 
 function _renderNextStepsContent(container, job, meta) {
+    const cacheKey = encodeURIComponent(job.updated_at || job.id || '');
     const fav = job.favorite_variant || null;
     const check = job.checklist || {};
     const step5 = meta.step5_transformation || '';
@@ -834,12 +872,13 @@ function _renderNextStepsContent(container, job, meta) {
         title: 'Step 6B &mdash; Showcase Fallback (Flow &rarr; Kling Elements)',
         hint: fav
           ? `<b>Nur falls Seedance abweist.</b><br/>
-             1. In <b>Flow</b>: Prompt + <code>${escapeHtml(variantFile)}</code> als Reference, 16:9 &rarr; static blueprint image (Composition aller 5 Cuts). Speichern als <code>blueprint.png</code>.<br/>
+             1. Blueprint-Image generieren &mdash; entweder extern in <b>Flow</b> oder direkt via <b>Generate Showcase</b> unten (nutzt AI-Auto mit deiner Favoriten-Variante als Reference, 16:9).<br/>
              2. In <b>Kling 3.0 Omni &rarr; ELEMENTS mode</b> (NICHT Images!). Elements: @image1=<code>${escapeHtml(variantFile)}</code> (Fusion) &middot; @image2=<code>blueprint.png</code> (Shot Director) &middot; @image3=<code>03_start_frame.png</code> (Background).`
-          : `<b>Nur falls Seedance abweist.</b> Zweistufig: Flow generiert Blueprint-Image, Kling Elements kombiniert dann 3 Elements. <span class="no-fav">Waehle oben einen Favoriten &#9733;.</span>`,
+          : `<b>Nur falls Seedance abweist.</b> Zweistufig: Blueprint-Image (via Flow oder AI-Auto-Generate unten), dann Kling Elements kombiniert. <span class="no-fav">Waehle oben einen Favoriten &#9733;.</span>`,
         copies: [
           {label: '&#128203; Prompt fuer Flow', text: step6},
           {label: '&#128203; Prompt fuer Kling Elements (wrapped)', text: step6bText},
+          {label: '&#127912; Generate Showcase (AI-Auto)', action: 'generate_showcase'},
         ],
       },
       {
@@ -861,9 +900,12 @@ function _renderNextStepsContent(container, job, meta) {
 
     const itemsHtml = items.map(it => {
       const done = !!check[it.key];
-      const copyBtns = it.copies.map((c, i) =>
-        `<button class="ns-btn copy" data-key="${it.key}" data-copy-idx="${i}">${c.label}</button>`
-      ).join('');
+      const actionBtns = it.copies.map((c, i) => {
+        if (c.action) {
+          return `<button class="ns-btn action" data-key="${it.key}" data-action="${c.action}">${c.label}</button>`;
+        }
+        return `<button class="ns-btn copy" data-key="${it.key}" data-copy-idx="${i}">${c.label}</button>`;
+      }).join('');
       return `
         <div class="ns-item${done ? ' done' : ''}" data-key="${it.key}">
           <input type="checkbox" class="ns-check" data-job="${job.id}" data-key="${it.key}" ${done ? 'checked' : ''} />
@@ -871,10 +913,45 @@ function _renderNextStepsContent(container, job, meta) {
             <div class="ns-title">${it.title}</div>
             <div class="ns-hint">${it.hint}</div>
           </div>
-          <div class="ns-actions">${copyBtns}</div>
+          <div class="ns-actions">${actionBtns}</div>
         </div>
       `;
     }).join('');
+
+    const scStatus = job.showcase_status || null;
+    const scVariants = job.showcase_variants || [];
+    const scPick = job.showcase_pick || null;
+    const scError = job.showcase_error || null;
+    let scHtml = '';
+    if (scStatus || scVariants.length || scError) {
+      let stateText = '';
+      let stateCls = '';
+      if (scStatus === 'running') { stateText = 'generating 4x 16:9 ...'; stateCls = ''; }
+      else if (scStatus === 'error') { stateText = 'failed'; stateCls = 'error'; }
+      else if (scVariants.length) { stateText = `${scVariants.length} blueprint candidates`; stateCls = 'done'; }
+      const scThumbs = scVariants.map((v, i) => {
+        const url = '/' + v.replace(/^\/+/, '');
+        const idx = i + 1;
+        const picked = scPick === idx;
+        return `
+          <div class="sc-thumb${picked ? ' picked' : ''}" data-idx="${idx}">
+            <img src="${escapeAttr(url)}?v=${cacheKey}" alt="showcase ${idx}" loading="lazy" />
+            <div class="idx">s${idx}</div>
+            <button class="pick" data-job="${job.id}" data-idx="${idx}" title="${picked ? 'Unpick blueprint' : 'Pick as blueprint'}">${picked ? '&#9733;' : '&#9734;'}</button>
+          </div>
+        `;
+      }).join('');
+      scHtml = `
+        <div class="showcase-row">
+          <div class="showcase-label">
+            <span>Showcase Blueprints (Step 7 / Kling @image2)</span>
+            ${stateText ? `<span class="state ${stateCls}">${escapeHtml(stateText)}</span>` : ''}
+          </div>
+          ${scThumbs ? `<div class="showcase-thumbs">${scThumbs}</div>` : ''}
+          ${scError ? `<div class="sc-err">${escapeHtml(scError)}</div>` : ''}
+        </div>
+      `;
+    }
 
     container.innerHTML = `
       <div class="next-steps-head">
@@ -882,7 +959,50 @@ function _renderNextStepsContent(container, job, meta) {
         ${favState}
       </div>
       ${itemsHtml}
+      ${scHtml}
     `;
+
+    // Action-Buttons
+    $$('.ns-btn.action', container).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.action;
+        if (action !== 'generate_showcase') return;
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '&#8230; queueing';
+        try {
+          await api(`/api/jobs/${job.id}/generate-showcase`, {method: 'POST'});
+          toast('Showcase generation queued (4x 16:9)');
+          await refreshJobs();
+        } catch (err) {
+          toast(err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = orig;
+        }
+      });
+    });
+
+    // Showcase pick-buttons
+    $$('.sc-thumb .pick', container).forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const idx = +btn.dataset.idx;
+        const current = job.showcase_pick || null;
+        const next = current === idx ? null : idx;
+        btn.disabled = true;
+        try {
+          await api(`/api/jobs/${job.id}/showcase-pick`, {
+            method: 'POST', body: JSON.stringify({variant: next}),
+          });
+          await refreshJobs();
+        } catch (err) {
+          toast(err.message, true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
 
     // Copy-Buttons
     $$('.ns-btn.copy', container).forEach(btn => {

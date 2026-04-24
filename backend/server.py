@@ -190,6 +190,24 @@ async def api_toggle_checklist(job_id: str, req: ChecklistUpdate) -> dict[str, b
     return {"ok": True}
 
 
+@app.post("/api/jobs/{job_id}/generate-showcase")
+async def api_generate_showcase(job_id: str) -> dict[str, str]:
+    try:
+        await runner.generate_showcase_images(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
+@app.post("/api/jobs/{job_id}/showcase-pick")
+async def api_showcase_pick(job_id: str, req: FavoriteUpdate) -> dict[str, bool]:
+    try:
+        await runner.set_showcase_pick(job_id, req.variant)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------------------
 # Static mounts + Dashboard
 # ---------------------------------------------------------------------------

@@ -45,6 +45,7 @@ PORT = 8765
 # ---------------------------------------------------------------------------
 
 STEP4_VARIANTS = 5
+SHOWCASE_VARIANTS = 4
 DEFAULT_ASPECT_RATIO = "9:16"
 
 MAX_PARALLEL_FUSIONS = 3
