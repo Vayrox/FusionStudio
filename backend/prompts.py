@@ -134,7 +134,11 @@ Hard rules:
 - Mention the TYPE fusion explicitly (e.g. "bizarre and grotesque water-fire type").
 - Emotional tone: one of grotesque / majestic / tragic / eerie / unsettling / awe-inspiring. Pick what fits.
 - Optionally mention disproportionate parts, unnatural anatomy, or a specific anomaly.
-- ALWAYS end with an explicit camera-orientation instruction (e.g. "FRONT-FACING to the camera." or "Three-quarter angle toward the camera.").
+- ALWAYS end with a camera-orientation instruction that shows the creature FACING the camera. Pick ONE of:
+  - "FRONT-FACING to the camera."
+  - "Three-quarter angle toward the camera."
+  - "Head turned toward the camera, body angled slightly."
+- NEVER use back-facing, profile-only, looking-away, facing-away, turned-away, over-the-shoulder, rear-view, or any orientation where the face is hidden or obscured. The viewer MUST see the creature's face clearly.
 - The creature must feel like it "should never have been born" OR "has awakened after millennia" - something dramatic.
 - Output ONLY the paragraph. No preamble, no headings, no quotes, no labels."""
 
