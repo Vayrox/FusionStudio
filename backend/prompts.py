@@ -212,18 +212,31 @@ Output format (a single prose block, but with inline cut markers):
 
 Cut specifications:
 - CUT 1 - MACRO DETAIL: extreme close-up of the creature's signature feature (eye, fang, horn, mark). Slow orbit or push-in.
-- CUT 2 - POWER DEMO: primary ability preview. Name the ability in ALL CAPS. Specify which body part channels it, energy color, and camera move.
+- CUT 2 - POWER DEMO: primary ability preview. Name the ability in ALL CAPS. Specify which body part channels it, energy color, and camera move. Show the creature MOVING - not just standing. If it is fast/aerial, it flies across the frame during the demo. If heavy, it slams the ground. If energy-based, its ability arcs through the environment.
 - CUT 3 - TEXTURE SHOWCASE: ultra-macro of body texture (scales, fur, crystal, slime). Camera tracks across the surface.
-- CUT 4 - MAJOR ABILITY: wide shot, environmental effect (shockwave, eruption, tidal surge, gravity well). Name the ability in ALL CAPS.
-- CUT 5 - FINALE: climactic signature move. Freeze at peak, slow push-in on the creature's face. Name the move in ALL CAPS.
+- CUT 4 - MAJOR ABILITY: wide shot, environmental effect (shockwave, eruption, tidal surge, gravity well). Name the ability in ALL CAPS. The creature must INTERACT with the environment: the floor cracks / scorches / ices over; walls shake; dust or smoke rises; the light-ring dims or flares; debris kicks up; visible sound-ripples or heat-distortion propagate outward.
+- CUT 5 - FINALE: climactic signature move. Freeze at peak, slow push-in on the creature's face. Name the move in ALL CAPS. The environment should still show the aftermath from CUT 4 (scorch marks, cracks, settling dust).
+
+ARCHETYPE-BASED MOTION + ENVIRONMENT INTERACTION (critical):
+
+The creature must move through the studio space according to its archetype. At least TWO of the five cuts must feature the creature moving or the environment responding - not just close-ups of anatomy.
+
+- Fast / supersonic / aerial creature: at least one cut is an ultra-high-speed tracking shot as the creature RUSHES or FLIES across the studio. Motion blur streaks, air displacement ripples visible against the walls, whip-pan camera, the creature enters frame, blurs past, and lands in another position. If winged, it hovers / banks / dives around the studio space.
+- Heavy / massive / brute creature: the creature STOMPS forward, the floor visibly CRACKS beneath each step, the circular light-ring segments shake or dim on impact, debris puffs upward. Shockwaves ripple outward from its feet.
+- Energy / projectile / fire / ice / psychic creature: its abilities visibly IMPACT the environment - scorch marks burn into the floor, crystal spikes grow from the walls, the air shimmers with heat or cold, light fixtures flare. Residual damage lingers between cuts.
+- Eerie / shadow / void creature: shadows CREEP up the walls around it, the light dims in its presence, the floor darkens in its wake.
+- Aquatic / venomous / toxic creature: puddles pool around it, steam rises, the floor slick-shimmers with residue, droplets cling to surfaces.
+
+Mix close-up AND wide/tracking shots. The viewer should see the creature USING the studio space - walking, flying, charging across, impacting the floor - not just floating as static anatomy.
 
 Hard rules:
 - Keep the intro paragraph and the 5 cut blocks as shown above.
 - ALL ability / move names in ALL CAPS.
-- Each cut must specify a SPECIFIC camera move (push-in, pull-out, orbit, dolly, crane, whip-pan, rack-focus).
+- Each cut must specify a SPECIFIC camera move (push-in, pull-out, orbit, dolly, crane, whip-pan, rack-focus, tracking shot).
+- At least TWO cuts feature the creature in motion or the environment responding to it.
 - Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location, do NOT describe a studio, do NOT change the environment. Phrase it as 'same background as the reference' whenever the setting is referenced.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
-- Keep the output compact - aim for 250 to 400 words total."""
+- Keep the output compact - aim for 300 to 500 words total."""
 
 GPT_STEP6_SHOWCASE_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
