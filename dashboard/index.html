@@ -359,7 +359,22 @@
     color: var(--violet); border-color: rgba(168,139,255,0.4); }
   .batch-body { margin-top: 10px; font-size: 12px; color: var(--muted); }
   .batch-body .fusion-list { font-family: 'JetBrains Mono', monospace; color: var(--text);
-    margin-top: 6px; line-height: 1.7; }
+    margin-top: 6px; line-height: 1.7; display: flex; flex-direction: column; gap: 2px; }
+  .batch-body .fusion-list a { display: inline-flex; align-items: center; gap: 8px;
+    color: var(--text); padding: 3px 8px; border-radius: 6px; margin-left: -8px;
+    font-weight: 500; transition: background 0.12s, color 0.12s; width: max-content; }
+  .batch-body .fusion-list a:hover { background: rgba(168,139,255,0.1);
+    color: var(--violet); text-decoration: none; }
+  .batch-body .fusion-list a::before { content: '\2192'; color: var(--dim); font-size: 11px; }
+  .batch-body .fusion-list a:hover::before { color: var(--violet); }
+  .batch-body .fusion-list .status { color: var(--dim); font-size: 11px;
+    font-weight: 400; text-transform: uppercase; letter-spacing: 0.4px; }
+  .job.flash { animation: flash-card 1.2s ease-out; }
+  @keyframes flash-card {
+    0%, 30% { box-shadow: 0 0 0 2px var(--violet),
+      0 20px 40px -16px rgba(168,139,255,0.4); }
+    100% { box-shadow: none; }
+  }
   .batch-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   .job .batch-chip { display: inline-flex; align-items: center; gap: 6px;
     padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
@@ -794,15 +809,29 @@ function renderBatch(batch) {
     </div>
   `;
 
-  // Fusions-Liste async nachladen
+  // Fusions-Liste async nachladen (mit Links zu den einzelnen Job-Cards)
   fusionListPromise.then(jobs => {
     const placeholder = $('.fusion-list', el);
     if (!placeholder) return;
     const lines = jobs
       .filter(j => j)
-      .map(j => `${j.pokemon_a} x ${j.pokemon_b} <span style="color:var(--dim);">(${j.status})</span>`)
-      .join('<br/>');
-    placeholder.innerHTML = lines || '(keine Jobs)';
+      .map(j => `<a href="#job-${escapeAttr(j.id)}" data-job-id="${escapeAttr(j.id)}" title="Zu dieser Fusion springen">${escapeHtml(j.pokemon_a)} &times; ${escapeHtml(j.pokemon_b)} <span class="status">${escapeHtml(j.status || '?')}</span></a>`)
+      .join('');
+    placeholder.innerHTML = lines || '<span style="color:var(--muted);">(keine Jobs)</span>';
+    $$('a[data-job-id]', placeholder).forEach(a => {
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const jid = a.dataset.jobId;
+        const target = document.querySelector(`.job[data-id="${CSS.escape(jid)}"]`);
+        if (!target) { toast('Job-Card nicht gefunden', true); return; }
+        target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        target.classList.remove('flash');
+        // re-trigger animation
+        void target.offsetWidth;
+        target.classList.add('flash');
+        setTimeout(() => target.classList.remove('flash'), 1300);
+      });
+    });
   });
 
   // Copy-Handler
