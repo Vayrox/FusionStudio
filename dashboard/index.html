@@ -521,15 +521,43 @@ async function refreshJobs() {
   }
 }
 
+const _jobCache = new Map(); // job.id -> {hash, element}
+
 function renderJobs(jobs) {
   const list = $('#jobs-list');
   const empty = $('#jobs-empty');
   if (!jobs.length) {
-    list.innerHTML = ''; empty.style.display = 'block'; return;
+    list.innerHTML = ''; empty.style.display = 'block';
+    _jobCache.clear();
+    return;
   }
   empty.style.display = 'none';
-  list.innerHTML = '';
-  jobs.forEach(job => list.appendChild(renderJob(job)));
+
+  const seen = new Set();
+  const newOrder = [];
+  for (const job of jobs) {
+    seen.add(job.id);
+    const hash = JSON.stringify(job);
+    const cached = _jobCache.get(job.id);
+    if (cached && cached.hash === hash) {
+      newOrder.push(cached.element);
+    } else {
+      const el = renderJob(job);
+      _jobCache.set(job.id, {hash, element: el});
+      newOrder.push(el);
+    }
+  }
+  for (const id of Array.from(_jobCache.keys())) {
+    if (!seen.has(id)) _jobCache.delete(id);
+  }
+  // Reattach only if order/contents differ
+  const currentChildren = Array.from(list.children);
+  const sameOrder = currentChildren.length === newOrder.length
+    && currentChildren.every((c, i) => c === newOrder[i]);
+  if (!sameOrder) {
+    list.innerHTML = '';
+    for (const el of newOrder) list.appendChild(el);
+  }
 }
 
 const PIPELINE_STEPS = [
@@ -562,12 +590,13 @@ function renderJob(job) {
   el.className = 'job ' + status;
   el.dataset.id = job.id;
 
+  const cacheKey = encodeURIComponent(job.updated_at || job.id || '');
   const thumbs = (job.variants || []).map((v, i) => {
     const url = '/' + v.replace(/^\/+/, '');
     const idx = i + 1;
     return `
       <div class="thumb">
-        <img src="${escapeAttr(url)}?v=${Date.now()}" alt="variant ${idx}" loading="lazy" />
+        <img src="${escapeAttr(url)}?v=${cacheKey}" alt="variant ${idx}" loading="lazy" />
         <div class="idx">v${idx}</div>
         <button class="regen" data-job="${job.id}" data-idx="${idx}" title="Regenerate variant ${idx}">&#8634;</button>
       </div>
