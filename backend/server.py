@@ -132,17 +132,33 @@ async def api_submit_fusion(idea: FusionIdea) -> dict[str, str]:
 
 
 @app.post("/api/fusion/batch")
-async def api_submit_batch(req: BatchRequest) -> dict[str, list[str]]:
-    job_ids: list[str] = []
-    for idea in req.ideas:
-        jid = await runner.submit_fusion(
-            pokemon_a=idea.pokemon_a,
-            pokemon_b=idea.pokemon_b,
-            concept=idea.concept,
-            tone_hint=idea.tone_hint,
-        )
-        job_ids.append(jid)
-    return {"job_ids": job_ids}
+async def api_submit_batch(req: BatchRequest) -> dict[str, Any]:
+    if not req.ideas:
+        raise HTTPException(status_code=400, detail="Keine Ideen im Batch.")
+    ideas = [
+        {
+            "pokemon_a": i.pokemon_a,
+            "pokemon_b": i.pokemon_b,
+            "concept": i.concept,
+            "tone_hint": i.tone_hint,
+        }
+        for i in req.ideas
+    ]
+    batch_id, job_ids = await runner.submit_batch(ideas)
+    return {"batch_id": batch_id, "job_ids": job_ids}
+
+
+@app.get("/api/batches")
+async def api_list_batches() -> dict[str, Any]:
+    return {"batches": await runner.list_batches()}
+
+
+@app.get("/api/batches/{batch_id}")
+async def api_get_batch(batch_id: str) -> dict[str, Any]:
+    b = await runner.get_batch(batch_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Batch nicht gefunden")
+    return b
 
 
 # ---------------------------------------------------------------------------

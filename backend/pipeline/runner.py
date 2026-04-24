@@ -92,6 +92,35 @@ async def list_jobs() -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Batches
+# ---------------------------------------------------------------------------
+
+
+async def _update_batch(batch_id: str, **patch: Any) -> dict[str, Any]:
+    async with _STATE_LOCK:
+        state = await _load_state()
+        batches = state.setdefault("batches", {})
+        batch = batches.setdefault(batch_id, {"id": batch_id})
+        batch.update(patch)
+        batch["updated_at"] = _now_iso()
+        await _save_state()
+        return dict(batch)
+
+
+async def get_batch(batch_id: str) -> dict[str, Any] | None:
+    state = await _load_state()
+    batch = state.get("batches", {}).get(batch_id)
+    return dict(batch) if batch else None
+
+
+async def list_batches() -> list[dict[str, Any]]:
+    state = await _load_state()
+    batches = list(state.get("batches", {}).values())
+    batches.sort(key=lambda b: b.get("created_at", ""), reverse=True)
+    return [dict(b) for b in batches]
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -167,8 +196,14 @@ async def submit_fusion(
     pokemon_b: str,
     concept: str = "",
     tone_hint: str | None = None,
+    batch_id: str | None = None,
 ) -> str:
-    """Queued eine neue Fusion. Gibt job_id zurueck. Pipeline laeuft im Hintergrund."""
+    """Queued eine neue Fusion. Gibt job_id zurueck. Pipeline laeuft im Hintergrund.
+
+    Wenn batch_id gesetzt ist, skippt die Pipeline die einzelne Narration -
+    die gemeinsame Narration wird stattdessen vom Batch-Monitor generiert,
+    sobald alle Jobs des Batches fertig sind.
+    """
     job_id = uuid.uuid4().hex[:12]
     await _update_job(
         job_id,
@@ -177,6 +212,7 @@ async def submit_fusion(
         pokemon_b=pokemon_b,
         concept=concept,
         tone_hint=tone_hint,
+        batch_id=batch_id,
         status="queued",
         current_step="queued",
         error=None,
@@ -186,6 +222,125 @@ async def submit_fusion(
     )
     asyncio.create_task(_run_fusion(job_id))
     return job_id
+
+
+async def submit_batch(ideas: list[dict[str, Any]]) -> tuple[str, list[str]]:
+    """Queued mehrere Fusionen als Batch. Am Ende wird eine gemeinsame
+    DE+EN Narration generiert, die alle Fusionen in einem Fluss abdeckt.
+    Gibt (batch_id, job_ids) zurueck.
+    """
+    if not ideas:
+        raise ValueError("Keine Ideen im Batch.")
+    batch_id = "batch_" + uuid.uuid4().hex[:10]
+    job_ids: list[str] = []
+    for idea in ideas:
+        jid = await submit_fusion(
+            pokemon_a=str(idea.get("pokemon_a", "")).strip(),
+            pokemon_b=str(idea.get("pokemon_b", "")).strip(),
+            concept=str(idea.get("concept", "")).strip(),
+            tone_hint=idea.get("tone_hint"),
+            batch_id=batch_id,
+        )
+        job_ids.append(jid)
+
+    await _update_batch(
+        batch_id,
+        id=batch_id,
+        job_ids=job_ids,
+        status="running",
+        narration_de=None,
+        narration_en=None,
+        narration_path=None,
+        error=None,
+        created_at=_now_iso(),
+    )
+    asyncio.create_task(_run_batch_monitor(batch_id))
+    return batch_id, job_ids
+
+
+async def _run_batch_monitor(batch_id: str) -> None:
+    """Wartet bis alle Jobs des Batches done/error sind, dann generiert
+    die gemeinsame Narration."""
+    try:
+        # Warte auf alle Jobs (Poll-Intervall 5s, max 4h)
+        deadline = time.time() + 4 * 3600
+        job_ids: list[str] = []
+        while True:
+            if time.time() > deadline:
+                raise RuntimeError("Batch-Monitor-Timeout (4h).")
+            batch = await get_batch(batch_id)
+            if not batch:
+                return
+            job_ids = batch.get("job_ids") or []
+            statuses = []
+            for jid in job_ids:
+                j = await get_job(jid)
+                statuses.append((j or {}).get("status"))
+            if statuses and all(s in ("done", "error") for s in statuses):
+                break
+            await asyncio.sleep(5)
+
+        # Sammle done-Fusionen mit ihren Meta-Daten
+        fusions_for_narration: list[dict[str, str]] = []
+        for jid in job_ids:
+            j = await get_job(jid)
+            if not j or j.get("status") != "done":
+                continue
+            out_dir_rel = j.get("output_dir")
+            if not out_dir_rel:
+                continue
+            meta_path = PROJECT_ROOT / out_dir_rel / "_meta.json"
+            if not meta_path.exists():
+                continue
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            fusions_for_narration.append({
+                "pokemon_a": meta.get("pokemon_a", ""),
+                "pokemon_b": meta.get("pokemon_b", ""),
+                "distinctive_traits": meta.get("distinctive_traits", ""),
+                "step5_transformation": meta.get("step5_transformation", ""),
+                "step6_showcase": meta.get("step6_showcase", ""),
+            })
+
+        if not fusions_for_narration:
+            await _update_batch(
+                batch_id,
+                status="error",
+                error="Keine abgeschlossene Fusion im Batch - keine Narration moeglich.",
+            )
+            return
+
+        await _update_batch(batch_id, status="generating_narration")
+        narration_de, narration_en = await openai_client.generate_batch_narration(
+            fusions_for_narration
+        )
+
+        # Narration-Datei schreiben
+        batch_dir = OUTPUT_DIR / "batches"
+        batch_dir.mkdir(parents=True, exist_ok=True)
+        md_path = batch_dir / f"{batch_id}_narration.md"
+        fusion_list = "\n".join(
+            f"- {f['pokemon_a']} x {f['pokemon_b']}" for f in fusions_for_narration
+        )
+        md = (
+            f"# Batch Narration - {batch_id}\n\n"
+            f"> Durchgehende DE + EN Narration fuer eine Fusion-Compilation.\n\n"
+            f"Fusionen in Reihenfolge:\n{fusion_list}\n\n"
+            f"---\n\n## Deutsch\n\n{narration_de}\n\n"
+            f"---\n\n## English\n\n{narration_en}\n"
+        )
+        md_path.write_text(md, encoding="utf-8")
+
+        await _update_batch(
+            batch_id,
+            status="done",
+            narration_de=narration_de,
+            narration_en=narration_en,
+            narration_path=_relative_to_root(md_path),
+            fusion_count=len(fusions_for_narration),
+        )
+    except Exception as exc:  # noqa: BLE001
+        err = f"{type(exc).__name__}: {exc}"
+        await _update_batch(batch_id, status="error", error=err)
 
 
 async def regenerate_variant(job_id: str, variant_index: int) -> None:
@@ -500,10 +655,17 @@ async def _pipeline(job_id: str) -> None:
     )
     step5_text, step6_text = await asyncio.gather(step5_task, step6_task)
 
-    await _update_job(job_id, current_step="gpt_narration")
-    narration_de, narration_en = await openai_client.generate_narration(
-        pokemon_a, pokemon_b, distinctive_traits, step5_text, step6_text
-    )
+    # Einzelne Narration ueberspringen, wenn Teil eines Batches -
+    # der Batch-Monitor generiert spaeter die gemeinsame Narration.
+    is_batch_member = bool(job.get("batch_id"))
+    if is_batch_member:
+        narration_de = ""
+        narration_en = ""
+    else:
+        await _update_job(job_id, current_step="gpt_narration")
+        narration_de, narration_en = await openai_client.generate_narration(
+            pokemon_a, pokemon_b, distinctive_traits, step5_text, step6_text
+        )
 
     # Dateien schreiben
     await _update_job(job_id, current_step="writing_outputs")
@@ -539,19 +701,23 @@ async def _pipeline(job_id: str) -> None:
         step5=step5_text,
         step6=step6_text,
     )
-    _write_narration_md(out_dir, narration_de, narration_en)
+    if not is_batch_member:
+        _write_narration_md(out_dir, narration_de, narration_en)
+
+    files_map = {
+        "step_2a": _relative_to_root(step2a_out),
+        "step_2b": _relative_to_root(step2b_out),
+        "step_3": _relative_to_root(step3_out),
+        "video_prompts_md": _relative_to_root(out_dir / "video_prompts.md"),
+        "meta_json": _relative_to_root(out_dir / "_meta.json"),
+    }
+    if not is_batch_member:
+        files_map["narration_md"] = _relative_to_root(out_dir / "narration.md")
 
     await _update_job(
         job_id,
         variants=[_relative_to_root(p) for p in variant_paths],
-        files={
-            "step_2a": _relative_to_root(step2a_out),
-            "step_2b": _relative_to_root(step2b_out),
-            "step_3": _relative_to_root(step3_out),
-            "video_prompts_md": _relative_to_root(out_dir / "video_prompts.md"),
-            "narration_md": _relative_to_root(out_dir / "narration.md"),
-            "meta_json": _relative_to_root(out_dir / "_meta.json"),
-        },
+        files=files_map,
         distinctive_traits=distinctive_traits,
     )
 

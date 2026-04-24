@@ -207,3 +207,45 @@ async def generate_narration(
     if not en.lower().startswith(prompts.NARRATION_OPENER_EN.lower()[:20]):
         en = prompts.NARRATION_OPENER_EN + " " + en
     return de, en
+
+
+async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, str]:
+    """Generiert EINE durchgehende DE+EN Narration fuer eine Liste von Fusionen.
+
+    Jede Fusion im Input dict muss haben:
+      pokemon_a, pokemon_b, distinctive_traits, step5_transformation, step6_showcase
+    """
+    if not fusions:
+        raise ValueError("Keine Fusionen fuer Batch-Narration uebergeben.")
+    parts: list[str] = []
+    for i, f in enumerate(fusions, start=1):
+        parts.append(
+            f"### Fusion {i}: {f.get('pokemon_a', '?')} + {f.get('pokemon_b', '?')}\n"
+            f"Distinctive Traits: {f.get('distinctive_traits', '')}\n\n"
+            f"Transformation context:\n{f.get('step5_transformation', '')}\n\n"
+            f"Showcase context:\n{f.get('step6_showcase', '')}\n"
+        )
+    fusions_block = "\n---\n".join(parts)
+
+    user = prompts.GPT_BATCH_NARRATION_USER_TEMPLATE.format(
+        FUSION_COUNT=len(fusions),
+        FUSIONS_BLOCK=fusions_block,
+        OPENER_DE=prompts.NARRATION_OPENER_DE,
+        OPENER_EN=prompts.NARRATION_OPENER_EN,
+    )
+    raw = await _chat(
+        prompts.GPT_BATCH_NARRATION_SYSTEM,
+        user,
+        temperature=0.85,
+        max_tokens=4000,
+    )
+    match = _NARRATION_SPLIT_RE.search(raw)
+    if not match:
+        raise ValueError(f"Konnte DE/EN-Batch-Narration nicht parsen: {raw!r}")
+    de = match.group("de").strip()
+    en = match.group("en").strip()
+    if not de.lower().startswith(prompts.NARRATION_OPENER_DE.lower()[:20]):
+        de = prompts.NARRATION_OPENER_DE + " " + de
+    if not en.lower().startswith(prompts.NARRATION_OPENER_EN.lower()[:20]):
+        en = prompts.NARRATION_OPENER_EN + " " + en
+    return de, en

@@ -256,3 +256,43 @@ DE opener: {OPENER_DE}
 EN opener: {OPENER_EN}
 
 Write the two narrations in the ---DE--- / ---EN--- / ---END--- format."""
+
+
+# ---------------------------------------------------------------------------
+# Batch Narration (mehrere Fusionen in einer durchgehenden Voice-Over)
+# ---------------------------------------------------------------------------
+
+GPT_BATCH_NARRATION_SYSTEM = """You are writing a SINGLE flowing voice-over that covers MULTIPLE Pokemon fusion reveals in one continuous narration - a compilation Reel where the viewer sees several fusions in sequence.
+
+You write TWO narrations in parallel: one German, one English. Both must cover all fusions in the order provided and flow smoothly across them.
+
+Output format - STRICT:
+
+---DE---
+<German narration, single continuous text>
+---EN---
+<English narration, single continuous text>
+---END---
+
+Hard rules:
+- The German narration MUST start with the fixed opener provided in the user message, VERBATIM. Do not alter it.
+- The English narration MUST start with the fixed opener provided in the user message, VERBATIM.
+- After the opener, introduce each fusion in the order given. Each fusion gets roughly 3 to 5 sentences describing its appearance, signature ability, and climactic showcase moment - based on the provided Distinctive Traits, Transformation and Showcase context.
+- Transition smoothly between fusions. Use segues like "Then...", "Next...", "Another creature emerges...", "But deeper still...", thematic bridges, or rhythmic beats. NEVER use labels like "Fusion 1", "Number 2", numbered enumeration.
+- End with ONE climactic concluding line that ties the whole compilation together.
+- Each language should feel like a 2 to 3 minute voice-over total. Roughly 350 to 500 words per language for 6 fusions; scale proportionally for more/fewer.
+- DO NOT translate literally between DE and EN. Each language flows naturally on its own.
+- Tone: dramatic, cinematic, awe-inspiring, slightly eerie. Match the overall mood of the fusions.
+- Do NOT name the original Pokemon by name in the narration (these are new, unseen creatures).
+- Do NOT include stage directions, timestamps, speaker labels, or numbered enumeration. Just the spoken text.
+- No emojis, no markdown, no meta commentary."""
+
+GPT_BATCH_NARRATION_USER_TEMPLATE = """Fusion compilation - {FUSION_COUNT} creatures to introduce in order:
+
+{FUSIONS_BLOCK}
+
+--- Fixed openers (use VERBATIM as the first sentence of each narration) ---
+DE opener: {OPENER_DE}
+EN opener: {OPENER_EN}
+
+Write the two continuous narrations in the ---DE--- / ---EN--- / ---END--- format, covering all {FUSION_COUNT} fusions in the order above."""

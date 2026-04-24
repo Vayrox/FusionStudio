@@ -333,6 +333,27 @@
     background: rgba(255,94,107,0.06); border: 1px solid rgba(255,94,107,0.2);
     padding: 8px 10px; border-radius: 8px; }
 
+  /* Batch panel */
+  .batches { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+  .batch { background: linear-gradient(180deg, rgba(168,139,255,0.06) 0%, var(--card-2) 100%);
+    border: 1px solid rgba(168,139,255,0.25); border-radius: 14px;
+    padding: 16px 20px; box-shadow: 0 12px 32px -20px rgba(168,139,255,0.3); }
+  .batch-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .batch-head .title { font-weight: 700; font-size: 14px; letter-spacing: -0.1px; }
+  .batch-head .id { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--dim); margin-left: auto; }
+  .batch-head .badge.generating_narration { background: rgba(168,139,255,0.15);
+    color: var(--violet); border-color: rgba(168,139,255,0.4); }
+  .batch-body { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .batch-body .fusion-list { font-family: 'JetBrains Mono', monospace; color: var(--text);
+    margin-top: 6px; line-height: 1.7; }
+  .batch-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .job .batch-chip { display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
+    background: rgba(168,139,255,0.12); color: var(--violet);
+    border: 1px solid rgba(168,139,255,0.25);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px; }
+
   .empty { color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center; }
   .empty .big { display: block; font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
 
@@ -474,6 +495,7 @@
   <section id="sec-jobs">
     <h2>Active Pipelines</h2>
     <p class="section-sub">Live-Status aller laufenden und abgeschlossenen Fusionen.</p>
+    <div class="batches" id="batches-list"></div>
     <div class="jobs" id="jobs-list"></div>
     <div class="empty" id="jobs-empty" style="display: none;">
       <span class="big">&#9672;</span>
@@ -621,12 +643,108 @@ async function runManual() {
 // ---------------------------------------------------------------------------
 async function refreshJobs() {
   try {
-    const res = await api('/api/jobs');
-    renderJobs(res.jobs);
+    const [jobsRes, batchesRes] = await Promise.all([
+      api('/api/jobs'),
+      api('/api/batches'),
+    ]);
+    renderBatches(batchesRes.batches || []);
+    renderJobs(jobsRes.jobs);
   } catch (e) {
-    // silent - just log
     console.error(e);
   }
+}
+
+const _batchCache = new Map();
+
+function renderBatches(batches) {
+  const list = $('#batches-list');
+  const seen = new Set();
+  const newOrder = [];
+  for (const b of batches) {
+    seen.add(b.id);
+    const hash = JSON.stringify(b);
+    const cached = _batchCache.get(b.id);
+    if (cached && cached.hash === hash) {
+      newOrder.push(cached.element);
+    } else {
+      const el = renderBatch(b);
+      _batchCache.set(b.id, {hash, element: el});
+      newOrder.push(el);
+    }
+  }
+  for (const id of Array.from(_batchCache.keys())) {
+    if (!seen.has(id)) _batchCache.delete(id);
+  }
+  const cur = Array.from(list.children);
+  const same = cur.length === newOrder.length && cur.every((c, i) => c === newOrder[i]);
+  if (!same) {
+    list.innerHTML = '';
+    for (const el of newOrder) list.appendChild(el);
+  }
+}
+
+function renderBatch(batch) {
+  const el = document.createElement('div');
+  el.className = 'batch';
+  const status = batch.status || 'queued';
+  const count = (batch.job_ids || []).length;
+  const fusionCount = batch.fusion_count || count;
+  const hasNarration = !!(batch.narration_de && batch.narration_en);
+
+  // Fusions-Liste aus den verlinkten Jobs zusammenziehen (async nicht noetig,
+  // der hash triggert re-render wenn job-ids/status sich aendern)
+  const fusionListPromise = Promise.all(
+    (batch.job_ids || []).map(jid => api(`/api/jobs/${jid}`).catch(() => null))
+  );
+
+  el.innerHTML = `
+    <div class="batch-head">
+      <span class="title">Compilation Batch (${count} Fusionen)</span>
+      <span class="badge ${status}">${escapeHtml(status.replace(/_/g, ' '))}</span>
+      <span class="id">${escapeHtml(batch.id)}</span>
+    </div>
+    <div class="batch-body">
+      <div>${hasNarration ? 'Gemeinsame DE+EN Narration bereit.' : (status === 'generating_narration' ? 'Generiere gemeinsame Narration ...' : 'Wartet auf Abschluss aller Fusionen.')}</div>
+      <div class="fusion-list" data-placeholder>Lade Fusions-Liste ...</div>
+    </div>
+    ${batch.error ? `<div class="err-box" style="margin-top:10px;">${escapeHtml(batch.error)}</div>` : ''}
+    <div class="batch-actions">
+      ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="de">&#128203; Copy DE Narration</button>` : ''}
+      ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="en">&#128203; Copy EN Narration</button>` : ''}
+      ${batch.narration_path ? `<a class="ns-btn" style="text-decoration:none;" href="/${batch.narration_path}" target="_blank">&#128196; narration.md</a>` : ''}
+    </div>
+  `;
+
+  // Fusions-Liste async nachladen
+  fusionListPromise.then(jobs => {
+    const placeholder = $('.fusion-list', el);
+    if (!placeholder) return;
+    const lines = jobs
+      .filter(j => j)
+      .map(j => `${j.pokemon_a} x ${j.pokemon_b} <span style="color:var(--dim);">(${j.status})</span>`)
+      .join('<br/>');
+    placeholder.innerHTML = lines || '(keine Jobs)';
+  });
+
+  // Copy-Handler
+  $$('.ns-btn.copy', el).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const lang = btn.dataset.lang;
+      const text = lang === 'de' ? batch.narration_de : batch.narration_en;
+      if (!text) { toast('Keine Narration', true); return; }
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.innerHTML;
+        btn.classList.add('copied');
+        btn.innerHTML = '&#10003; Copied';
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 1400);
+      } catch (err) {
+        toast('Clipboard-Fehler: ' + err.message, true);
+      }
+    });
+  });
+
+  return el;
 }
 
 const _jobCache = new Map(); // job.id -> {hash, element}
@@ -734,6 +852,7 @@ function renderJob(job) {
     <div class="job-head">
       <span class="pair">${escapeHtml(job.pokemon_a)} &times; ${escapeHtml(job.pokemon_b)}</span>
       <span class="badge ${status}">${status}</span>
+      ${job.batch_id ? `<span class="batch-chip" title="Teil eines Compilation-Batches">&#11054; ${escapeHtml(job.batch_id)}</span>` : ''}
       <span class="id">${escapeHtml(job.id)}</span>
     </div>
     ${job.concept ? `<div class="concept-line">${escapeHtml(job.concept)}</div>` : ''}
@@ -917,7 +1036,7 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#127912; Generate Showcase (AI-Auto)', action: 'generate_showcase'},
         ],
       },
-      {
+      (narrationDe && narrationEn) ? {
         key: 'narration',
         title: 'Narration aufnehmen (DE + EN)',
         hint: 'Voice-Over synchronisiert mit Transformation + Showcase.',
@@ -925,6 +1044,13 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Copy DE', text: narrationDe},
           {label: '&#128203; Copy EN', text: narrationEn},
         ],
+      } : {
+        key: 'narration',
+        title: 'Narration aufnehmen (DE + EN)',
+        hint: job.batch_id
+          ? `Diese Fusion ist Teil eines Compilation-Batches &mdash; die gemeinsame DE+EN Narration findest du im <b>Batch-Panel</b> oben in der Liste.`
+          : 'Narration-Text noch nicht verfuegbar (Job laeuft noch oder fehlerhaft).',
+        copies: [],
       },
       {
         key: 'editing',
