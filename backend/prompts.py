@@ -175,7 +175,7 @@ The creature is the FINISHED fusion. Total duration: 10 seconds, split into 5 cu
 
 Output format (a single prose block, but with inline cut markers):
 
-"A hyper-photorealistic 3D cinematic video sequence in 4K, meticulously maintaining [TEXTURES], [PRIMARY VFX] across all cuts. The creature - [ONE-LINE DESCRIPTION] - [stands/crouches/hovers] in a pale blue-grey studio with a segmented circular light ring embedded in the floor glowing white and warm gold. Ambient [COLOR] haze. Total duration: 10 seconds.
+"A hyper-photorealistic 3D cinematic video sequence in 4K, meticulously maintaining [TEXTURES], [PRIMARY VFX] across all cuts. The creature - [ONE-LINE DESCRIPTION] - [stands/crouches/hovers], keeping the background IDENTICAL to the reference image. Ambient [COLOR] haze. Total duration: 10 seconds.
 
 [CUT 1 - MACRO DETAIL SHOT] ...
 [CUT 2 - POWER DEMO] ...
@@ -194,7 +194,7 @@ Hard rules:
 - Keep the intro paragraph and the 5 cut blocks as shown above.
 - ALL ability / move names in ALL CAPS.
 - Each cut must specify a SPECIFIC camera move (push-in, pull-out, orbit, dolly, crane, whip-pan, rack-focus).
-- Stay in the studio with the light ring. Do NOT change location.
+- Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location, do NOT describe a studio, do NOT change the environment. Phrase it as 'same background as the reference' whenever the setting is referenced.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
 - Keep the output compact - aim for 250 to 400 words total."""
 
