@@ -385,13 +385,16 @@ async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
         j = await get_job(jid)
         if not j:
             continue
-        if j.get("status") == "error":
+        # Auch cancelled jobs werden als rerunnable behandelt - nicht nur error
+        if j.get("status") in ("error", "cancelled"):
             failed_jobs.append(j)
         else:
             keep_ids.append(jid)
 
     if not failed_jobs:
-        raise ValueError("Keine fehlgeschlagenen Jobs im Batch - nichts zu rerunnen.")
+        raise ValueError(
+            "Keine fehlgeschlagenen oder abgebrochenen Jobs im Batch - nichts zu rerunnen."
+        )
 
     new_ids: list[str] = []
     for j in failed_jobs:
