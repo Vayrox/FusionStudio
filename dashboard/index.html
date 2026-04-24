@@ -142,6 +142,11 @@
   .idea:hover .remove { opacity: 0.7; }
   .idea .remove:hover { color: var(--err); opacity: 1; background: rgba(255,94,107,0.08); }
   .idea.approved .remove { display: none; }
+  .idea .manual-badge { display: inline-block; margin-left: 8px;
+    padding: 2px 7px; border-radius: 100px; font-size: 9px;
+    background: rgba(168,139,255,0.15); color: var(--violet);
+    border: 1px solid rgba(168,139,255,0.3);
+    font-weight: 700; letter-spacing: 0.6px; vertical-align: middle; }
 
   .ideas-actions { display: flex; align-items: center; gap: 14px; margin-top: 18px;
     padding-top: 18px; border-top: 1px solid var(--border); }
@@ -494,8 +499,9 @@
         <label for="m-tone">Tone Hint (optional)</label>
         <input type="text" id="m-tone" placeholder='z.B. "tragic, unsettling"' />
       </div>
-      <div class="narrow">
-        <button id="btn-run-manual">Run</button>
+      <div class="narrow" style="display: flex; gap: 8px;">
+        <button id="btn-add-manual" class="secondary" title="Fusion als approved zum Idea-Pool hinzufuegen (Batch mit gemeinsamer Narration)">+ To Pool</button>
+        <button id="btn-run-manual" title="Direkt als einzelne Fusion queuen (eigene Narration)">Run now</button>
       </div>
     </div>
   </section>
@@ -593,8 +599,8 @@ function renderIdeas() {
     el.innerHTML = `
       <input type="checkbox" data-idx="${idx}" ${idea.approved ? 'checked' : ''} />
       <div class="body">
-        <div class="pair">${escapeHtml(idea.pokemon_a)} &times; ${escapeHtml(idea.pokemon_b)}</div>
-        <div class="concept">${escapeHtml(idea.concept)}</div>
+        <div class="pair">${escapeHtml(idea.pokemon_a)} &times; ${escapeHtml(idea.pokemon_b)}${idea.manual ? '<span class="manual-badge">MANUAL</span>' : ''}</div>
+        <div class="concept">${idea.concept ? escapeHtml(idea.concept) : '<span style="color:var(--dim);">(manuelle Eingabe &mdash; kein Concept-Hook)</span>'}</div>
         <div class="tone">
           <input type="text" data-idx="${idx}" placeholder="Tone Hint (optional)" value="${escapeAttr(idea.tone_hint || '')}" />
         </div>
@@ -662,6 +668,34 @@ async function runApproved() {
 // ---------------------------------------------------------------------------
 // Manual
 // ---------------------------------------------------------------------------
+function addManualToPool() {
+  const a = $('#m-a').value.trim();
+  const b = $('#m-b').value.trim();
+  const tone = $('#m-tone').value.trim();
+  if (!a || !b) { toast('Pokemon A und B angeben', true); return; }
+  const key = [a.toLowerCase(), b.toLowerCase()].sort().join('|');
+  const existing = currentIdeas.findIndex(i => _ideaKey(i) === key);
+  if (existing >= 0) {
+    currentIdeas[existing].approved = true;
+    if (tone) currentIdeas[existing].tone_hint = tone;
+    toast(`${a} x ${b} war schon im Pool - jetzt approved`);
+  } else {
+    currentIdeas.push({
+      pokemon_a: a,
+      pokemon_b: b,
+      concept: '',
+      tone_hint: tone,
+      approved: true,
+      manual: true,
+    });
+    toast(`${a} x ${b} zum Pool hinzugefuegt (approved)`);
+  }
+  $('#m-a').value = ''; $('#m-b').value = ''; $('#m-tone').value = '';
+  renderIdeas();
+  // Scroll zur Ideen-Section damit der User sieht dass die Fusion drin ist
+  $('#sec-ideas').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+
 async function runManual() {
   const a = $('#m-a').value.trim();
   const b = $('#m-b').value.trim();
@@ -1345,6 +1379,7 @@ async function saveSettings() {
 $('#btn-generate').addEventListener('click', generateIdeas);
 $('#btn-run-approved').addEventListener('click', runApproved);
 $('#btn-run-manual').addEventListener('click', runManual);
+$('#btn-add-manual').addEventListener('click', addManualToPool);
 $('#btn-save-settings').addEventListener('click', saveSettings);
 $('#hint').addEventListener('keydown', e => { if (e.key === 'Enter') generateIdeas(); });
 
