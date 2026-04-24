@@ -201,6 +201,81 @@ async def regenerate_variant(job_id: str, variant_index: int) -> None:
     asyncio.create_task(_run_regenerate(job_id, variant_index))
 
 
+async def regenerate_all_variants(job_id: str) -> None:
+    """Regeneriert ALLE Step-4-Varianten neu (wenn keine gefaellt).
+
+    Nutzt dieselben Referenzen + Distinctive-Traits, schreibt die 5
+    Variant-Dateien komplett neu. Favorit, Showcase-Bilder und Showcase-
+    Pick werden resettet weil die alten Bilder weg sind.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Regenerate-All nur erlaubt, wenn Job bereits 'done' ist.")
+    asyncio.create_task(_run_regenerate_all(job_id))
+
+
+async def _run_regenerate_all(job_id: str) -> None:
+    async with _FUSION_SEMAPHORE:
+        try:
+            await _update_job(
+                job_id,
+                status="running",
+                current_step="step_4_fusion_variants",
+                error=None,
+                favorite_variant=None,
+                showcase_variants=[],
+                showcase_pick=None,
+                showcase_status=None,
+                showcase_error=None,
+            )
+            job = await get_job(job_id)
+            assert job is not None
+            out_dir = PROJECT_ROOT / job["output_dir"]
+            meta_path = out_dir / "_meta.json"
+            if not meta_path.exists():
+                raise RuntimeError("_meta.json fehlt, Regenerate-All nicht moeglich.")
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            pokemon_a = meta["pokemon_a"]
+            pokemon_b = meta["pokemon_b"]
+            distinctive_traits = meta["distinctive_traits"]
+            step2a_out = out_dir / meta["files"]["step_2a"]
+            step2b_out = out_dir / meta["files"]["step_2b"]
+
+            step4_prompt = (
+                prompts.STEP4_FUSION_DESIGN
+                .replace("{POKEMON_A}", pokemon_a)
+                .replace("{POKEMON_B}", pokemon_b)
+                .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)
+            )
+
+            variant_tasks = []
+            variant_paths: list[Path] = []
+            for i in range(1, STEP4_VARIANTS + 1):
+                vpath = out_dir / f"04_fusion_v{i}.png"
+                variant_paths.append(vpath)
+                variant_tasks.append(
+                    aiauto_client.generate_image(
+                        step4_prompt, vpath,
+                        reference_images=[
+                            SIGNATURE_BACKGROUND_PATH, step2a_out, step2b_out,
+                        ],
+                    )
+                )
+            await asyncio.gather(*variant_tasks)
+
+            await _update_job(
+                job_id,
+                status="done",
+                current_step="done",
+                variants=[_relative_to_root(p) for p in variant_paths],
+            )
+        except Exception as exc:  # noqa: BLE001
+            err = f"{type(exc).__name__}: {exc}"
+            await _update_job(job_id, status="error", current_step="error", error=err)
+
+
 CHECKLIST_KEYS = {"step5", "step6a", "step6b", "narration", "editing"}
 
 

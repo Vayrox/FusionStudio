@@ -172,6 +172,15 @@ async def api_regenerate(job_id: str, variant_index: int) -> dict[str, str]:
     return {"status": "queued"}
 
 
+@app.post("/api/jobs/{job_id}/regenerate-all")
+async def api_regenerate_all(job_id: str) -> dict[str, str]:
+    try:
+        await runner.regenerate_all_variants(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
 @app.post("/api/jobs/{job_id}/favorite")
 async def api_set_favorite(job_id: str, req: FavoriteUpdate) -> dict[str, bool]:
     try:

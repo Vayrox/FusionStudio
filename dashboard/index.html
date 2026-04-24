@@ -193,7 +193,18 @@
     padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
 
   /* Thumbnails */
-  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 16px; }
+  .thumbs-header { display: flex; align-items: center; justify-content: flex-end;
+    margin-top: 14px; margin-bottom: -2px; }
+  .btn-regen-all { background: var(--card-hi); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    display: inline-flex; align-items: center; gap: 6px; box-shadow: none; }
+  .btn-regen-all:hover:not(:disabled) { border-color: var(--primary);
+    color: var(--primary-2); background: var(--card-hi); }
+  .btn-regen-all:disabled { opacity: 0.5; cursor: not-allowed; }
+  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
   .thumb { position: relative; background: var(--card); border: 1px solid var(--border);
     border-radius: 12px; aspect-ratio: 9/16; overflow: hidden; cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
@@ -731,7 +742,12 @@ function renderJob(job) {
       <div class="steps-label">step: <span class="active-step">${escapeHtml(activeLabel)}</span></div>
     ` : ''}
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
-    ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ''}
+    ${thumbs ? `
+      ${status === 'done' ? `<div class="thumbs-header">
+        <button class="btn-regen-all" data-job="${job.id}" title="Regenerate all 5 variants (same traits, fresh seeds)">&#8634; Regenerate all 5</button>
+      </div>` : ''}
+      <div class="thumbs">${thumbs}</div>
+    ` : ''}
     ${links.length ? `<div class="links">${links.join('')}</div>` : ''}
     ${status === 'done' ? `<div class="next-steps" data-job="${job.id}"></div>` : ''}
     <div class="meta-row">
@@ -757,6 +773,26 @@ function renderJob(job) {
       }
     });
   });
+
+  const regenAllBtn = $('.btn-regen-all', el);
+  if (regenAllBtn) {
+    regenAllBtn.addEventListener('click', async () => {
+      if (!confirm('Alle 5 Varianten neu generieren?\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.')) return;
+      regenAllBtn.disabled = true;
+      const orig = regenAllBtn.innerHTML;
+      regenAllBtn.innerHTML = '&#8230; queueing';
+      try {
+        await api(`/api/jobs/${job.id}/regenerate-all`, {method: 'POST'});
+        toast('Regenerating all 5 variants');
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        regenAllBtn.disabled = false;
+        regenAllBtn.innerHTML = orig;
+      }
+    });
+  }
 
   $$('.fav', el).forEach(btn => {
     btn.addEventListener('click', async (e) => {
