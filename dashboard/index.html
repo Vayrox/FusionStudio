@@ -217,7 +217,8 @@
   .btn-regen-all:hover:not(:disabled) { border-color: var(--primary);
     color: var(--primary-2); background: var(--card-hi); }
   .btn-regen-all:disabled { opacity: 0.5; cursor: not-allowed; }
-  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  @media (max-width: 680px) { .thumbs { grid-template-columns: repeat(2, 1fr); } }
   .thumb { position: relative; background: var(--card); border: 1px solid var(--border);
     border-radius: 12px; aspect-ratio: 9/16; overflow: hidden; cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
@@ -369,6 +370,15 @@
   .batch-body .fusion-list a:hover::before { color: var(--violet); }
   .batch-body .fusion-list .status { color: var(--dim); font-size: 11px;
     font-weight: 400; text-transform: uppercase; letter-spacing: 0.4px; }
+  .batch-body .fusion-entry { display: flex; align-items: center; gap: 4px; }
+  .batch-body .fusion-entry .f-regen { background: transparent; color: var(--muted);
+    border: 0; cursor: pointer; padding: 3px 8px; border-radius: 6px; font-size: 14px;
+    font-family: inherit; opacity: 0; transition: opacity 0.15s, color 0.15s, background 0.15s;
+    line-height: 1; }
+  .batch-body .fusion-entry:hover .f-regen { opacity: 0.8; }
+  .batch-body .fusion-entry .f-regen:hover { color: var(--primary); opacity: 1;
+    background: rgba(255,107,71,0.08); }
+  .batch-body .fusion-entry .f-regen:disabled { opacity: 0.4; cursor: not-allowed; }
   .job.flash { animation: flash-card 1.2s ease-out; }
   @keyframes flash-card {
     0%, 30% { box-shadow: 0 0 0 2px var(--violet),
@@ -809,15 +819,24 @@ function renderBatch(batch) {
     </div>
   `;
 
-  // Fusions-Liste async nachladen (mit Links zu den einzelnen Job-Cards)
+  // Fusions-Liste async nachladen (mit Links zu den einzelnen Job-Cards + Regen-Icon)
   fusionListPromise.then(jobs => {
     const placeholder = $('.fusion-list', el);
     if (!placeholder) return;
     const lines = jobs
       .filter(j => j)
-      .map(j => `<a href="#job-${escapeAttr(j.id)}" data-job-id="${escapeAttr(j.id)}" title="Zu dieser Fusion springen">${escapeHtml(j.pokemon_a)} &times; ${escapeHtml(j.pokemon_b)} <span class="status">${escapeHtml(j.status || '?')}</span></a>`)
+      .map(j => {
+        const regenBtn = j.status === 'done'
+          ? `<button class="f-regen" data-job-id="${escapeAttr(j.id)}" title="Regenerate all variants for this fusion">&#8634;</button>`
+          : '';
+        return `<div class="fusion-entry">
+          <a href="#job-${escapeAttr(j.id)}" data-job-id="${escapeAttr(j.id)}" title="Zu dieser Fusion springen">${escapeHtml(j.pokemon_a)} &times; ${escapeHtml(j.pokemon_b)} <span class="status">${escapeHtml(j.status || '?')}</span></a>
+          ${regenBtn}
+        </div>`;
+      })
       .join('');
     placeholder.innerHTML = lines || '<span style="color:var(--muted);">(keine Jobs)</span>';
+
     $$('a[data-job-id]', placeholder).forEach(a => {
       a.addEventListener('click', (ev) => {
         ev.preventDefault();
@@ -826,10 +845,29 @@ function renderBatch(batch) {
         if (!target) { toast('Job-Card nicht gefunden', true); return; }
         target.scrollIntoView({behavior: 'smooth', block: 'start'});
         target.classList.remove('flash');
-        // re-trigger animation
         void target.offsetWidth;
         target.classList.add('flash');
         setTimeout(() => target.classList.remove('flash'), 1300);
+      });
+    });
+
+    $$('.f-regen', placeholder).forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const jid = btn.dataset.jobId;
+        const row = btn.closest('.fusion-entry');
+        const label = row ? row.querySelector('a').textContent.trim() : jid;
+        if (!confirm(`Alle Varianten der Fusion "${label}" neu generieren?\n\nBestehende Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt.`)) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/jobs/${jid}/regenerate-all`, {method: 'POST'});
+          toast('Regenerating fusion');
+          await refreshJobs();
+        } catch (err) {
+          toast(err.message, true);
+        } finally {
+          btn.disabled = false;
+        }
       });
     });
   });
@@ -899,7 +937,7 @@ const PIPELINE_STEPS = [
   {key: 'step_2_realistic_singles',  label: 'realistic'},
   {key: 'step_3_start_frame',        label: 'start frame'},
   {key: 'gpt_distinctive_traits',    label: 'traits'},
-  {key: 'step_4_fusion_variants',    label: 'fusion x5'},
+  {key: 'step_4_fusion_variants',    label: 'fusion variants'},
   {key: 'gpt_video_prompts',         label: 'video prompts'},
   {key: 'gpt_narration',             label: 'narration'},
   {key: 'writing_outputs',           label: 'outputs'},
@@ -971,7 +1009,7 @@ function renderJob(job) {
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
     ${thumbs ? `
       ${status === 'done' ? `<div class="thumbs-header">
-        <button class="btn-regen-all" data-job="${job.id}" title="Regenerate all 5 variants (same traits, fresh seeds)">&#8634; Regenerate all 5</button>
+        <button class="btn-regen-all" data-job="${job.id}" title="Regenerate all variants (same traits, fresh seeds)">&#8634; Regenerate all ${(job.variants || []).length || 3}</button>
       </div>` : ''}
       <div class="thumbs">${thumbs}</div>
     ` : ''}
@@ -1004,7 +1042,8 @@ function renderJob(job) {
   const regenAllBtn = $('.btn-regen-all', el);
   if (regenAllBtn) {
     regenAllBtn.addEventListener('click', async () => {
-      if (!confirm('Alle 5 Varianten neu generieren?\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.')) return;
+      const n = (job.variants || []).length || 3;
+      if (!confirm(`Alle ${n} Varianten neu generieren?\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.`)) return;
       regenAllBtn.disabled = true;
       const orig = regenAllBtn.innerHTML;
       regenAllBtn.innerHTML = '&#8230; queueing';

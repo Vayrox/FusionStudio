@@ -44,7 +44,7 @@ PORT = 8765
 # Pipeline-Settings (statisch)
 # ---------------------------------------------------------------------------
 
-STEP4_VARIANTS = 5
+STEP4_VARIANTS = 3
 SHOWCASE_VARIANTS = 4
 DEFAULT_ASPECT_RATIO = "9:16"
 
