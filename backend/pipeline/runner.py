@@ -343,6 +343,57 @@ async def _run_batch_monitor(batch_id: str) -> None:
         await _update_batch(batch_id, status="error", error=err)
 
 
+async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
+    """Rerun failed jobs eines Batches. Erfolgreiche Fusionen bleiben,
+    fuer jeden failed Job wird ein neuer Job-Submit gemacht (gleiche
+    Pokemon / tone_hint / batch_id). batch.job_ids wird aktualisiert,
+    Narration-State resettet, Monitor neu gestartet.
+
+    Gibt (batch_id, new_job_ids) zurueck.
+    """
+    batch = await get_batch(batch_id)
+    if not batch:
+        raise ValueError(f"Batch {batch_id} nicht gefunden")
+
+    old_ids: list[str] = batch.get("job_ids") or []
+    keep_ids: list[str] = []
+    failed_jobs: list[dict[str, Any]] = []
+    for jid in old_ids:
+        j = await get_job(jid)
+        if not j:
+            continue
+        if j.get("status") == "error":
+            failed_jobs.append(j)
+        else:
+            keep_ids.append(jid)
+
+    if not failed_jobs:
+        raise ValueError("Keine fehlgeschlagenen Jobs im Batch - nichts zu rerunnen.")
+
+    new_ids: list[str] = []
+    for j in failed_jobs:
+        new_jid = await submit_fusion(
+            pokemon_a=j.get("pokemon_a", ""),
+            pokemon_b=j.get("pokemon_b", ""),
+            concept=j.get("concept", "") or "",
+            tone_hint=j.get("tone_hint"),
+            batch_id=batch_id,
+        )
+        new_ids.append(new_jid)
+
+    await _update_batch(
+        batch_id,
+        job_ids=keep_ids + new_ids,
+        status="running",
+        error=None,
+        narration_de=None,
+        narration_en=None,
+        narration_path=None,
+    )
+    asyncio.create_task(_run_batch_monitor(batch_id))
+    return batch_id, new_ids
+
+
 async def regenerate_variant(job_id: str, variant_index: int) -> None:
     """Regeneriert EINE Step-4-Variante. Nutzt gleiches Distinctive-Traits."""
     job = await get_job(job_id)

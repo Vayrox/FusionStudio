@@ -856,6 +856,7 @@ function renderBatch(batch) {
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="de">&#128203; Copy DE Narration</button>` : ''}
       ${hasNarration ? `<button class="ns-btn copy" data-batch="${batch.id}" data-lang="en">&#128203; Copy EN Narration</button>` : ''}
       ${batch.narration_path ? `<a class="ns-btn" style="text-decoration:none;" href="/${batch.narration_path}" target="_blank">&#128196; narration.md</a>` : ''}
+      ${(status === 'error' || status === 'done') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
     </div>
   `;
 
@@ -902,6 +903,26 @@ function renderBatch(batch) {
           btn.disabled = false;
         }
       });
+    });
+  });
+
+  // Rerun-Handler (failed Jobs neu starten)
+  $$('.ns-btn.rerun', el).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Alle fehlgeschlagenen Fusionen im Batch neu starten?\n\nErfolgreiche Fusionen bleiben unveraendert. Die gemeinsame Narration wird nach Abschluss neu generiert.')) return;
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '&#8230; queueing';
+      try {
+        const res = await api(`/api/batches/${batch.id}/rerun`, {method: 'POST'});
+        toast(`${(res.new_job_ids || []).length} failed jobs neu gestartet`);
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
     });
   });
 

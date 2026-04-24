@@ -161,6 +161,15 @@ async def api_get_batch(batch_id: str) -> dict[str, Any]:
     return b
 
 
+@app.post("/api/batches/{batch_id}/rerun")
+async def api_rerun_batch(batch_id: str) -> dict[str, Any]:
+    try:
+        bid, new_ids = await runner.rerun_batch(batch_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"batch_id": bid, "new_job_ids": new_ids}
+
+
 # ---------------------------------------------------------------------------
 # API - Jobs
 # ---------------------------------------------------------------------------
