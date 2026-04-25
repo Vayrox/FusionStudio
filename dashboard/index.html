@@ -1120,6 +1120,7 @@ function renderJob(job) {
       <span class="badge ${status}">${status}</span>
       ${job.batch_id ? `<span class="batch-chip" title="Teil eines Compilation-Batches">&#11054; ${escapeHtml(job.batch_id)}</span>` : ''}
       ${(status === 'running' || status === 'queued') ? `<button class="ns-btn stop tiny" data-job-stop="${job.id}" style="margin-left:8px;">&#9632; Stop</button>` : ''}
+      ${(status === 'error' || status === 'cancelled') ? `<button class="ns-btn rerun tiny" data-job-rerun="${job.id}" style="margin-left:8px;">&#8634; Rerun</button>` : ''}
       <span class="id">${escapeHtml(job.id)}</span>
     </div>
     ${job.concept ? `<div class="concept-line">${escapeHtml(job.concept)}</div>` : ''}
@@ -1159,6 +1160,28 @@ function renderJob(job) {
       }
     });
   });
+
+  const rerunBtn = $('button[data-job-rerun]', el);
+  if (rerunBtn) {
+    rerunBtn.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      if (!confirm('Diesen Job neu starten?\n\nEin neuer Pipeline-Run wird gequeued (gleiche Pokemon, gleiche Tone-Hint). Falls Teil eines Batches: Compilation-Narration wird nach Abschluss neu generiert.')) return;
+      rerunBtn.disabled = true;
+      const orig = rerunBtn.innerHTML;
+      rerunBtn.innerHTML = '&#8230;';
+      try {
+        await api(`/api/jobs/${job.id}/rerun`, {method: 'POST'});
+        toast('Job rerun gequeued');
+        if (_modalJobId === job.id) closeJobModal();
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        rerunBtn.disabled = false;
+        rerunBtn.innerHTML = orig;
+      }
+    });
+  }
 
   const stopBtn = $('button[data-job-stop]', el);
   if (stopBtn) {

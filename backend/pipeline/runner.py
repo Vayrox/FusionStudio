@@ -447,6 +447,61 @@ async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
     return batch_id, new_ids
 
 
+async def rerun_job(job_id: str) -> str:
+    """Rerun eines einzelnen Jobs (status=error oder cancelled).
+    Erstellt einen neuen Job mit gleichen Parametern (pokemon_a/b,
+    concept, tone_hint, batch_id). Falls der Job zu einem Batch gehoert,
+    wird seine ID im batch.job_ids durch die neue ersetzt und der
+    Batch-Monitor neu angestossen (Narration + Suno + YT-SEO werden
+    resettet, weil der Compilation-Output nach Abschluss neu generiert
+    werden muss).
+
+    Gibt neue job_id zurueck.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") not in ("error", "cancelled"):
+        raise ValueError(
+            f"Rerun nur fuer Status 'error' oder 'cancelled' moeglich "
+            f"(aktuell: {job.get('status')!r})"
+        )
+
+    new_jid = await submit_fusion(
+        pokemon_a=job.get("pokemon_a", ""),
+        pokemon_b=job.get("pokemon_b", ""),
+        concept=job.get("concept", "") or "",
+        tone_hint=job.get("tone_hint"),
+        batch_id=job.get("batch_id"),
+    )
+
+    batch_id = job.get("batch_id")
+    if batch_id:
+        batch = await get_batch(batch_id)
+        if batch:
+            new_job_ids = [
+                new_jid if jid == job_id else jid
+                for jid in batch.get("job_ids") or []
+            ]
+            await _update_batch(
+                batch_id,
+                job_ids=new_job_ids,
+                status="running",
+                error=None,
+                narration_de=None,
+                narration_en=None,
+                narration_path=None,
+                suno_prompt=None,
+                yt_title=None,
+                yt_description=None,
+            )
+            _register_task(
+                f"batch:{batch_id}",
+                asyncio.create_task(_run_batch_monitor(batch_id)),
+            )
+    return new_jid
+
+
 async def regenerate_variant(job_id: str, variant_index: int) -> None:
     """Regeneriert EINE Step-4-Variante. Nutzt gleiches Distinctive-Traits."""
     job = await get_job(job_id)

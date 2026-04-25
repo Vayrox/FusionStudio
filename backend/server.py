@@ -179,6 +179,15 @@ async def api_cancel_job(job_id: str) -> dict[str, Any]:
     return {"cancelled": cancelled}
 
 
+@app.post("/api/jobs/{job_id}/rerun")
+async def api_rerun_job(job_id: str) -> dict[str, Any]:
+    try:
+        new_jid = await runner.rerun_job(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"new_job_id": new_jid}
+
+
 @app.post("/api/batches/{batch_id}/cancel")
 async def api_cancel_batch(batch_id: str) -> dict[str, Any]:
     try:
