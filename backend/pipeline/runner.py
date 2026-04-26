@@ -324,6 +324,7 @@ async def _run_batch_monitor(batch_id: str) -> None:
                 "distinctive_traits": meta.get("distinctive_traits", ""),
                 "step5_transformation": meta.get("step5_transformation", ""),
                 "step6_showcase": meta.get("step6_showcase", ""),
+                "showcase_image_prompt": meta.get("showcase_image_prompt", ""),
             })
 
         if not fusions_for_narration:
@@ -697,16 +698,18 @@ async def generate_showcase_images(job_id: str) -> None:
     if not meta_path.exists():
         raise RuntimeError("_meta.json fehlt - Job-Output unvollstaendig.")
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    step6_prompt = meta.get("step6_showcase")
-    if not step6_prompt:
-        raise RuntimeError("step6_showcase fehlt in _meta.json")
+    # Bevorzuge den Static-Image-Prompt (gezielt fuer 1 Frame komponiert);
+    # fallback auf step6_showcase fuer Backwards-Compat mit alten Jobs.
+    image_prompt = meta.get("showcase_image_prompt") or meta.get("step6_showcase")
+    if not image_prompt:
+        raise RuntimeError("showcase_image_prompt / step6_showcase fehlt in _meta.json")
     fav_path = out_dir / f"04_fusion_v{fav}.png"
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
     _register_task(
         f"showcase:{job_id}",
-        asyncio.create_task(_run_showcase_generation(job_id, step6_prompt, fav_path)),
+        asyncio.create_task(_run_showcase_generation(job_id, image_prompt, fav_path)),
     )
 
 
@@ -903,6 +906,13 @@ async def _pipeline(job_id: str) -> None:
     )
     step5_text, step6_text = await asyncio.gather(step5_task, step6_task)
 
+    # Showcase-Image-Prompt (statisches Power-Pose Frame fuer Kling Elements
+    # @image2 / Flow Blueprint). Kondensiert step6 zu einem Frame.
+    await _update_job(job_id, current_step="gpt_showcase_image_prompt")
+    showcase_image_prompt = await openai_client.generate_showcase_image_prompt(
+        pokemon_a, pokemon_b, concept, distinctive_traits, step6_text,
+    )
+
     # Einzelne Narration ueberspringen, wenn Teil eines Batches -
     # der Batch-Monitor generiert spaeter die gemeinsame Narration + Suno + YT SEO.
     is_batch_member = bool(job.get("batch_id"))
@@ -945,6 +955,7 @@ async def _pipeline(job_id: str) -> None:
         "distinctive_traits": distinctive_traits,
         "step5_transformation": step5_text,
         "step6_showcase": step6_text,
+        "showcase_image_prompt": showcase_image_prompt,
         "narration_de": narration_de,
         "narration_en": narration_en,
         "suno_prompt": suno_prompt,
@@ -970,6 +981,7 @@ async def _pipeline(job_id: str) -> None:
         distinctive_traits=distinctive_traits,
         step5=step5_text,
         step6=step6_text,
+        showcase_image_prompt=showcase_image_prompt,
     )
     if not is_batch_member:
         _write_narration_md(
@@ -1049,6 +1061,7 @@ def _write_video_prompts_md(
     distinctive_traits: str,
     step5: str,
     step6: str,
+    showcase_image_prompt: str = "",
 ) -> None:
     # Step 6B Kling Elements - prepend + append magic instructions
     step6b_wrapped = (
@@ -1103,19 +1116,33 @@ if yes, paste the prompt, set 16:9, and render. You get a 10s clip with
 
 ---
 
+## Step 7 - Showcase Image Prompt (static blueprint frame)
+
+If Seedance is unavailable or rejects the design, you need a static
+'shot director' image for Kling Elements. The Dashboard's
+'Generate Showcase' button uses this prompt automatically (4 variants
+in 16:9). You can also paste it manually into Flow or any other image
+model that takes the favorite fusion variant as reference.
+
+```
+{showcase_image_prompt}
+```
+
+---
+
 ## Step 6B - Showcase Fallback (Flow -> Kling Elements)
 
 Only needed if Seedance rejects the design. Two-stage workflow:
 
-1. In **Flow**: paste the Step-6 showcase prompt and add your chosen
-   fusion variant as reference. Set aspect ratio to 16:9. Flow returns
-   a static composition image (a visual blueprint of all 5 cuts stacked
-   into one frame). Save it as `blueprint.png`.
+1. Get a blueprint image - either via the Dashboard 'Generate Showcase'
+   button (uses Step-7 prompt above), or in **Flow** by pasting the
+   Step-6 showcase prompt with your favorite fusion variant as reference,
+   16:9. Save as `blueprint.png`.
 
 2. In **Kling 3.0 Omni**, switch to **ELEMENTS mode (NOT Images)** and
    upload three elements:
    - `@image1` = `04_fusion_vX.png`       (your favorite variant - locks DESIGN)
-   - `@image2` = `blueprint.png`          (shot director from Flow)
+   - `@image2` = `blueprint.png`          (shot director from Flow / Step 7)
    - `@image3` = `03_start_frame.png`     (background consistency)
 
    Paste the wrapped prompt below (already has the `@image1..3` magic

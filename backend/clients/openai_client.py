@@ -209,6 +209,32 @@ async def generate_step6_showcase(
     )
 
 
+async def generate_showcase_image_prompt(
+    pokemon_a: str,
+    pokemon_b: str,
+    concept: str,
+    distinctive_traits: str,
+    step6_video_prompt: str,
+) -> str:
+    """Generiert einen Static-Image-Prompt fuer ein 16:9 Showcase-Bild
+    (Kling Elements @image2 / Flow Blueprint). Kondensiert den 5-Cut-
+    Video-Prompt auf den entscheidenden Power-Moment in einem Frame.
+    """
+    user = prompts.GPT_SHOWCASE_IMAGE_USER_TEMPLATE.format(
+        POKEMON_A=pokemon_a,
+        POKEMON_B=pokemon_b,
+        CONCEPT=concept,
+        DISTINCTIVE_TRAITS=distinctive_traits,
+        STEP6_VIDEO_PROMPT=step6_video_prompt,
+    )
+    return await _chat(
+        prompts.GPT_SHOWCASE_IMAGE_SYSTEM,
+        user,
+        temperature=0.85,
+        max_tokens=900,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Narration (DE + EN)
 # ---------------------------------------------------------------------------

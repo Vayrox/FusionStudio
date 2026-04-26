@@ -215,38 +215,91 @@ Output format (a single prose block, but with inline cut markers):
 [CUT 5 - FINALE] ..."
 
 Cut specifications:
-- CUT 1 - MACRO DETAIL: extreme close-up of the creature's signature feature (eye, fang, horn, mark). Slow orbit or push-in.
-- CUT 2 - POWER DEMO: primary ability preview. Name the ability in ALL CAPS. Specify which body part channels it, energy color, and camera move. Show the creature MOVING - not just standing. If it is fast/aerial, it flies across the frame during the demo. If heavy, it slams the ground. If energy-based, its ability arcs through the environment.
-- CUT 3 - TEXTURE SHOWCASE: ultra-macro of body texture (scales, fur, crystal, slime). Camera tracks across the surface.
-- CUT 4 - MAJOR ABILITY: wide shot, environmental effect (shockwave, eruption, tidal surge, gravity well). Name the ability in ALL CAPS. The creature must INTERACT with the environment: the floor cracks / scorches / ices over; walls shake; dust or smoke rises; the light-ring dims or flares; debris kicks up; visible sound-ripples or heat-distortion propagate outward.
-- CUT 5 - FINALE: climactic signature move. Freeze at peak, slow push-in on the creature's face. Name the move in ALL CAPS. The environment should still show the aftermath from CUT 4 (scorch marks, cracks, settling dust).
+- CUT 1 - MACRO DETAIL: extreme close-up of the creature's signature feature (eye, fang, horn, blade-tip, mouth opening with light leaking out). Slow orbit or push-in. Pre-action tension.
+- CUT 2 - POWER DEMO: primary ability preview. Name the ability in ALL CAPS. Specify which body part channels it (palm, mouth, eyes, blade, claws), the EXACT energy color and texture (violet psychic arcs, orange flame coil, white light beam, black-purple shadow tendrils), and a SPECIFIC camera move. The creature MOVES during this cut - not a static pose. Fast/aerial: streaks across the frame with motion blur. Brute: stomps forward and slams the floor. Energy: arcs visibly from body part to a target point in the environment.
+- CUT 3 - TEXTURE SHOWCASE: ultra-macro of body texture (scales, fur, crystal, slime, armor seams). Camera tracks slowly across the surface revealing micro-details. Often a moment of stillness between two action beats.
+- CUT 4 - MAJOR ABILITY (centerpiece): wide shot of the full creature unleashing its strongest move. Name the ability in ALL CAPS. The ability must EMANATE from a SPECIFIC body part and visibly IMPACT the environment in a CONCRETE way - not a generic VFX cloud. Examples: a fire jet from the jaws scorches the floor in a wave-line of flame; a shockwave from a foot-stomp cracks the Pokeball platform; a beam from the third eye carves a glowing geometric cage in mid-air; psychic sigils burn into the floor and spectral hands emerge from them; a phoenix made of flame is held in the palm and EXPLODES outward. Camera: wide low-angle dolly, crane down, or slow pull-back so the full studio reaction is visible.
+- CUT 5 - FINALE: climactic signature move with the AFTERMATH of CUT 4 still visible (scorch marks remain, cracks lit by residual glow, sigils fade, smoke curls, debris settles). Freeze at peak, slow push-in on the creature's face. Name the move in ALL CAPS. The creature locks eyes with the camera.
 
 ARCHETYPE-BASED MOTION + ENVIRONMENT INTERACTION (critical):
 
 The creature must move through the studio space according to its archetype. At least TWO of the five cuts must feature the creature moving or the environment responding - not just close-ups of anatomy.
 
-- Fast / supersonic / aerial creature: at least one cut is an ultra-high-speed tracking shot as the creature RUSHES or FLIES across the studio. Motion blur streaks, air displacement ripples visible against the walls, whip-pan camera, the creature enters frame, blurs past, and lands in another position. If winged, it hovers / banks / dives around the studio space.
-- Heavy / massive / brute creature: the creature STOMPS forward, the floor visibly CRACKS beneath each step, the circular light-ring segments shake or dim on impact, debris puffs upward. Shockwaves ripple outward from its feet.
-- Energy / projectile / fire / ice / psychic creature: its abilities visibly IMPACT the environment - scorch marks burn into the floor, crystal spikes grow from the walls, the air shimmers with heat or cold, light fixtures flare. Residual damage lingers between cuts.
-- Eerie / shadow / void creature: shadows CREEP up the walls around it, the light dims in its presence, the floor darkens in its wake.
-- Aquatic / venomous / toxic creature: puddles pool around it, steam rises, the floor slick-shimmers with residue, droplets cling to surfaces.
+- Fast / supersonic / aerial creature: at least one cut is an ultra-high-speed tracking shot as the creature RUSHES or FLIES across the studio. Motion blur streaks, air displacement ripples visible against the walls, whip-pan camera, the creature enters frame, blurs past, and lands in another position. Rear-trail of fractured floor or shockwave-rings under the flight path. If winged, it hovers / banks / dives around the studio space.
+- Heavy / massive / brute creature: the creature STOMPS forward, the floor visibly CRACKS beneath each step, the circular light-ring segments shake or dim on impact, debris puffs upward. Shockwaves ripple outward from its feet across the floor.
+- Energy / projectile / fire / ice / psychic creature: its abilities visibly IMPACT the environment - scorch marks burn into the floor, crystal spikes grow from the walls, flame waves spread across the ground, geometric cages of light materialize in mid-air, sigils burn into the platform with summons rising from them. Residual damage PERSISTS between cuts.
+- Eerie / shadow / void creature: shadows CREEP up the walls around it, the light dims in its presence, the floor darkens in its wake, ghostly hands or spectral figures emerge from the ground around it.
+- Aquatic / venomous / toxic creature: puddles pool around it as it moves, steam rises, the floor slick-shimmers with residue, droplets cling to surfaces, leaving a trail when it dashes.
 
-Mix close-up AND wide/tracking shots. The viewer should see the creature USING the studio space - walking, flying, charging across, impacting the floor - not just floating as static anatomy.
+Mix close-up AND wide/tracking shots. The viewer should see the creature USING the studio space - walking, flying, charging across, impacting the floor - not just floating as static anatomy. The environment in CUT 5 must show damage/residue from CUT 4 - continuity is mandatory.
 
 Hard rules:
 - Keep the intro paragraph and the 5 cut blocks as shown above.
-- ALL ability / move names in ALL CAPS.
-- Each cut must specify a SPECIFIC camera move (push-in, pull-out, orbit, dolly, crane, whip-pan, rack-focus, tracking shot).
+- ALL ability / move names in ALL CAPS, with the body part of origin and the specific visual effect.
+- Each cut must specify a SPECIFIC camera move (push-in, pull-out, orbit, dolly, crane, whip-pan, rack-focus, tracking shot, low-angle hero shot).
 - At least TWO cuts feature the creature in motion or the environment responding to it.
-- Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location, do NOT describe a studio, do NOT change the environment. Phrase it as 'same background as the reference' whenever the setting is referenced.
+- CUT 4 environmental damage MUST be visible in CUT 5 (scorch marks, cracks, sigils, debris, smoke).
+- Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location. Do NOT describe a studio. Phrase it as 'same background as the reference' whenever the setting is referenced.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
-- Keep the output compact - aim for 300 to 500 words total."""
+- Keep the output compact - aim for 350 to 550 words total."""
 
 GPT_STEP6_SHOWCASE_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
 Distinctive Traits: {DISTINCTIVE_TRAITS}
 
 Write the Step 6 Showcase Prompt."""
+
+
+# ---------------------------------------------------------------------------
+# Static Showcase Image Prompt (for Kling Elements @image2 / Flow blueprint)
+# ---------------------------------------------------------------------------
+
+GPT_SHOWCASE_IMAGE_SYSTEM = """You are writing an image-generation prompt that captures the cinematic showcase of a Pokemon fusion in ONE static frame. This image will be used as the 'shot director' (@image2) reference for Kling Elements video generation, OR as a standalone power-pose key art shot.
+
+The image must show the creature mid-action, demonstrating its signature ability, with clear environmental interaction. Photorealistic, NOT illustration.
+
+Output ONE continuous paragraph, 200-350 words.
+
+Required elements:
+
+1. CREATURE - the fusion in a SPECIFIC mid-action pose (mid-strike, mid-roar, mid-cast, mid-dive, mid-stomp). Concrete anatomy: horns, fangs, scales, wings, claws, blade, mark, eye color. Aggressive musculature, dynamic line of action - NOT a neutral standing stance.
+
+2. SIGNATURE ABILITY - what is the creature DOING right now? Name it in ALL CAPS. The ability must EMANATE from a specific body part with a specific energy color and texture. Examples that work well:
+   - "fire ERUPTS from the open jaws as a wave of flame across the floor"
+   - "psychic energy ARCS from a raised palm into a geometric cage of violet light"
+   - "shadow tendrils CRAWL up its legs from sigils burned into the floor, rising into ghostly hands"
+   - "a fire phoenix made of orange-gold flame is HELD in the open palm, wings spread"
+   - "supersonic shockwave-rings RIPPLE outward from its body as it hovers mid-air"
+   - "twin flaming blades CROSSED in front of its chest, dripping shadow"
+
+3. ENVIRONMENT IMPACT (mandatory) - the floor / platform / studio shows the ability's IMPACT in this exact moment: scorch marks burning across the floor, flame waves spreading outward, geometric light-cages materializing, sigils burning with light, ghostly hands rising from the ground, cracks radiating from a stomp point, glowing puddles of toxic residue, frost crystals growing across the platform, sound-distortion ripples bending the air. Continuity matters: pick ONE clear effect that fits the ability.
+
+4. CAMERA - low-angle hero shot OR three-quarter cinematic angle OR aggressive push-in. Mention focal-length feel (wide / medium / close).
+
+5. RENDER STYLE - end with: 'Photorealistic 3D-sculpted render matching the references - physically-based materials, sharp micro-detail, studio-quality lighting, contact shadows on the floor, photographic depth of field. NOT a stylized illustration, NOT 2D digital painting.'
+
+Hard rules:
+- ONE continuous paragraph, no headings.
+- 200 to 350 words.
+- Background IDENTICAL to the reference image (do not invent a new environment, do not describe a studio).
+- ALL CAPS for the ability name.
+- The image must show a POWER MOMENT, not a neutral pose.
+- Environmental impact in this exact frame is mandatory.
+- 16:9 aspect ratio is implicit (do not write '16:9' inside the prompt - that is set externally).
+- No meta commentary, no 'Step 6', no 'Step 7', no 'shot director'. Pure scene description."""
+
+
+GPT_SHOWCASE_IMAGE_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
+Concept hook: {CONCEPT}
+Distinctive Traits: {DISTINCTIVE_TRAITS}
+
+For ability + visual reference, here is the existing showcase video prompt
+(use it to identify the signature ability + body-part emanation, but
+condense to ONE static frame - pick the most striking moment):
+
+{STEP6_VIDEO_PROMPT}
+
+Write the static showcase image prompt as one continuous paragraph."""
 
 
 # ---------------------------------------------------------------------------
