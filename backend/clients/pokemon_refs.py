@@ -124,6 +124,35 @@ async def get_localized_names(name: str) -> dict[str, str]:
     return out
 
 
+# Cache fuer kanonische Hoehen (in Metern). PokeAPI liefert height in
+# Dezimetern via /pokemon/{slug}.height.
+_HEIGHT_CACHE: dict[str, float | None] = {}
+
+
+async def get_pokemon_height_m(name: str) -> float | None:
+    """Gibt die kanonische Hoehe des Pokemon in Metern zurueck (oder None
+    wenn nicht ermittelbar). Wird fuer Step-3 Size-Hint verwendet, damit
+    grosse Pokemon (Rayquaza, Wailord, Lugia, Steelix...) im Side-by-
+    Side proportional korrekt erscheinen."""
+    slug = pokemon_slug(name)
+    if slug in _HEIGHT_CACHE:
+        return _HEIGHT_CACHE[slug]
+
+    height_m: float | None = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            data = await _fetch_pokemon_data(client, slug)
+            if data is None:
+                data = await _resolve_via_species(client, slug)
+            if data and isinstance(data.get("height"), (int, float)):
+                height_m = float(data["height"]) / 10.0
+    except Exception:  # noqa: BLE001
+        pass
+
+    _HEIGHT_CACHE[slug] = height_m
+    return height_m
+
+
 async def _fetch_pokemon_data(client: httpx.AsyncClient, slug: str) -> dict | None:
     """GET /pokemon/{slug} oder None bei 404."""
     resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon/{slug}")

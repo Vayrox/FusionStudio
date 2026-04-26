@@ -851,17 +851,45 @@ async def _pipeline(job_id: str) -> None:
     out_dir = _make_output_dir(pokemon_a, pokemon_b)
     await _update_job(job_id, output_dir=_relative_to_root(out_dir))
 
-    # 1) PokeAPI-Refs laden (parallel) + deutsche Namen
+    # 1) PokeAPI-Refs laden (parallel) + deutsche Namen + Hoehen fuer Size-Hint
     await _update_job(job_id, current_step="pokeapi_refs")
     ref_a_task = asyncio.create_task(pokemon_refs.fetch_official_artwork(pokemon_a))
     ref_b_task = asyncio.create_task(pokemon_refs.fetch_official_artwork(pokemon_b))
     names_a_task = asyncio.create_task(pokemon_refs.get_localized_names(pokemon_a))
     names_b_task = asyncio.create_task(pokemon_refs.get_localized_names(pokemon_b))
-    ref_a_path, ref_b_path, names_a, names_b = await asyncio.gather(
-        ref_a_task, ref_b_task, names_a_task, names_b_task
+    height_a_task = asyncio.create_task(pokemon_refs.get_pokemon_height_m(pokemon_a))
+    height_b_task = asyncio.create_task(pokemon_refs.get_pokemon_height_m(pokemon_b))
+    (
+        ref_a_path, ref_b_path,
+        names_a, names_b,
+        height_a, height_b,
+    ) = await asyncio.gather(
+        ref_a_task, ref_b_task,
+        names_a_task, names_b_task,
+        height_a_task, height_b_task,
     )
     pokemon_a_de = names_a.get("de", pokemon_a)
     pokemon_b_de = names_b.get("de", pokemon_b)
+
+    # Size-Hint fuer Step 3 berechnen - Pokemon-Groessen koennen sehr stark
+    # variieren (Rayquaza 7m vs Joltik 0.1m); ohne Hinweis rendert AI-Auto sie
+    # gleich gross. Wenn ratio >= 1.5x, expliziten Hint geben.
+    size_hint = "Maintain canonical body-size proportions between both Pokemon."
+    if height_a and height_b and height_a > 0 and height_b > 0:
+        ratio = max(height_a, height_b) / min(height_a, height_b)
+        if ratio >= 1.5:
+            if height_a >= height_b:
+                bigger, smaller = pokemon_a, pokemon_b
+                bigger_h, smaller_h = height_a, height_b
+            else:
+                bigger, smaller = pokemon_b, pokemon_a
+                bigger_h, smaller_h = height_b, height_a
+            size_hint = (
+                f"Important: {bigger} is canonically much larger than {smaller} "
+                f"({bigger}: ~{bigger_h:.1f}m tall, {smaller}: ~{smaller_h:.1f}m tall, "
+                f"a {ratio:.1f}x size difference). This proportion MUST be visible "
+                f"in the frame - {bigger} towers over {smaller}."
+            )
 
     # 2A + 2B) Realistic Singles - parallel (Semaphore drosselt)
     await _update_job(job_id, current_step="step_2_realistic_singles")
@@ -886,8 +914,9 @@ async def _pipeline(job_id: str) -> None:
     # 3) Start Frame - referenzen: signature background (=ref1), 2A, 2B
     await _update_job(job_id, current_step="step_3_start_frame")
     step3_out = out_dir / "03_start_frame.png"
+    step3_prompt = prompts.STEP3_START_FRAME.replace("{SIZE_HINT}", size_hint).strip()
     await aiauto_client.generate_image(
-        prompts.STEP3_START_FRAME,
+        step3_prompt,
         step3_out,
         reference_images=[SIGNATURE_BACKGROUND_PATH, step2a_out, step2b_out],
     )

@@ -47,7 +47,7 @@ STEP2_REALISTIC_SINGLE = (
 STEP3_START_FRAME = (
     "I want the two Pokemon in a neutral, relaxed pose, side by side, slightly "
     "turned toward each other - but not in profile to the camera - in a background "
-    "identical to reference 1. Combat stance for both."
+    "identical to reference 1. Combat stance for both. {SIZE_HINT}"
 )
 
 # ---------------------------------------------------------------------------
