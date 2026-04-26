@@ -69,6 +69,17 @@ STEP4_FUSION_DESIGN = (
     "HARD CONSTRAINT: it must be a COMPLETELY NEW Pokemon, barely traceable to the "
     "two original Pokemon. Keep the Pokemon style, NOT DIGIMON - so a simple creature "
     "but with a striking design.\n\n"
+    "UNIQUE-DESIGN CONSTRAINT (critical): The fusion must have a COMPLETELY NEW "
+    "color palette and texture set - NOT the colors, markings, or surface details "
+    "of {POKEMON_A} or {POKEMON_B}. Inherit ONLY the general silhouette / body-shape "
+    "outline (e.g. dragon-shape, bipedal humanoid, quadruped predator, fish-shape). "
+    "Do NOT copy the originals' color schemes. Examples of correct treatment: "
+    "'Latios + Latias (originals red/white/blue) -> a metallic-violet supersonic "
+    "dragon hybrid with crimson energy veins (no red, no white, no blue)'; "
+    "'Charizard + Magikarp (originals orange/cream) -> a charred bronze-armored "
+    "fish-dragon abomination with molten cracks (no bright orange, no cream)'. "
+    "The viewer should sense the silhouette comes from a fusion, but should NEVER "
+    "recognize the originals from colors, markings, or signature details.\n\n"
     "RENDER STYLE (critical): Match the EXACT photorealistic 3D-sculpted look of "
     "references 2 and 3 - physically-based materials with tangible skin, scale, fur "
     "and claw textures; studio-quality lighting; sharp micro-details; photographic "
@@ -132,6 +143,7 @@ Your output is read by an image model. Be concrete, visual, sensory.
 Hard rules:
 - 2 to 4 sentences only.
 - Mention the TYPE fusion explicitly (e.g. "bizarre and grotesque water-fire type").
+- Specify a CONCRETE NEW color palette + texture that is DIFFERENT from the original Pokemon's colors. NEVER inherit the originals' colors verbatim. If the originals are e.g. orange and red, choose a totally different palette like "metallic violet with crimson veins" or "obsidian black with gold-leaf accents" or "bronze-armored with molten cracks". The fusion is NOT a Frankenstein - it's a creature that only borrows silhouette, not surface details.
 - Emotional tone: one of grotesque / majestic / tragic / eerie / unsettling / awe-inspiring. Pick what fits.
 - Optionally mention disproportionate parts, unnatural anatomy, or a specific anomaly.
 - ALWAYS end with a camera-orientation instruction that shows the creature FACING the camera. Pick ONE of:
@@ -300,6 +312,55 @@ condense to ONE static frame - pick the most striking moment):
 {STEP6_VIDEO_PROMPT}
 
 Write the static showcase image prompt as one continuous paragraph."""
+
+
+# ---------------------------------------------------------------------------
+# Action Scene Prompt (extra Seedance scene focused on movement / speed)
+# ---------------------------------------------------------------------------
+
+GPT_ACTION_SCENE_SYSTEM = """You are writing an EXTRA Seedance / Higgsfield video prompt for a Pokemon fusion - focused on PURE DYNAMIC MOTION through the studio space, NOT ability demonstrations.
+
+This is a complementary clip to the standard 5-cut showcase. The goal: show the creature in action - flying, dashing, charging, pouncing - with ultra-high-speed tracking shots that emphasize speed, agility, and the creature's relationship with the room. The viewer feels the velocity.
+
+Output ONE continuous paragraph, 200-350 words.
+
+Required elements:
+
+1. CREATURE - describe the fusion concretely WITHOUT naming the original Pokemon. Use phrases like 'the supersonic purple-dragon hybrid', 'the venomous raptor predator', 'the spectral shadow knight', 'the molten fish-dragon abomination'. Concrete anatomy: silhouette, color palette, distinguishing texture or feature.
+
+2. ARCHETYPE-MATCHED MOVEMENT - what kind of motion? Pick from the creature's traits:
+   - Aerial / supersonic / winged: full-speed flight across the studio, banking turns, diving, breaking the sound barrier with visible shockwave-rings, near-misses with the floor
+   - Brute / heavy: explosive charges with floor cracks, slams, debris flying, kicking up dust trails
+   - Predator / agile: frantic pounce-and-dash sequences, prowling, pivoting, blurred limbs
+   - Energy / phantom / void: teleporting trails, streak afterimages, light-arcs marking its path
+   - Aquatic / serpentine: sinuous gliding through the air or floor, leaving a wet residue trail
+
+3. CAMERA AS PART OF THE ACTION - dynamic camera work is mandatory: ultra-high-speed tracking shots that follow the creature, whip-pans as it blurs past the lens, zoom rack-focuses, low-angle dolly tracking, handheld shake during impact moments, close-up tracking of an eye / claw / wing-tip while the room blurs past behind it. Mix close-ups (face, claws, wing-edges) with wide tracking shots showing the creature blasting through the studio space.
+
+4. ENVIRONMENTAL RESPONSE - the studio reacts to the speed: air-displacement ripples bending the light, dust trails curling behind the creature, shockwave-rings on the floor where it lands or pivots, light fixtures shaking, reverberation, residual streak-trails of color marking its path. The room is alive with the velocity.
+
+5. PACING - 10 seconds total. NOT 5 cuts of static action - instead 3-5 fluid motion beats where each beat is mostly tracking shots, not static framing.
+
+End with technical summary: 'Ultra-detailed 4K rendering, dynamic motion blur, air-displacement ripples, volumetric haze, photographic depth of field, aggressive cinematic camera work throughout.'
+
+Hard rules:
+- NEVER name the original Pokemon (no 'Latios', no 'Charizard'). Use descriptive phrasing only.
+- ALL CAPS movement verbs throughout: BLASTS, STREAKS, BANKS, DIVES, RUSHES, PIVOTS, LAUNCHES, SLAMS, WHIRLS, RIPS, TEARS, CARVES.
+- 200 to 350 words single paragraph. No headings, no bullet points.
+- Background IDENTICAL to the reference image (the studio space).
+- Photorealistic 3D-render style enforced.
+- No meta commentary, no 'Seedance', no 'showcase'. Pure scene description."""
+
+GPT_ACTION_SCENE_USER_TEMPLATE = """Generate the extra action-scene prompt for this fusion - pure dynamic motion through the studio, not ability demonstration.
+
+Fusion (don't name the originals in the output): {POKEMON_A} + {POKEMON_B}
+Concept hook: {CONCEPT}
+Distinctive Traits: {DISTINCTIVE_TRAITS}
+
+For design + archetype reference, the existing Step 6 showcase prompt:
+{STEP6_VIDEO_PROMPT}
+
+Write the action-scene prompt (200-350 words, single paragraph). Do NOT name {POKEMON_A} or {POKEMON_B} in the output - describe the creature only by its silhouette + traits."""
 
 
 # ---------------------------------------------------------------------------

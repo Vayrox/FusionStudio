@@ -1375,6 +1375,7 @@ function _renderNextStepsContent(container, job, meta) {
     const sunoPrompt = meta.suno_prompt || '';
     const ytTitle = meta.yt_title || '';
     const ytDescription = meta.yt_description || '';
+    const actionScenePrompt = meta.action_scene_prompt || job.action_scene_prompt || '';
 
     const variantFile = fav ? `04_fusion_v${fav}.png` : null;
     const favHint = fav
@@ -1415,6 +1416,22 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Prompt fuer Flow', text: step6},
           {label: '&#128203; Prompt fuer Kling Elements (wrapped)', text: step6bText},
           {label: '&#127912; Generate Showcase (AI-Auto)', action: 'generate_showcase'},
+        ],
+      },
+      actionScenePrompt ? {
+        key: 'action_scene',
+        title: 'Action Scene (Seedance &mdash; pure motion / high-speed tracking)',
+        hint: 'Komplementaerer Clip: zeigt das Wesen IN BEWEGUNG durch das Studio (banking, diving, dashing) mit ultra-high-speed Tracking-Shots &mdash; statt Ability-Demos. Pokemon-Namen sind im Prompt nicht enthalten.',
+        copies: [
+          {label: '&#128203; Copy Action Scene Prompt', text: actionScenePrompt},
+          {label: '&#127909; Regenerate Action Scene', action: 'generate_action_scene'},
+        ],
+      } : {
+        key: 'action_scene',
+        title: 'Action Scene (Seedance &mdash; pure motion / high-speed tracking)',
+        hint: 'On-demand: zusaetzlicher Seedance-Clip-Prompt fuer dynamische Bewegung durchs Studio (statt Ability-Demos). Klick generiert ihn.',
+        copies: [
+          {label: '&#127909; Generate Action Scene', action: 'generate_action_scene'},
         ],
       },
       (narrationDe && narrationEn) ? {
@@ -1534,14 +1551,23 @@ function _renderNextStepsContent(container, job, meta) {
     $$('.ns-btn.action', container).forEach(btn => {
       btn.addEventListener('click', async () => {
         const action = btn.dataset.action;
-        if (action !== 'generate_showcase') return;
         btn.disabled = true;
         const orig = btn.innerHTML;
-        btn.innerHTML = '&#8230; queueing';
+        btn.innerHTML = '&#8230; working';
         try {
-          await api(`/api/jobs/${job.id}/generate-showcase`, {method: 'POST'});
-          toast('Showcase generation queued (4x 16:9)');
-          await refreshJobs();
+          if (action === 'generate_showcase') {
+            await api(`/api/jobs/${job.id}/generate-showcase`, {method: 'POST'});
+            toast('Showcase generation queued (4x 16:9)');
+            await refreshJobs();
+          } else if (action === 'generate_action_scene') {
+            const res = await api(`/api/jobs/${job.id}/generate-action-scene`, {method: 'POST'});
+            // Drop new prompt into the metaCache for instant render
+            const cached = _metaCache.get(job.id) || {};
+            cached.action_scene_prompt = res.prompt || '';
+            _metaCache.set(job.id, cached);
+            toast('Action Scene Prompt generated');
+            await refreshJobs();
+          }
         } catch (err) {
           toast(err.message, true);
         } finally {

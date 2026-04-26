@@ -779,6 +779,44 @@ async def _run_showcase_generation(
         await _update_job(job_id, showcase_status="error", showcase_error=err)
 
 
+async def generate_action_scene(job_id: str) -> str:
+    """Generiert einen Action-Scene-Prompt (pure motion / high-speed tracking
+    fuer Seedance) fuer einen abgeschlossenen Job. On-demand, nicht in der
+    Hauptpipeline. Speichert das Ergebnis in meta.action_scene_prompt und
+    gibt den Prompt zurueck.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Action-Scene nur fuer abgeschlossene Jobs.")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    concept = meta.get("concept", "") or ""
+    traits = meta.get("distinctive_traits", "")
+    step6 = meta.get("step6_showcase", "")
+    if not traits or not step6:
+        raise RuntimeError("distinctive_traits oder step6_showcase fehlt.")
+
+    prompt = await openai_client.generate_action_scene_prompt(
+        pokemon_a, pokemon_b, concept, traits, step6,
+    )
+
+    # Persist in meta.json
+    meta["action_scene_prompt"] = prompt
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    await _update_job(job_id, action_scene_prompt=prompt)
+    return prompt
+
+
 async def set_showcase_pick(job_id: str, variant: int | None) -> None:
     job = await get_job(job_id)
     if not job:

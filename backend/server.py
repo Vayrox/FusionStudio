@@ -282,6 +282,15 @@ async def api_showcase_pick(job_id: str, req: FavoriteUpdate) -> dict[str, bool]
     return {"ok": True}
 
 
+@app.post("/api/jobs/{job_id}/generate-action-scene")
+async def api_generate_action_scene(job_id: str) -> dict[str, str]:
+    try:
+        prompt = await runner.generate_action_scene(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prompt": prompt}
+
+
 # ---------------------------------------------------------------------------
 # Static mounts + Dashboard
 # ---------------------------------------------------------------------------

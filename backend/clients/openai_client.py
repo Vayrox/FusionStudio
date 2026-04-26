@@ -235,6 +235,32 @@ async def generate_showcase_image_prompt(
     )
 
 
+async def generate_action_scene_prompt(
+    pokemon_a: str,
+    pokemon_b: str,
+    concept: str,
+    distinctive_traits: str,
+    step6_video_prompt: str,
+) -> str:
+    """Generiert einen Action-Scene Seedance-Prompt fokussiert auf reine
+    Bewegung durch den Raum (ultra-high-speed tracking, motion blur).
+    Komplementaer zum Standard-5-Cut-Showcase. Pokemon-Namen werden im
+    Output NICHT verwendet - nur Silhouette + Traits."""
+    user = prompts.GPT_ACTION_SCENE_USER_TEMPLATE.format(
+        POKEMON_A=pokemon_a,
+        POKEMON_B=pokemon_b,
+        CONCEPT=concept,
+        DISTINCTIVE_TRAITS=distinctive_traits,
+        STEP6_VIDEO_PROMPT=step6_video_prompt,
+    )
+    return await _chat(
+        prompts.GPT_ACTION_SCENE_SYSTEM,
+        user,
+        temperature=0.9,
+        max_tokens=900,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Narration (DE + EN)
 # ---------------------------------------------------------------------------
