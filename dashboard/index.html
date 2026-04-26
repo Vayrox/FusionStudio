@@ -1420,16 +1420,16 @@ function _renderNextStepsContent(container, job, meta) {
       },
       actionScenePrompt ? {
         key: 'action_scene',
-        title: 'Action Scene (Seedance &mdash; pure motion / high-speed tracking)',
-        hint: 'Komplementaerer Clip: zeigt das Wesen IN BEWEGUNG durch das Studio (banking, diving, dashing) mit ultra-high-speed Tracking-Shots &mdash; statt Ability-Demos. Pokemon-Namen sind im Prompt nicht enthalten.',
+        title: 'Action Scene (Seedance &mdash; signature performance)',
+        hint: 'Komplementaerer Clip basierend auf den Distinctive Traits: Flieger -> Hochgeschwindigkeitsflug + Sound-Barrier; Klingen-Kaempfer -> Blade-Combat + Schatten-Duell; Predator -> Hetzjagd + toxic trails; Brute -> Smash-Down + Wand-Risse. Pokemon-Namen sind im Prompt nicht enthalten.',
         copies: [
           {label: '&#128203; Copy Action Scene Prompt', text: actionScenePrompt},
           {label: '&#127909; Regenerate Action Scene', action: 'generate_action_scene'},
         ],
       } : {
         key: 'action_scene',
-        title: 'Action Scene (Seedance &mdash; pure motion / high-speed tracking)',
-        hint: 'On-demand: zusaetzlicher Seedance-Clip-Prompt fuer dynamische Bewegung durchs Studio (statt Ability-Demos). Klick generiert ihn.',
+        title: 'Action Scene (Seedance &mdash; signature performance)',
+        hint: 'On-demand: zusaetzlicher Seedance-Clip-Prompt zugeschnitten auf die Fusion. Ein Flieger fliegt, ein Klingen-Kaempfer kaempft, ein Magier wirkt, ein Brute zerstoert. Klick generiert ihn.',
         copies: [
           {label: '&#127909; Generate Action Scene', action: 'generate_action_scene'},
         ],

@@ -318,49 +318,61 @@ Write the static showcase image prompt as one continuous paragraph."""
 # Action Scene Prompt (extra Seedance scene focused on movement / speed)
 # ---------------------------------------------------------------------------
 
-GPT_ACTION_SCENE_SYSTEM = """You are writing an EXTRA Seedance / Higgsfield video prompt for a Pokemon fusion - focused on PURE DYNAMIC MOTION through the studio space, NOT ability demonstrations.
+GPT_ACTION_SCENE_SYSTEM = """You are writing an EXTRA Seedance / Higgsfield video prompt for a Pokemon fusion - a complementary clip to the standard 5-cut showcase.
 
-This is a complementary clip to the standard 5-cut showcase. The goal: show the creature in action - flying, dashing, charging, pouncing - with ultra-high-speed tracking shots that emphasize speed, agility, and the creature's relationship with the room. The viewer feels the velocity.
+CRITICAL: The scene must be designed AROUND THE FUSION'S DISTINCTIVE TRAITS - not picked from a generic list. Read the Distinctive Traits and Step 6 context carefully and build a scene that ONLY fits THIS specific creature. Generic motion sequences are forbidden.
 
-Output ONE continuous paragraph, 200-350 words.
+Concrete examples of what fitting means:
+
+- A 'supersonic purple-dragon hybrid that shatters the sound barrier with jet-like biomechanical wings' -> the scene shows ultra-high-speed flight across the studio, banking against invisible walls, diving toward the lens, sonic shockwave-rings on the floor, motion blur, the camera RACES alongside it.
+
+- A 'spectral shadow knight wielding dual flaming blades that haunts dreams' -> the scene shows blade combat: the knight leaps into frame mid-strike, blades carving violet arcs, slashing against the studio walls, scorch-lines burning into the floor, then SUMMONS spectral shadow figures that emerge from the floor and the knight DUELS them, parrying and pivoting in a blade-dance.
+
+- A 'venomous raptor predator that shreds the desert dunes with toxic-tipped claws and blinding speed' -> the scene shows a predatory hunt sequence: the raptor stalks low in the periphery, lunges into frame with motion-blurred claws, leaves toxic spray trails on the floor, dashes around the studio in pivots, gnashes its fangs in close-up.
+
+- A 'noble psychic knight clad in golden armor wielding a sentient blade and a watching shield' -> the scene shows telekinetic combat: the knight floats inches off the floor, the blade leaves its hand and orbits independently, the shield's eye TRACKS unseen enemies, geometric psychic walls materialize and shatter, the blade returns to the hand mid-flip.
+
+- An 'earth-shaking brute predator with armored mass that crushes everything underfoot' -> the scene shows raw destruction: a slow charge becoming a thunderous sprint, the floor cracking with each step, the brute SLAMS into a studio wall sending dust rolling across the camera, then ROARS and LIFTS itself for a body-slam.
+
+The pattern: identify the creature's PRIMARY action archetype from its traits (flight, blade combat, magic combat, predatory hunt, brute force, energy projectile, stealth/teleport, etc.) and choreograph a 10-second scene that IS that creature in motion. The scene is the creature's signature performance.
+
+Output ONE continuous paragraph, 250-400 words.
 
 Required elements:
 
-1. CREATURE - describe the fusion concretely WITHOUT naming the original Pokemon. Use phrases like 'the supersonic purple-dragon hybrid', 'the venomous raptor predator', 'the spectral shadow knight', 'the molten fish-dragon abomination'. Concrete anatomy: silhouette, color palette, distinguishing texture or feature.
+1. CREATURE - describe the fusion concretely WITHOUT naming the original Pokemon. Use phrases that come straight from the Distinctive Traits.
 
-2. ARCHETYPE-MATCHED MOVEMENT - what kind of motion? Pick from the creature's traits:
-   - Aerial / supersonic / winged: full-speed flight across the studio, banking turns, diving, breaking the sound barrier with visible shockwave-rings, near-misses with the floor
-   - Brute / heavy: explosive charges with floor cracks, slams, debris flying, kicking up dust trails
-   - Predator / agile: frantic pounce-and-dash sequences, prowling, pivoting, blurred limbs
-   - Energy / phantom / void: teleporting trails, streak afterimages, light-arcs marking its path
-   - Aquatic / serpentine: sinuous gliding through the air or floor, leaving a wet residue trail
+2. SIGNATURE ACTION SEQUENCE - 3-5 distinct motion beats that ONLY work for THIS creature. If it flies, it flies. If it has blades, it duels. If it summons things, it summons. If it's a predator, it hunts. Each beat is a different camera setup but they flow as one continuous sequence (no hard cuts).
 
-3. CAMERA AS PART OF THE ACTION - dynamic camera work is mandatory: ultra-high-speed tracking shots that follow the creature, whip-pans as it blurs past the lens, zoom rack-focuses, low-angle dolly tracking, handheld shake during impact moments, close-up tracking of an eye / claw / wing-tip while the room blurs past behind it. Mix close-ups (face, claws, wing-edges) with wide tracking shots showing the creature blasting through the studio space.
+3. CAMERA AS PART OF THE ACTION - dynamic camera work mandatory, matched to the action: tracking shots that follow the creature, whip-pans, low-angle dolly tracking, handheld in combat moments, close-up tracks of an eye / blade / claw / wing-tip while the room blurs past.
 
-4. ENVIRONMENTAL RESPONSE - the studio reacts to the speed: air-displacement ripples bending the light, dust trails curling behind the creature, shockwave-rings on the floor where it lands or pivots, light fixtures shaking, reverberation, residual streak-trails of color marking its path. The room is alive with the velocity.
+4. ENVIRONMENTAL RESPONSE - the studio reacts to the creature's signature trait: air-displacement ripples for fast flyers, scorch lines for fire-blade users, sigils and emerging spectral figures for summoners, cracks and dust for heavy brutes, residual streak-trails of color, shaking light fixtures.
 
-5. PACING - 10 seconds total. NOT 5 cuts of static action - instead 3-5 fluid motion beats where each beat is mostly tracking shots, not static framing.
+5. END BEAT - a final freeze or dramatic pose that captures the creature's essence: the flyer hovers post-flight with shockwaves still rolling out; the knight stands amid defeated shadow figures, blades resting; the predator perches over its kill; the brute crouches in cracked floor with debris settling.
 
-End with technical summary: 'Ultra-detailed 4K rendering, dynamic motion blur, air-displacement ripples, volumetric haze, photographic depth of field, aggressive cinematic camera work throughout.'
+End with technical summary: 'Ultra-detailed 4K rendering, dynamic motion blur, [signature-specific VFX e.g. air-displacement / blade-glint / shadow-tendrils / ground-cracks], volumetric haze, photographic depth of field, aggressive cinematic camera work throughout.'
 
 Hard rules:
+- The scene MUST be specific to the creature's traits. NEVER write a generic 'fast tracking shot' if the creature is a slow brute. NEVER write 'blade combat' if the creature has no blade.
 - NEVER name the original Pokemon (no 'Latios', no 'Charizard'). Use descriptive phrasing only.
-- ALL CAPS movement verbs throughout: BLASTS, STREAKS, BANKS, DIVES, RUSHES, PIVOTS, LAUNCHES, SLAMS, WHIRLS, RIPS, TEARS, CARVES.
-- 200 to 350 words single paragraph. No headings, no bullet points.
+- ALL CAPS movement / action verbs throughout: BLASTS, STREAKS, BANKS, DIVES, SLAMS, SLASHES, PARRIES, SUMMONS, LUNGES, ROARS, ERUPTS, etc. Pick verbs that match the action.
+- 250 to 400 words, single continuous paragraph. No headings, no bullet points.
 - Background IDENTICAL to the reference image (the studio space).
 - Photorealistic 3D-render style enforced.
-- No meta commentary, no 'Seedance', no 'showcase'. Pure scene description."""
+- No meta commentary, no 'Seedance', no 'showcase'."""
 
-GPT_ACTION_SCENE_USER_TEMPLATE = """Generate the extra action-scene prompt for this fusion - pure dynamic motion through the studio, not ability demonstration.
+GPT_ACTION_SCENE_USER_TEMPLATE = """Generate the extra action-scene prompt for this fusion. Read the Distinctive Traits carefully and design a scene that fits THIS creature specifically - NOT a generic motion sequence.
 
 Fusion (don't name the originals in the output): {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
-Distinctive Traits: {DISTINCTIVE_TRAITS}
+Distinctive Traits (the scene MUST be built around these): {DISTINCTIVE_TRAITS}
 
-For design + archetype reference, the existing Step 6 showcase prompt:
+For design + ability reference, the existing Step 6 showcase prompt:
 {STEP6_VIDEO_PROMPT}
 
-Write the action-scene prompt (200-350 words, single paragraph). Do NOT name {POKEMON_A} or {POKEMON_B} in the output - describe the creature only by its silhouette + traits."""
+Identify the creature's PRIMARY action archetype from its traits (high-speed flight, blade combat, telekinetic magic, predatory hunt, brute destruction, summoning, energy bombardment, stealth-teleport, etc.) and write a 10-second scene that IS that creature performing its signature action. Use the inline examples from the system prompt as quality reference - especially how each different creature gets a totally different scene type.
+
+Write the scene prompt (250-400 words, single paragraph). Do NOT name {POKEMON_A} or {POKEMON_B} in the output - describe the creature only by its silhouette + traits."""
 
 
 # ---------------------------------------------------------------------------
