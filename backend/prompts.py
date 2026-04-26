@@ -342,6 +342,12 @@ LINE 3: A single-sentence description of the fusion (max 25 words) - its look, p
   - "a spectral shadow knight that haunts the dreams of its enemies with dual flaming blades of pure darkness"
   - "the ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield"
 
+LINE 4 (CTA + engagement) - one short sentence per language, combining a follow/subscribe call-to-action with a question for next fusion suggestions. Examples:
+  - English: "Follow for more cinematic Pokemon fusions and tell us which pair we should merge next!"
+  - English: "Subscribe for more fusions and drop your next Pokemon pair in the comments!"
+  - German:  "Folge fuer mehr cinematic Pokemon-Fusionen und sag uns, welches Pokemon-Paar als naechstes verschmelzen soll!"
+  - German:  "Abonniere fuer weitere Fusionen und lass uns in den Kommentaren wissen, welche Pokemon wir als naechstes verschmelzen sollen!"
+
 FUSION_NAME rules:
 - Invent a portmanteau or stylized fusion of the two Pokemon names.
 - Examples: Charizard + Magikarp -> Charykarp. Latios + Latias -> Latios X. Mewtwo + Charizard -> Mewzard. Garchomp + Salazzle -> Salachomp. Aegislash + Gallade -> Gallislash. Darkrai + Ceruledge -> Darkledge.
@@ -349,12 +355,13 @@ FUSION_NAME rules:
 - Use the SAME fusion name in both DE and EN.
 
 Hard rules:
-- Opener is line 1. Line 2 is the 'When ... become {FUSION_NAME}' sentence. Line 3 is the description.
-- Total 3 lines per language. No filler, no transitions, no extra sentences.
+- Opener is line 1. Line 2 is the 'When ... become {FUSION_NAME}' sentence. Line 3 is the description. Line 4 is the CTA + question.
+- Total 4 lines per language. No filler, no transitions, no extra sentences beyond these four.
 - Pokemon names ARE named (this is educational commentary, not dramatic prose).
 - Use ENGLISH Pokemon names in the English narration; use GERMAN Pokemon names in the German narration. The user message supplies both sets. Fusion name stays identical in both.
 - DE and EN are NOT literal translations - each flows naturally in its language.
 - Tone: factual but cinematic. Not overwritten. Short punchy sentences.
+- The CTA line phrasing can vary - mix it up between runs so it doesn't feel formulaic.
 - No stage directions, no timestamps, no speaker labels, no emojis, no markdown."""
 
 
@@ -407,7 +414,13 @@ Then for EACH fusion in the order provided, EXACTLY two sentences:
 
 IMPORTANT - the user message provides both English and German names per fusion. Use the GERMAN names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu). FUSION_NAME stays identical across both languages.
 
-So for N fusions the total is: 1 opener + (N * 2) sentences. Nothing else. No intro sentences, no transitions, no concluding line.
+After the LAST fusion's two sentences, append ONE closing CTA + engagement line per language:
+  - English example: "Follow for more cinematic Pokemon fusions and drop your next Pokemon pair in the comments!"
+  - German example:  "Folge fuer mehr cinematic Pokemon-Fusionen und schreib uns in die Kommentare, welche Pokemon wir als naechstes verschmelzen sollen!"
+
+Vary the CTA phrasing between runs so it doesn't feel formulaic. The CTA must combine a follow/subscribe ask with a question for next fusion suggestions.
+
+So for N fusions the total is: 1 opener + (N * 2) sentences + 1 CTA = 2 + 2N lines per language. No additional intro / transition / filler sentences.
 
 Example for 3 fusions (English):
 "What happens when completely different Pokemon fuse into an overpowering being?
@@ -416,7 +429,8 @@ A malformed nightmare, using splashes that radiate burning heatwaves across the 
 When Latios merges with Latias, they become Latios X.
 A supersonic purple-dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings.
 When Mewtwo merges with Charizard, they become Mewzard.
-The ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield."
+The ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy to dominate the battlefield.
+Follow for more cinematic Pokemon fusions and drop your next Pokemon pair in the comments!"
 
 FUSION_NAME rules:
 - Invent a portmanteau or stylized fusion of the two Pokemon names.
@@ -438,7 +452,8 @@ Hard rules:
 - Fusion name (portmanteau) is IDENTICAL across both languages.
 - DE and EN are NOT literal translations - write each language natively, matching beats not words.
 - Tone: factual but cinematic. Short, punchy, no overwritten prose.
-- No transitions between fusions. No filler. No concluding sentence after the last fusion.
+- No transitions between fusions. No filler.
+- ONE closing line per language at the very end: a CTA combining follow/subscribe with a 'which fusion next?' engagement question. Vary the phrasing between runs.
 - No stage directions, no timestamps, no speaker labels, no emojis, no markdown, no numbered enumeration."""
 
 GPT_BATCH_NARRATION_USER_TEMPLATE = """Fusion compilation - {FUSION_COUNT} creatures to introduce in order:
