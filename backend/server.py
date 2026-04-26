@@ -50,6 +50,10 @@ class ChecklistUpdate(BaseModel):
     value: bool
 
 
+class CustomPromptRequest(BaseModel):
+    prompt: str
+
+
 class SettingsUpdate(BaseModel):
     AIAUTO_API_KEY: str | None = None
     AIAUTO_BASE_URL: str | None = None
@@ -228,6 +232,15 @@ async def api_regenerate(job_id: str, variant_index: int) -> dict[str, str]:
 async def api_regenerate_all(job_id: str) -> dict[str, str]:
     try:
         await runner.regenerate_all_variants(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
+@app.post("/api/jobs/{job_id}/regenerate-custom")
+async def api_regenerate_custom(job_id: str, req: CustomPromptRequest) -> dict[str, str]:
+    try:
+        await runner.regenerate_all_variants_custom(job_id, req.prompt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued"}

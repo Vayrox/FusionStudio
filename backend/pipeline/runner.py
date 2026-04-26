@@ -531,7 +531,27 @@ async def regenerate_all_variants(job_id: str) -> None:
     _register_task(job_id, asyncio.create_task(_run_regenerate_all(job_id)))
 
 
-async def _run_regenerate_all(job_id: str) -> None:
+async def regenerate_all_variants_custom(job_id: str, custom_prompt: str) -> None:
+    """Regeneriert ALLE Step-4-Varianten mit einem User-bereitgestellten Prompt.
+
+    Statt Default-Step-4 mit Distinctive-Traits wird der Prompt 1:1
+    verwendet. References (signature_bg, step2a, step2b) bleiben gleich.
+    Favorit + Showcase-Pick werden resettet.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Custom-Regenerate nur erlaubt, wenn Job bereits 'done' ist.")
+    if not (custom_prompt or "").strip():
+        raise ValueError("Custom-Prompt darf nicht leer sein.")
+    _register_task(
+        job_id,
+        asyncio.create_task(_run_regenerate_all(job_id, custom_prompt=custom_prompt.strip())),
+    )
+
+
+async def _run_regenerate_all(job_id: str, custom_prompt: str | None = None) -> None:
     async with _FUSION_SEMAPHORE:
         try:
             await _update_job(
@@ -558,12 +578,20 @@ async def _run_regenerate_all(job_id: str) -> None:
             step2a_out = out_dir / meta["files"]["step_2a"]
             step2b_out = out_dir / meta["files"]["step_2b"]
 
-            step4_prompt = (
-                prompts.STEP4_FUSION_DESIGN
-                .replace("{POKEMON_A}", pokemon_a)
-                .replace("{POKEMON_B}", pokemon_b)
-                .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)
-            )
+            if custom_prompt:
+                step4_prompt = custom_prompt
+                # Speichere den Custom-Prompt in meta damit er sichtbar ist
+                meta["last_custom_prompt"] = custom_prompt
+                meta_path.write_text(
+                    json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+            else:
+                step4_prompt = (
+                    prompts.STEP4_FUSION_DESIGN
+                    .replace("{POKEMON_A}", pokemon_a)
+                    .replace("{POKEMON_B}", pokemon_b)
+                    .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)
+                )
 
             variant_tasks = []
             variant_paths: list[Path] = []

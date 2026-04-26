@@ -221,6 +221,31 @@
   .btn-regen-all:hover:not(:disabled) { border-color: var(--primary);
     color: var(--primary-2); background: var(--card-hi); }
   .btn-regen-all:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Custom-Prompt collapsible */
+  details.custom-prompt { margin-top: 14px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; padding: 0; }
+  details.custom-prompt[open] { padding-bottom: 14px; }
+  details.custom-prompt summary { padding: 12px 16px; cursor: pointer;
+    list-style: none; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--text);
+    user-select: none; }
+  details.custom-prompt summary::-webkit-details-marker { display: none; }
+  details.custom-prompt summary .chev { font-family: monospace; color: var(--muted);
+    transition: transform 0.2s; font-size: 11px; }
+  details.custom-prompt[open] summary .chev { transform: rotate(90deg); }
+  details.custom-prompt .body { padding: 4px 16px 0; }
+  details.custom-prompt textarea { width: 100%; min-height: 140px;
+    padding: 11px 14px; background: rgba(0,0,0,0.25); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5; resize: vertical; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s; }
+  details.custom-prompt textarea:focus { border-color: rgba(255,107,71,0.5);
+    box-shadow: 0 0 0 3px rgba(255,107,71,0.12); }
+  details.custom-prompt .actions { margin-top: 10px; display: flex;
+    align-items: center; gap: 12px; flex-wrap: wrap; }
+  details.custom-prompt .hint { font-size: 11px; color: var(--muted); flex: 1; }
   .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
   @media (max-width: 680px) { .thumbs { grid-template-columns: repeat(2, 1fr); } }
   .thumb { position: relative; background: var(--card); border: 1px solid var(--border);
@@ -1135,6 +1160,21 @@ function renderJob(job) {
       </div>` : ''}
       <div class="thumbs">${thumbs}</div>
     ` : ''}
+    ${status === 'done' ? `
+      <details class="custom-prompt">
+        <summary>
+          <span class="chev">&#9656;</span>
+          <span>&#9999;&#65039; Regenerate with custom prompt</span>
+        </summary>
+        <div class="body">
+          <textarea data-job-custom="${job.id}" placeholder="Eigenen Step-4-Prompt einfuegen. Wird 1:1 verwendet (statt GPT-Distinctive-Traits). Reference-Images bleiben gleich (signature_bg, step2a, step2b)."></textarea>
+          <div class="actions">
+            <button class="ns-btn rerun" data-job-custom-submit="${job.id}">&#8634; Regenerate with this prompt</button>
+            <span class="hint">Favorit + Showcase werden zurueckgesetzt. Distinctive Traits werden ignoriert.</span>
+          </div>
+        </div>
+      </details>
+    ` : ''}
     ${links.length ? `<div class="links">${links.join('')}</div>` : ''}
     ${status === 'done' ? `<div class="next-steps" data-job="${job.id}"></div>` : ''}
     <div class="meta-row">
@@ -1221,6 +1261,32 @@ function renderJob(job) {
       } finally {
         regenAllBtn.disabled = false;
         regenAllBtn.innerHTML = orig;
+      }
+    });
+  }
+
+  const customSubmitBtn = $('button[data-job-custom-submit]', el);
+  if (customSubmitBtn) {
+    customSubmitBtn.addEventListener('click', async () => {
+      const ta = $(`textarea[data-job-custom="${job.id}"]`, el);
+      const prompt = (ta && ta.value || '').trim();
+      if (!prompt) { toast('Custom-Prompt ist leer', true); return; }
+      if (!confirm(`Mit diesem Custom-Prompt regenerieren?\n\nDie 3 Varianten werden ueberschrieben, Favorit + Showcase werden zurueckgesetzt. Distinctive Traits werden NICHT verwendet.\n\nPrompt-Vorschau:\n${prompt.slice(0, 200)}${prompt.length > 200 ? '...' : ''}`)) return;
+      customSubmitBtn.disabled = true;
+      const orig = customSubmitBtn.innerHTML;
+      customSubmitBtn.innerHTML = '&#8230; queueing';
+      try {
+        await api(`/api/jobs/${job.id}/regenerate-custom`, {
+          method: 'POST',
+          body: JSON.stringify({prompt}),
+        });
+        toast('Regenerating with custom prompt');
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        customSubmitBtn.disabled = false;
+        customSubmitBtn.innerHTML = orig;
       }
     });
   }
