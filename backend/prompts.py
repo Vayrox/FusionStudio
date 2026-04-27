@@ -265,6 +265,7 @@ Hard rules:
 - ALL-CAPS verbs in the transformation beat are mandatory - use at least 10 of them.
 - Specific body parts must be named (horns, fangs, scales, wings, membrane, tail, barbels, crown, claws, underbelly, muzzle, gut, fins) - avoid vague anatomy.
 - At least ONE wide shot or tracking shot showing the creature moving through / interacting with the studio.
+- NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - Do NOT mention "Step 5", "prompt", "Kling", or meta commentary. Pure scene description.
 - The background stays consistent with the reference images - do NOT teleport the creatures to a new environment.
 
@@ -321,6 +322,7 @@ Hard rules:
 - At least TWO cuts feature the creature in motion or the environment responding to it.
 - CUT 4 environmental damage MUST be visible in CUT 5 (scorch marks, cracks, sigils, debris, smoke).
 - Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location. Do NOT describe a studio. Phrase it as 'same background as the reference' whenever the setting is referenced.
+- NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
 - Keep the output compact - aim for 350 to 550 words total."""
 
@@ -367,6 +369,7 @@ Hard rules:
 - The image must show a POWER MOMENT, not a neutral pose.
 - Environmental impact in this exact frame is mandatory.
 - 16:9 aspect ratio is implicit (do not write '16:9' inside the prompt - that is set externally).
+- NO TEXT, no watermarks, no captions, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - No meta commentary, no 'Step 6', no 'Step 7', no 'shot director'. Pure scene description."""
 
 
@@ -427,6 +430,7 @@ Hard rules:
 - ALL CAPS movement / action verbs throughout: BLASTS, STREAKS, BANKS, DIVES, SLAMS, SLASHES, PARRIES, SUMMONS, LUNGES, ROARS, ERUPTS, etc. Pick verbs that match the action.
 - 250 to 400 words, single continuous paragraph. No headings, no bullet points.
 - Background IDENTICAL to the reference image (the studio space).
+- NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - Photorealistic 3D-render style enforced.
 - No meta commentary, no 'Seedance', no 'showcase'."""
 
