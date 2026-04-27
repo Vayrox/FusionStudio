@@ -69,17 +69,34 @@ STEP4_FUSION_DESIGN = (
     "HARD CONSTRAINT: it must be a COMPLETELY NEW Pokemon, barely traceable to the "
     "two original Pokemon. Keep the Pokemon style, NOT DIGIMON - so a simple creature "
     "but with a striking design.\n\n"
-    "UNIQUE-DESIGN CONSTRAINT (critical): The fusion must have a COMPLETELY NEW "
-    "color palette and texture set - NOT the colors, markings, or surface details "
-    "of {POKEMON_A} or {POKEMON_B}. Inherit ONLY the general silhouette / body-shape "
-    "outline (e.g. dragon-shape, bipedal humanoid, quadruped predator, fish-shape). "
-    "Do NOT copy the originals' color schemes. Examples of correct treatment: "
-    "'Latios + Latias (originals red/white/blue) -> a metallic-violet supersonic "
-    "dragon hybrid with crimson energy veins (no red, no white, no blue)'; "
-    "'Charizard + Magikarp (originals orange/cream) -> a charred bronze-armored "
-    "fish-dragon abomination with molten cracks (no bright orange, no cream)'. "
-    "The viewer should sense the silhouette comes from a fusion, but should NEVER "
-    "recognize the originals from colors, markings, or signature details.\n\n"
+    "UNIQUE-DESIGN CONSTRAINT (critical): The fusion must FEEL like a new "
+    "creature, but ALL of its features must DEMONSTRABLY come from {POKEMON_A} or "
+    "{POKEMON_B} - never invent elements that neither original possesses. Inherit "
+    "RECOGNIZABLE signature anatomy of BOTH originals (wing shape, horn type, body "
+    "silhouette, key textures, characteristic limbs, signature markings, tail shape, "
+    "facial features) and BLEND them creatively into a new harmonious whole.\n\n"
+    "STRICT NO-INVENTION RULE: if neither original has crystals, the fusion has NO "
+    "crystals. If neither has metal armor, the fusion has NO metal armor. If neither "
+    "has glowing eyes, the fusion's eyes are NOT glowing. If neither has tentacles, "
+    "no tentacles. If neither has wings, no wings. The fusion's entire feature "
+    "inventory must trace back to one or both originals - just recombined.\n\n"
+    "COLOR PALETTE: blend the two originals' palettes creatively, do NOT invent an "
+    "unrelated palette and do NOT copy one original's palette verbatim. Examples of "
+    "correct blending: Ho-Oh (red/gold/green) + Sudowoodo (brown/green) -> "
+    "'burnt-bronze with ember-red accents through cracked bark'; Charizard "
+    "(orange/cream) + Magikarp (red/yellow) -> 'burnt orange-bronze with charred "
+    "patches and yellow underbelly'; Latios + Latias (red/white/blue) -> 'crimson-"
+    "violet with deep blue chest plates'.\n\n"
+    "Examples of correct fusions: 'Latios + Latias -> a streamlined dragon hybrid "
+    "with the angular jet-wings of one and the tail-fin of the other, crimson-"
+    "violet body with deep blue chest plates'; 'Charizard + Magikarp -> a stocky "
+    "scaled fish-dragon with stunted Charizard-style wings, Magikarp's gaping mouth "
+    "and barbels, in burnt orange-bronze with charred patches and a still-burning "
+    "tail-tip'; 'Ho-Oh + Sudowoodo -> a phoenix-bird with bark-textured plumage, "
+    "leaf-tipped tail-feathers and embers smouldering through cracks in its wooden "
+    "skin, in burnt-bronze and forest-green'. The viewer should see BOTH originals' "
+    "DNA in the fusion - just creatively recombined, with new proportions and a "
+    "new harmonious palette, with NO invented elements.\n\n"
     "RENDER STYLE (critical): Match the EXACT photorealistic 3D-sculpted look of "
     "references 2 and 3 - physically-based materials with tangible skin, scale, fur "
     "and claw textures; studio-quality lighting; sharp micro-details; photographic "
@@ -143,7 +160,8 @@ Your output is read by an image model. Be concrete, visual, sensory.
 Hard rules:
 - 2 to 4 sentences only.
 - Mention the TYPE fusion explicitly (e.g. "bizarre and grotesque water-fire type").
-- Specify a CONCRETE NEW color palette + texture that is DIFFERENT from the original Pokemon's colors. NEVER inherit the originals' colors verbatim. If the originals are e.g. orange and red, choose a totally different palette like "metallic violet with crimson veins" or "obsidian black with gold-leaf accents" or "bronze-armored with molten cracks". The fusion is NOT a Frankenstein - it's a creature that only borrows silhouette, not surface details.
+- Specify a CONCRETE color palette + texture that CREATIVELY BLENDS the two originals' palettes - NOT a totally invented unrelated palette, NOT a verbatim copy of one original. Example correct blends: Ho-Oh (red/gold) + Sudowoodo (brown/green) = 'burnt-bronze with ember-red veins through cracked bark'; Charizard (orange) + Magikarp (red/yellow) = 'burnt orange-bronze with charred patches and yellow underbelly'.
+- Mention specific SIGNATURE FEATURES from BOTH originals and how they're combined in the fusion (e.g. 'Ho-Oh's massive phoenix-tail merged with Sudowoodo's bark-skin and leaf-tipped branches'; 'Charizard's flame-tail and stunted wings combined with Magikarp's gaping mouth and barbels'). NEVER invent features that neither original possesses (no crystals, no metal armor, no glowing eyes, no tentacles, etc. unless one of the originals has those).
 - Emotional tone: one of grotesque / majestic / tragic / eerie / unsettling / awe-inspiring. Pick what fits.
 - Optionally mention disproportionate parts, unnatural anatomy, or a specific anomaly.
 - ALWAYS end with a camera-orientation instruction that shows the creature FACING the camera. Pick ONE of:
