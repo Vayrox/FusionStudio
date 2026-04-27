@@ -80,6 +80,7 @@ EDITABLE_SETTINGS: dict[str, str] = {
     "AIAUTO_IMAGE_RESOLUTION": "2k",
     "OPENAI_API_KEY": "",
     "OPENAI_MODEL": "gpt-4o",
+    "STEP4_DESIGN_MODE": "blend",
 }
 
 # Welche davon sind Secrets (im UI maskiert, nie im Klartext zurueckgegeben).
@@ -118,6 +119,14 @@ class Settings:
     @property
     def openai_model(self) -> str:
         return self._get("OPENAI_MODEL")
+
+    @property
+    def step4_design_mode(self) -> str:
+        """'blend' (default, behält erkennbare Features beider Originale)
+        oder 'unique' (alter Stil, völlig neue Farb-/Feature-Wahl,
+        nur Silhouette inheritance)."""
+        v = (self._get("STEP4_DESIGN_MODE") or "blend").lower().strip()
+        return v if v in ("blend", "unique") else "blend"
 
     # Laufzeit-Support
 

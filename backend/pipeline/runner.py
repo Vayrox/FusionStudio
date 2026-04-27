@@ -31,6 +31,7 @@ from backend.config import (
     SIGNATURE_BACKGROUND_PATH,
     STATE_FILE,
     STEP4_VARIANTS,
+    settings,
 )
 
 # ---------------------------------------------------------------------------
@@ -587,7 +588,10 @@ async def _run_regenerate_all(job_id: str, custom_prompt: str | None = None) -> 
                 )
             else:
                 step4_prompt = (
-                    prompts.STEP4_FUSION_DESIGN
+                    prompts.STEP4_FUSION_DESIGN_TEMPLATES.get(
+                        settings.step4_design_mode,
+                        prompts.STEP4_FUSION_DESIGN_BLEND,
+                    )
                     .replace("{POKEMON_A}", pokemon_a)
                     .replace("{POKEMON_B}", pokemon_b)
                     .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)
@@ -968,7 +972,10 @@ async def _pipeline(job_id: str) -> None:
     # 4) Fusion-Design-Varianten - parallel (Semaphore drosselt auf 4)
     await _update_job(job_id, current_step="step_4_fusion_variants")
     step4_prompt = (
-        prompts.STEP4_FUSION_DESIGN
+        prompts.STEP4_FUSION_DESIGN_TEMPLATES.get(
+            settings.step4_design_mode,
+            prompts.STEP4_FUSION_DESIGN_BLEND,
+        )
         .replace("{POKEMON_A}", pokemon_a)
         .replace("{POKEMON_B}", pokemon_b)
         .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)
@@ -1123,7 +1130,10 @@ async def _run_regenerate(job_id: str, variant_index: int) -> None:
             distinctive_traits = meta["distinctive_traits"]
 
             step4_prompt = (
-                prompts.STEP4_FUSION_DESIGN
+                prompts.STEP4_FUSION_DESIGN_TEMPLATES.get(
+                    settings.step4_design_mode,
+                    prompts.STEP4_FUSION_DESIGN_BLEND,
+                )
                 .replace("{POKEMON_A}", pokemon_a)
                 .replace("{POKEMON_B}", pokemon_b)
                 .replace("{DISTINCTIVE_TRAITS}", distinctive_traits)

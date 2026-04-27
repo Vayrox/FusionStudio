@@ -61,6 +61,7 @@ class SettingsUpdate(BaseModel):
     AIAUTO_IMAGE_RESOLUTION: str | None = None
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str | None = None
+    STEP4_DESIGN_MODE: str | None = None
 
 
 # ---------------------------------------------------------------------------

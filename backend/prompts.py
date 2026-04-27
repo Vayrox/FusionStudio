@@ -54,7 +54,7 @@ STEP3_START_FRAME = (
 # STEP 4 - Fusion Design
 # ---------------------------------------------------------------------------
 
-STEP4_FUSION_DESIGN = (
+STEP4_FUSION_DESIGN_BLEND = (
     "Create a new Pokemon specimen - a fusion between {POKEMON_A} and {POKEMON_B}. "
     "The fusion must have a breathtaking, innovative, extremely creative design, "
     "while keeping some distinctive traits from both creatures so viewers can tell "
@@ -106,6 +106,57 @@ STEP4_FUSION_DESIGN = (
     "horns, scales, skin) must have the same photoreal material fidelity as the "
     "single Pokemon in references 2 and 3."
 )
+
+
+# Older "completely unique design" variant - fusion only inherits silhouette/
+# body-shape, color palette + features can be totally new. Produced more
+# striking/unexpected designs (e.g. crystal wings on Ho-Oh+Sudowoodo) but
+# can drift away from the originals' DNA. Kept selectable via Settings.
+STEP4_FUSION_DESIGN_UNIQUE = (
+    "Create a new Pokemon specimen - a fusion between {POKEMON_A} and {POKEMON_B}. "
+    "The fusion must have a breathtaking, innovative, extremely creative design, "
+    "while keeping some distinctive traits from both creatures so viewers can tell "
+    "it's a fusion of the two. The realism must match the references. The background "
+    "must be IDENTICAL to reference 1. The design style should stay true to a Pokemon "
+    "creature reinterpreted with realism as in the references, but the fusion must "
+    "be creative and not trivial - it's not enough to mash a few elements together; "
+    "it must be totally different from the two original Pokemon.\n\n"
+    "The ONLY hard constraint is maintaining the level of REALISM AND DETAIL and "
+    "the background from reference 1.\n\n"
+    "Distinctive traits: {DISTINCTIVE_TRAITS}\n\n"
+    "HARD CONSTRAINT: it must be a COMPLETELY NEW Pokemon, barely traceable to the "
+    "two original Pokemon. Keep the Pokemon style, NOT DIGIMON - so a simple creature "
+    "but with a striking design.\n\n"
+    "UNIQUE-DESIGN CONSTRAINT (critical): The fusion must have a COMPLETELY NEW "
+    "color palette and texture set - NOT the colors, markings, or surface details "
+    "of {POKEMON_A} or {POKEMON_B}. Inherit ONLY the general silhouette / body-shape "
+    "outline (e.g. dragon-shape, bipedal humanoid, quadruped predator, fish-shape). "
+    "Do NOT copy the originals' color schemes. Examples of correct treatment: "
+    "'Latios + Latias (originals red/white/blue) -> a metallic-violet supersonic "
+    "dragon hybrid with crimson energy veins (no red, no white, no blue)'; "
+    "'Charizard + Magikarp (originals orange/cream) -> a charred bronze-armored "
+    "fish-dragon abomination with molten cracks (no bright orange, no cream)'. "
+    "The viewer should sense the silhouette comes from a fusion, but should NEVER "
+    "recognize the originals from colors, markings, or signature details.\n\n"
+    "RENDER STYLE (critical): Match the EXACT photorealistic 3D-sculpted look of "
+    "references 2 and 3 - physically-based materials with tangible skin, scale, fur "
+    "and claw textures; studio-quality lighting; sharp micro-details; photographic "
+    "depth and contact shadows on the ground. The creature must look like a real, "
+    "physical sculpture captured on camera - NOT a stylized illustration, NOT 2D "
+    "digital painting, NOT concept art, NOT cel-shading. Every surface (eyes, teeth, "
+    "horns, scales, skin) must have the same photoreal material fidelity as the "
+    "single Pokemon in references 2 and 3."
+)
+
+
+# Default-Alias zeigt auf den Blend-Stil. Runner waehlt zur Laufzeit basierend
+# auf settings.step4_design_mode ('blend' oder 'unique').
+STEP4_FUSION_DESIGN = STEP4_FUSION_DESIGN_BLEND
+
+STEP4_FUSION_DESIGN_TEMPLATES = {
+    "blend": STEP4_FUSION_DESIGN_BLEND,
+    "unique": STEP4_FUSION_DESIGN_UNIQUE,
+}
 
 # ---------------------------------------------------------------------------
 # STEP 6B - Kling Elements Magic Instructions (wrap around Step 6 prompt)

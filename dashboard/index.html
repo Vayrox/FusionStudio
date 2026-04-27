@@ -537,6 +537,14 @@
           <label for="s-openai-model">OpenAI Model</label>
           <input type="text" id="s-openai-model" placeholder="gpt-4o" />
         </div>
+        <div class="field">
+          <label for="s-step4-mode">Step 4 Design Mode</label>
+          <select id="s-step4-mode" style="width: 100%; padding: 11px 14px; background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; outline: none;">
+            <option value="blend">Blend (recognizable features from both)</option>
+            <option value="unique">Unique (silhouette only, completely new look)</option>
+          </select>
+          <small>Blend = Mr Mime + Banette behaelt Clown-Face + Zipper-Mund. Unique = komplett neue Farbpalette + Features, nur Silhouette uebernommen.</small>
+        </div>
       </div>
       <div class="settings-actions">
         <button id="btn-save-settings">Save</button>
@@ -1667,6 +1675,8 @@ async function refreshSettings() {
     $('#s-aiauto-model').value = s.AIAUTO_IMAGE_MODEL || '';
     $('#s-aiauto-res').value = s.AIAUTO_IMAGE_RESOLUTION || '';
     $('#s-openai-model').value = s.OPENAI_MODEL || '';
+    const modeSel = $('#s-step4-mode');
+    if (modeSel) modeSel.value = (s.STEP4_DESIGN_MODE || 'blend').toLowerCase();
 
     const dot = $('#settings-dot');
     const allOk = aiSet && oaSet && res.signature_background_present;
@@ -1709,6 +1719,7 @@ async function saveSettings() {
     AIAUTO_IMAGE_RESOLUTION: $('#s-aiauto-res').value,
     OPENAI_API_KEY: $('#s-openai-key').value,
     OPENAI_MODEL: $('#s-openai-model').value,
+    STEP4_DESIGN_MODE: ($('#s-step4-mode') ? $('#s-step4-mode').value : 'blend'),
   };
   const btn = $('#btn-save-settings');
   btn.disabled = true; btn.textContent = 'Saving...';
