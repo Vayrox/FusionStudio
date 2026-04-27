@@ -211,7 +211,16 @@
 
   /* Thumbnails */
   .thumbs-header { display: flex; align-items: center; justify-content: flex-end;
-    margin-top: 14px; margin-bottom: -2px; }
+    gap: 8px; margin-top: 14px; margin-bottom: -2px; }
+  .thumbs-header .mode-select { padding: 6px 10px; background: var(--card-2);
+    color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
+    transition: border-color 0.15s; }
+  .thumbs-header .mode-select:hover { border-color: var(--border-hi); }
+  .thumbs-header .mode-select:focus { border-color: var(--primary); }
+  .thumbs-header .mode-label { font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
+    margin-right: 2px; }
   .btn-regen-all { background: var(--card-hi); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 12px; font-size: 12px; font-weight: 600;
@@ -1164,6 +1173,12 @@ function renderJob(job) {
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
     ${thumbs ? `
       ${status === 'done' ? `<div class="thumbs-header">
+        <span class="mode-label">Mode</span>
+        <select class="mode-select" data-job-mode="${job.id}" title="Design Mode fuer dieses Regenerate. Default = globaler Setting; Blend = Features beider erkennbar; Unique = nur Silhouette, neue Farben/Features moeglich.">
+          <option value="">Default (Setting)</option>
+          <option value="blend">Blend</option>
+          <option value="unique">Unique</option>
+        </select>
         <button class="btn-regen-all" data-job="${job.id}" title="Regenerate all variants (same traits, fresh seeds)">&#8634; Regenerate all ${(job.variants || []).length || 3}</button>
       </div>` : ''}
       <div class="thumbs">${thumbs}</div>
@@ -1256,13 +1271,19 @@ function renderJob(job) {
   if (regenAllBtn) {
     regenAllBtn.addEventListener('click', async () => {
       const n = (job.variants || []).length || 3;
-      if (!confirm(`Alle ${n} Varianten neu generieren?\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.`)) return;
+      const modeSel = $(`.mode-select[data-job-mode="${job.id}"]`, el);
+      const mode = modeSel ? (modeSel.value || '') : '';
+      const modeLabel = mode === 'blend' ? 'Blend' : mode === 'unique' ? 'Unique' : 'Default (globales Setting)';
+      if (!confirm(`Alle ${n} Varianten neu generieren?\n\nDesign Mode: ${modeLabel}\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.`)) return;
       regenAllBtn.disabled = true;
       const orig = regenAllBtn.innerHTML;
       regenAllBtn.innerHTML = '&#8230; queueing';
       try {
-        await api(`/api/jobs/${job.id}/regenerate-all`, {method: 'POST'});
-        toast('Regenerating all 5 variants');
+        await api(`/api/jobs/${job.id}/regenerate-all`, {
+          method: 'POST',
+          body: JSON.stringify({mode: mode || null}),
+        });
+        toast(`Regenerating ${n} variants (${modeLabel})`);
         await refreshJobs();
       } catch (err) {
         toast(err.message, true);

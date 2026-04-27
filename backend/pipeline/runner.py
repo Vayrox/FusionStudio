@@ -517,19 +517,27 @@ async def regenerate_variant(job_id: str, variant_index: int) -> None:
     _register_task(job_id, asyncio.create_task(_run_regenerate(job_id, variant_index)))
 
 
-async def regenerate_all_variants(job_id: str) -> None:
+async def regenerate_all_variants(job_id: str, design_mode: str | None = None) -> None:
     """Regeneriert ALLE Step-4-Varianten neu (wenn keine gefaellt).
 
     Nutzt dieselben Referenzen + Distinctive-Traits, schreibt die 5
     Variant-Dateien komplett neu. Favorit, Showcase-Bilder und Showcase-
     Pick werden resettet weil die alten Bilder weg sind.
+
+    design_mode: 'blend' / 'unique' / None. Wenn None, wird der globale
+    settings.step4_design_mode verwendet. Sonst override fuer DIESEN run.
     """
     job = await get_job(job_id)
     if not job:
         raise ValueError(f"Job {job_id} nicht gefunden")
     if job.get("status") != "done":
         raise ValueError("Regenerate-All nur erlaubt, wenn Job bereits 'done' ist.")
-    _register_task(job_id, asyncio.create_task(_run_regenerate_all(job_id)))
+    if design_mode is not None and design_mode not in ("blend", "unique"):
+        raise ValueError("design_mode muss 'blend', 'unique' oder null sein.")
+    _register_task(
+        job_id,
+        asyncio.create_task(_run_regenerate_all(job_id, design_mode=design_mode)),
+    )
 
 
 async def regenerate_all_variants_custom(job_id: str, custom_prompt: str) -> None:
@@ -552,7 +560,11 @@ async def regenerate_all_variants_custom(job_id: str, custom_prompt: str) -> Non
     )
 
 
-async def _run_regenerate_all(job_id: str, custom_prompt: str | None = None) -> None:
+async def _run_regenerate_all(
+    job_id: str,
+    custom_prompt: str | None = None,
+    design_mode: str | None = None,
+) -> None:
     async with _FUSION_SEMAPHORE:
         try:
             await _update_job(
@@ -587,9 +599,10 @@ async def _run_regenerate_all(job_id: str, custom_prompt: str | None = None) -> 
                     json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
             else:
+                effective_mode = design_mode or settings.step4_design_mode
                 step4_prompt = (
                     prompts.STEP4_FUSION_DESIGN_TEMPLATES.get(
-                        settings.step4_design_mode,
+                        effective_mode,
                         prompts.STEP4_FUSION_DESIGN_BLEND,
                     )
                     .replace("{POKEMON_A}", pokemon_a)

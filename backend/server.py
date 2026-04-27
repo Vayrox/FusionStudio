@@ -54,6 +54,10 @@ class CustomPromptRequest(BaseModel):
     prompt: str
 
 
+class RegenerateAllRequest(BaseModel):
+    mode: str | None = None  # 'blend' / 'unique' / null (= globaler Setting)
+
+
 class SettingsUpdate(BaseModel):
     AIAUTO_API_KEY: str | None = None
     AIAUTO_BASE_URL: str | None = None
@@ -230,9 +234,14 @@ async def api_regenerate(job_id: str, variant_index: int) -> dict[str, str]:
 
 
 @app.post("/api/jobs/{job_id}/regenerate-all")
-async def api_regenerate_all(job_id: str) -> dict[str, str]:
+async def api_regenerate_all(
+    job_id: str, req: RegenerateAllRequest | None = None,
+) -> dict[str, str]:
+    mode = (req.mode if req else None) or None
+    if isinstance(mode, str):
+        mode = mode.strip().lower() or None
     try:
-        await runner.regenerate_all_variants(job_id)
+        await runner.regenerate_all_variants(job_id, design_mode=mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued"}
