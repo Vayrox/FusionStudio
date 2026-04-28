@@ -266,6 +266,7 @@ Hard rules:
 - Specific body parts must be named (horns, fangs, scales, wings, membrane, tail, barbels, crown, claws, underbelly, muzzle, gut, fins) - avoid vague anatomy.
 - At least ONE wide shot or tracking shot showing the creature moving through / interacting with the studio.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
+- NEVER name the original Pokemon in the output (no 'Latios', 'Latias', 'Charizard', 'Mewtwo', etc.). Describe each creature only by its anatomy, color, texture, and features. Pokemon-IP names break Seedance / Kling content filters.
 - Do NOT mention "Step 5", "prompt", "Kling", or meta commentary. Pure scene description.
 - The background stays consistent with the reference images - do NOT teleport the creatures to a new environment.
 
@@ -275,11 +276,11 @@ GOLD-STANDARD REFERENCE (this is the quality / detail-depth / pacing we want - u
 
 Match that depth of anatomical detail, that violence of verbs, that propagation-as-infection logic. Write a fresh prompt with those qualities for the fusion below."""
 
-GPT_STEP5_TRANSFORMATION_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
+GPT_STEP5_TRANSFORMATION_USER_TEMPLATE = """Fusion (context only - do NOT include these names in your output): {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
 Distinctive Traits (already decided, use as mood guide): {DISTINCTIVE_TRAITS}
 
-Write the Step 5 Transformation Prompt as one continuous paragraph."""
+Write the Step 5 Transformation Prompt as one continuous paragraph. Reminder: NEVER write '{POKEMON_A}' or '{POKEMON_B}' in your output - describe each creature only by its anatomy, colors and features. Pokemon-IP names trigger video-model content filters."""
 
 
 GPT_STEP6_SHOWCASE_SYSTEM = """You are writing the Step 6 Showcase Video Prompt for Seedance (via Higgsfield) and Kling Elements.
@@ -323,14 +324,15 @@ Hard rules:
 - CUT 4 environmental damage MUST be visible in CUT 5 (scorch marks, cracks, sigils, debris, smoke).
 - Keep the background IDENTICAL to the reference image across all cuts. Do NOT invent a new location. Do NOT describe a studio. Phrase it as 'same background as the reference' whenever the setting is referenced.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
+- NEVER name the original Pokemon in the output (no 'Charizard', 'Mewtwo', 'Latios', 'Pikachu', etc.). Describe the creature only by its visual traits and anatomy. Pokemon-IP names trigger Seedance / Kling content filters and cause failed generations.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
 - Keep the output compact - aim for 350 to 550 words total."""
 
-GPT_STEP6_SHOWCASE_USER_TEMPLATE = """Fusion: {POKEMON_A} + {POKEMON_B}
+GPT_STEP6_SHOWCASE_USER_TEMPLATE = """Fusion (context only - do NOT include these names in your output): {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
 Distinctive Traits: {DISTINCTIVE_TRAITS}
 
-Write the Step 6 Showcase Prompt."""
+Write the Step 6 Showcase Prompt. Reminder: NEVER write '{POKEMON_A}' or '{POKEMON_B}' in your output - describe the fusion only by its anatomy, colors and features. Pokemon-IP names trigger Seedance / Kling content filters."""
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +372,7 @@ Hard rules:
 - Environmental impact in this exact frame is mandatory.
 - 16:9 aspect ratio is implicit (do not write '16:9' inside the prompt - that is set externally).
 - NO TEXT, no watermarks, no captions, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
+- NEVER name the original Pokemon in the output. Describe the creature only by its anatomy and features. Pokemon-IP names trigger AI-Auto / Kling content filters.
 - No meta commentary, no 'Step 6', no 'Step 7', no 'shot director'. Pure scene description."""
 
 
