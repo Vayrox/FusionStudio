@@ -10,7 +10,7 @@
 <style>
   :root {
     --bg:        #0a0b10;
-    --bg-grad:   radial-gradient(1200px 600px at 80% -10%, rgba(255,107,71,0.08), transparent 60%),
+    --bg-grad:   radial-gradient(1200px 600px at 80% -10%, rgba(179,255,0,0.08), transparent 60%),
                  radial-gradient(900px 500px at -10% 110%, rgba(168,139,255,0.08), transparent 55%),
                  #0a0b10;
     --card:      #13141b;
@@ -21,14 +21,14 @@
     --text:      #f0f1f6;
     --muted:     #7e8494;
     --dim:       #545968;
-    --primary:   #ff6b47;
-    --primary-2: #ff8f6b;
+    --primary:   #b3ff00;
+    --primary-2: #d4ff66;
     --violet:    #a88bff;
     --ok:        #10dc8d;
     --warn:      #ffb547;
     --err:       #ff5e6b;
     --run:       #6ba5ff;
-    --grad-acc:  linear-gradient(135deg, #ff6b47 0%, #ff3d7f 50%, #a88bff 100%);
+    --grad-acc:  linear-gradient(135deg, #b3ff00 0%, #5eff8e 50%, #00d68f 100%);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; color: var(--text);
@@ -39,7 +39,7 @@
   }
   a { color: var(--primary-2); text-decoration: none; font-weight: 500; }
   a:hover { color: var(--primary); }
-  ::selection { background: rgba(255,107,71,0.3); }
+  ::selection { background: rgba(179,255,0,0.3); }
 
   /* Header */
   header { padding: 22px 36px; display: flex; align-items: center; gap: 18px;
@@ -48,7 +48,7 @@
   header .logo { width: 32px; height: 32px; border-radius: 9px;
     background: var(--grad-acc); display: grid; place-items: center;
     font-weight: 800; color: #fff; font-size: 16px; letter-spacing: -1px;
-    box-shadow: 0 6px 24px -6px rgba(255,107,71,0.55); }
+    box-shadow: 0 6px 24px -6px rgba(179,255,0,0.55); }
   header h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
   header .sub { color: var(--muted); font-size: 12px; font-weight: 500; }
   header .spacer { flex: 1; }
@@ -85,8 +85,8 @@
   }
   input[type=text]::placeholder, input[type=password]::placeholder { color: var(--dim); }
   input[type=text]:focus, input[type=password]:focus, textarea:focus {
-    border-color: rgba(255,107,71,0.5); background: rgba(0,0,0,0.4);
-    box-shadow: 0 0 0 3px rgba(255,107,71,0.12); }
+    border-color: rgba(179,255,0,0.5); background: rgba(0,0,0,0.4);
+    box-shadow: 0 0 0 3px rgba(179,255,0,0.12); }
 
   /* Buttons */
   button {
@@ -95,10 +95,10 @@
     padding: 11px 20px; font-weight: 600; cursor: pointer; font-size: 13px;
     font-family: inherit; letter-spacing: 0.1px;
     transition: transform 0.08s, box-shadow 0.15s, background-position 0.3s;
-    box-shadow: 0 8px 22px -10px rgba(255,107,71,0.6);
+    box-shadow: 0 8px 22px -10px rgba(179,255,0,0.6);
   }
   button:hover:not(:disabled) { background-position: 100% 50%;
-    box-shadow: 0 12px 28px -10px rgba(255,107,71,0.7); transform: translateY(-1px); }
+    box-shadow: 0 12px 28px -10px rgba(179,255,0,0.7); transform: translateY(-1px); }
   button:active:not(:disabled) { transform: translateY(0); }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
   button.secondary { background: var(--card-hi); color: var(--text);
@@ -118,8 +118,8 @@
     border-radius: 14px; padding: 16px 18px; display: flex;
     gap: 14px; align-items: flex-start; transition: border-color 0.15s, background 0.15s; }
   .idea:hover { border-color: var(--border-hi); }
-  .idea.approved { border-color: rgba(255,107,71,0.45);
-    background: linear-gradient(180deg, rgba(255,107,71,0.06) 0%, var(--card-2) 100%); }
+  .idea.approved { border-color: rgba(179,255,0,0.45);
+    background: linear-gradient(180deg, rgba(179,255,0,0.06) 0%, var(--card-2) 100%); }
   .idea input[type=checkbox] { appearance: none; width: 20px; height: 20px;
     margin-top: 2px; border: 1.5px solid var(--border-hi); border-radius: 6px;
     background: var(--card); cursor: pointer; flex: 0 0 auto; position: relative;
@@ -250,8 +250,8 @@
     font-size: 12px; font-family: 'JetBrains Mono', monospace;
     line-height: 1.5; resize: vertical; outline: none;
     transition: border-color 0.15s, box-shadow 0.15s; }
-  details.custom-prompt textarea:focus { border-color: rgba(255,107,71,0.5);
-    box-shadow: 0 0 0 3px rgba(255,107,71,0.12); }
+  details.custom-prompt textarea:focus { border-color: rgba(179,255,0,0.5);
+    box-shadow: 0 0 0 3px rgba(179,255,0,0.12); }
   details.custom-prompt .actions { margin-top: 10px; display: flex;
     align-items: center; gap: 12px; flex-wrap: wrap; }
   details.custom-prompt .hint { font-size: 11px; color: var(--muted); flex: 1; }
@@ -298,9 +298,9 @@
   .thumb:hover .fav { opacity: 1; }
   .thumb .fav:hover { transform: scale(1.1); }
   .thumb.favorite { box-shadow: 0 0 0 2px var(--primary),
-    0 20px 40px -20px rgba(255,107,71,0.45); border-color: var(--primary); }
+    0 20px 40px -20px rgba(179,255,0,0.45); border-color: var(--primary); }
   .thumb.favorite .fav { opacity: 1; background: var(--primary); color: #fff;
-    box-shadow: 0 4px 16px -4px rgba(255,107,71,0.8); }
+    box-shadow: 0 4px 16px -4px rgba(179,255,0,0.8); }
 
   /* Next Steps panel */
   .next-steps { margin-top: 20px; padding: 18px 20px; background: var(--card);
@@ -415,7 +415,7 @@
     line-height: 1; }
   .batch-body .fusion-entry:hover .f-regen { opacity: 0.8; }
   .batch-body .fusion-entry .f-regen:hover { color: var(--primary); opacity: 1;
-    background: rgba(255,107,71,0.08); }
+    background: rgba(179,255,0,0.08); }
   .batch-body .fusion-entry .f-regen:disabled { opacity: 0.4; cursor: not-allowed; }
   .job.flash { animation: flash-card 1.2s ease-out; }
   @keyframes flash-card {
