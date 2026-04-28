@@ -653,6 +653,24 @@
           <input type="text" id="s-openai-model" placeholder="gpt-4o" />
         </div>
         <div class="field">
+          <label for="s-google-key">Google API Key (Gemini)</label>
+          <input type="password" id="s-google-key" placeholder="unchanged" autocomplete="off" />
+          <small id="s-google-key-state">not set</small>
+        </div>
+        <div class="field">
+          <label for="s-vision-provider">Vision Provider (Eligibility-Check)</label>
+          <select id="s-vision-provider" style="width: 100%; padding: 11px 14px; background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; outline: none;">
+            <option value="openai">OpenAI (GPT-4o)</option>
+            <option value="gemini">Gemini (~25x guenstiger fuer Vision)</option>
+          </select>
+          <small>Welcher Provider den Eligibility-Check macht. Text-Tasks (Step 5/6, Narration etc.) nutzen weiter OpenAI.</small>
+        </div>
+        <div class="field">
+          <label for="s-gemini-vision-model">Gemini Vision Model</label>
+          <input type="text" id="s-gemini-vision-model" placeholder="gemini-2.5-flash" />
+          <small>Default: gemini-2.5-flash. Alternativen: gemini-2.0-flash (guenstiger), gemini-2.5-pro (teurer/genauer).</small>
+        </div>
+        <div class="field">
           <label for="s-step4-mode">Step 4 Design Mode</label>
           <select id="s-step4-mode" style="width: 100%; padding: 11px 14px; background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; outline: none;">
             <option value="blend">Blend (recognizable features from both)</option>
@@ -1984,14 +2002,22 @@ async function refreshSettings() {
     const s = res.settings;
     const aiSet = s.AIAUTO_API_KEY && s.AIAUTO_API_KEY.set;
     const oaSet = s.OPENAI_API_KEY && s.OPENAI_API_KEY.set;
+    const ggSet = s.GOOGLE_API_KEY && s.GOOGLE_API_KEY.set;
     $('#s-aiauto-key-state').textContent = aiSet
       ? `set (...${s.AIAUTO_API_KEY.suffix})` : 'not set';
     $('#s-openai-key-state').textContent = oaSet
       ? `set (...${s.OPENAI_API_KEY.suffix})` : 'not set';
+    const ggState = $('#s-google-key-state');
+    if (ggState) ggState.textContent = ggSet
+      ? `set (...${s.GOOGLE_API_KEY.suffix})` : 'not set';
     $('#s-aiauto-url').value = s.AIAUTO_BASE_URL || '';
     $('#s-aiauto-model').value = s.AIAUTO_IMAGE_MODEL || '';
     $('#s-aiauto-res').value = s.AIAUTO_IMAGE_RESOLUTION || '';
     $('#s-openai-model').value = s.OPENAI_MODEL || '';
+    const gmModel = $('#s-gemini-vision-model');
+    if (gmModel) gmModel.value = s.GEMINI_VISION_MODEL || '';
+    const visSel = $('#s-vision-provider');
+    if (visSel) visSel.value = (s.VISION_PROVIDER || 'openai').toLowerCase();
     const modeSel = $('#s-step4-mode');
     if (modeSel) modeSel.value = (s.STEP4_DESIGN_MODE || 'blend').toLowerCase();
 
@@ -2036,6 +2062,9 @@ async function saveSettings() {
     AIAUTO_IMAGE_RESOLUTION: $('#s-aiauto-res').value,
     OPENAI_API_KEY: $('#s-openai-key').value,
     OPENAI_MODEL: $('#s-openai-model').value,
+    GOOGLE_API_KEY: ($('#s-google-key') ? $('#s-google-key').value : ''),
+    GEMINI_VISION_MODEL: ($('#s-gemini-vision-model') ? $('#s-gemini-vision-model').value : 'gemini-2.5-flash'),
+    VISION_PROVIDER: ($('#s-vision-provider') ? $('#s-vision-provider').value : 'openai'),
     STEP4_DESIGN_MODE: ($('#s-step4-mode') ? $('#s-step4-mode').value : 'blend'),
   };
   const btn = $('#btn-save-settings');
@@ -2045,6 +2074,7 @@ async function saveSettings() {
     // Secret-Felder nach dem Save leeren, damit man sie nicht erneut sendet
     $('#s-aiauto-key').value = '';
     $('#s-openai-key').value = '';
+    if ($('#s-google-key')) $('#s-google-key').value = '';
     toast(res.changed.length ? `Saved: ${res.changed.join(', ')}` : 'No changes');
     await refreshSettings();
   } catch (e) {

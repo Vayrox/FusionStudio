@@ -81,11 +81,14 @@ EDITABLE_SETTINGS: dict[str, str] = {
     "AIAUTO_IMAGE_RESOLUTION": "2k",
     "OPENAI_API_KEY": "",
     "OPENAI_MODEL": "gpt-4o",
+    "GOOGLE_API_KEY": "",
+    "GEMINI_VISION_MODEL": "gemini-2.5-flash",
+    "VISION_PROVIDER": "openai",  # 'openai' | 'gemini'
     "STEP4_DESIGN_MODE": "blend",
 }
 
 # Welche davon sind Secrets (im UI maskiert, nie im Klartext zurueckgegeben).
-SECRET_KEYS = {"AIAUTO_API_KEY", "OPENAI_API_KEY"}
+SECRET_KEYS = {"AIAUTO_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY"}
 
 
 class Settings:
@@ -120,6 +123,21 @@ class Settings:
     @property
     def openai_model(self) -> str:
         return self._get("OPENAI_MODEL")
+
+    @property
+    def google_api_key(self) -> str:
+        return self._get("GOOGLE_API_KEY")
+
+    @property
+    def gemini_vision_model(self) -> str:
+        return self._get("GEMINI_VISION_MODEL") or "gemini-2.5-flash"
+
+    @property
+    def vision_provider(self) -> str:
+        """'openai' (default) oder 'gemini'. Welcher Provider fuer
+        Vision-Tasks (Eligibility-Check) genutzt wird."""
+        v = (self._get("VISION_PROVIDER") or "openai").lower().strip()
+        return v if v in ("openai", "gemini") else "openai"
 
     @property
     def step4_design_mode(self) -> str:

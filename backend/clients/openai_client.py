@@ -32,6 +32,29 @@ def _client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key=key)
 
 
+def _vision_client_and_model() -> tuple[AsyncOpenAI, str]:
+    """Liefert (client, model_name) fuer Vision-Tasks basierend auf
+    settings.vision_provider. Gemini wird via OpenAI-kompatiblen Endpoint
+    angesprochen, also funktioniert die gleiche chat.completions API."""
+    provider = settings.vision_provider
+    if provider == "gemini":
+        key = settings.google_api_key
+        if not key:
+            raise RuntimeError(
+                "Vision-Provider auf Gemini gesetzt, aber GOOGLE_API_KEY fehlt. "
+                "Im Dashboard unter Settings eintragen."
+            )
+        return (
+            AsyncOpenAI(
+                api_key=key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            ),
+            settings.gemini_vision_model or "gemini-2.5-flash",
+        )
+    # default: OpenAI
+    return _client(), settings.openai_model
+
+
 async def _chat(
     system: str,
     user: str,
@@ -449,8 +472,9 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
     Pokemon-Trademark-Filtern (Seedance / Kling / Flow) blockiert?
 
     Returns: dict {score: int 0-100, recommend: 'go'|'risky'|'block', reasoning: str}.
+    Provider (OpenAI vs Gemini) wird ueber settings.vision_provider gewaehlt.
     """
-    client = _client()
+    client, vision_model = _vision_client_and_model()
     b64 = _base64.b64encode(image_bytes).decode("ascii")
     data_url = f"data:image/png;base64,{b64}"
 
@@ -496,11 +520,11 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
     for attempt in range(1, _OPENAI_RETRIES + 1):
         try:
             log.warning(
-                "OpenAI vision attempt %d/%d (eligibility-check)",
-                attempt, _OPENAI_RETRIES,
+                "Vision attempt %d/%d (eligibility-check, provider=%s, model=%s)",
+                attempt, _OPENAI_RETRIES, settings.vision_provider, vision_model,
             )
             resp = await client.chat.completions.create(
-                model=settings.openai_model,
+                model=vision_model,
                 temperature=0.3,
                 messages=[
                     {"role": "system", "content": system},
@@ -510,7 +534,10 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
                 timeout=_OPENAI_TIMEOUT_S,
             )
             text = (resp.choices[0].message.content or "").strip()
-            log.warning("OpenAI vision eligibility raw output: %r", text[:500])
+            log.warning(
+                "Vision eligibility raw output (provider=%s): %r",
+                settings.vision_provider, text[:500],
+            )
             m = _ELIGIBILITY_RE.search(text)
             if not m:
                 raise ValueError(f"Konnte Eligibility-Output nicht parsen: {text!r}")
