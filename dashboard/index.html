@@ -359,6 +359,18 @@
   .ns-hint .no-fav { color: var(--warn); }
   .ns-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
+  /* Video-Player fuer Seedance-Outputs */
+  .ns-video-row { margin-top: 10px; padding: 10px 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .ns-video-row video { width: 100%; max-width: 360px; border-radius: 8px;
+    background: #000; display: block; }
+  .ns-video-row .vid-status { font-size: 11px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
+  .ns-video-row .vid-status.running { color: var(--run); }
+  .ns-video-row .vid-status.done { color: var(--ok); }
+  .ns-video-row .vid-status.error { color: var(--err); }
+  .ns-video-row .vid-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
   /* Showcase-Thumbnails (16:9 statt 9:16) */
   .showcase-row { margin-top: 12px; }
   .showcase-label { font-size: 11px; color: var(--muted); text-transform: uppercase;
@@ -1452,11 +1464,14 @@ function _renderNextStepsContent(container, job, meta) {
       },
       {
         key: 'step6a',
-        title: 'Step 6A &mdash; Showcase (Seedance 2 via Higgsfield) &middot; PRIMARY',
+        title: 'Step 6A &mdash; Showcase (Seedance 2)',
         hint: fav
-          ? `Upload <code>${escapeHtml(variantFile)}</code> als Reference. Seedance checkt Eligibility &mdash; wenn OK, Prompt rein, 16:9, rendern (10s, 5 Cuts).`
-          : `Wenn verfuegbar der kuerzeste Weg. <span class="no-fav">Waehle oben eine Favoriten-Variante &#9733;.</span>`,
-        copies: [{label: '&#128203; Copy Showcase Prompt', text: step6}],
+          ? `Direkt im Tool via <b>Generate Video</b> (Seedance 2 ueber AI-Auto, 9:16, 10s) oder manuell in Higgsfield mit <code>${escapeHtml(variantFile)}</code> als Reference.`
+          : `<span class="no-fav">Waehle oben eine Favoriten-Variante &#9733;.</span>`,
+        copies: [
+          {label: '&#128203; Copy Showcase Prompt', text: step6},
+          {label: '&#127909; Generate Video (Seedance 2)', action: 'generate_step6_video'},
+        ],
       },
       {
         key: 'step6b',
@@ -1475,17 +1490,18 @@ function _renderNextStepsContent(container, job, meta) {
       actionScenePrompt ? {
         key: 'action_scene',
         title: 'Action Scene (Seedance &mdash; signature performance)',
-        hint: 'Komplementaerer Clip basierend auf den Distinctive Traits: Flieger -> Hochgeschwindigkeitsflug + Sound-Barrier; Klingen-Kaempfer -> Blade-Combat + Schatten-Duell; Predator -> Hetzjagd + toxic trails; Brute -> Smash-Down + Wand-Risse. Pokemon-Namen sind im Prompt nicht enthalten.',
+        hint: 'Komplementaerer Clip basierend auf den Distinctive Traits: Flieger -> Hochgeschwindigkeitsflug + Sound-Barrier; Klingen-Kaempfer -> Blade-Combat + Schatten-Duell; Predator -> Hetzjagd + toxic trails; Brute -> Smash-Down + Wand-Risse.',
         copies: [
           {label: '&#128203; Copy Action Scene Prompt', text: actionScenePrompt},
-          {label: '&#127909; Regenerate Action Scene', action: 'generate_action_scene'},
+          {label: '&#127909; Generate Video (Seedance 2)', action: 'generate_action_scene_video'},
+          {label: '&#8634; Regenerate Prompt', action: 'generate_action_scene'},
         ],
       } : {
         key: 'action_scene',
         title: 'Action Scene (Seedance &mdash; signature performance)',
-        hint: 'On-demand: zusaetzlicher Seedance-Clip-Prompt zugeschnitten auf die Fusion. Ein Flieger fliegt, ein Klingen-Kaempfer kaempft, ein Magier wirkt, ein Brute zerstoert. Klick generiert ihn.',
+        hint: 'On-demand: Action-Scene-Prompt zugeschnitten auf die Fusion (Flieger/Kaempfer/Predator/Brute/etc.). Erst Prompt generieren, dann Video.',
         copies: [
-          {label: '&#127909; Generate Action Scene', action: 'generate_action_scene'},
+          {label: '&#127909; Generate Action Scene Prompt', action: 'generate_action_scene'},
         ],
       },
       (narrationDe && narrationEn) ? {
@@ -1592,12 +1608,44 @@ function _renderNextStepsContent(container, job, meta) {
       `;
     }
 
+    // Video-Player Sections (Step 6 + Action Scene Seedance Outputs)
+    const renderVideoRow = (label, statusField, pathField, errorField) => {
+      const status = job[statusField] || null;
+      const path = job[pathField] || null;
+      const err = job[errorField] || null;
+      if (!status && !path && !err) return '';
+      let stateHtml = '';
+      if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(label)}: generating ... (Seedance 2 dauert 5-15 min)</div>`;
+      else if (status === 'cancelled') stateHtml = `<div class="vid-status">${escapeHtml(label)}: cancelled</div>`;
+      else if (status === 'error') stateHtml = `<div class="vid-status error">${escapeHtml(label)}: error</div>`;
+      else if (status === 'done' || path) stateHtml = `<div class="vid-status done">${escapeHtml(label)}: ready</div>`;
+      const errBox = err ? `<div class="sc-err">${escapeHtml(err)}</div>` : '';
+      const videoHtml = path
+        ? `<video controls preload="metadata" src="/${escapeAttr(path)}?v=${cacheKey}"></video>`
+        : '';
+      const dlBtn = path
+        ? `<a class="ns-btn" href="/${escapeAttr(path)}" download style="text-decoration:none;">&#11015; Download mp4</a>`
+        : '';
+      return `<div class="ns-video-row">
+        ${stateHtml}
+        ${videoHtml}
+        ${errBox}
+        ${dlBtn ? `<div class="vid-actions">${dlBtn}</div>` : ''}
+      </div>`;
+    };
+
+    const videosHtml = [
+      renderVideoRow('Step 6 Showcase Video', 'step6_video_status', 'step6_video_path', 'step6_video_error'),
+      renderVideoRow('Action Scene Video', 'action_scene_video_status', 'action_scene_video_path', 'action_scene_video_error'),
+    ].join('');
+
     container.innerHTML = `
       <div class="next-steps-head">
         <span>Next Steps</span>
         ${favState}
       </div>
       ${itemsHtml}
+      ${videosHtml}
       ${scHtml}
     `;
 
@@ -1615,11 +1663,20 @@ function _renderNextStepsContent(container, job, meta) {
             await refreshJobs();
           } else if (action === 'generate_action_scene') {
             const res = await api(`/api/jobs/${job.id}/generate-action-scene`, {method: 'POST'});
-            // Drop new prompt into the metaCache for instant render
             const cached = _metaCache.get(job.id) || {};
             cached.action_scene_prompt = res.prompt || '';
             _metaCache.set(job.id, cached);
             toast('Action Scene Prompt generated');
+            await refreshJobs();
+          } else if (action === 'generate_step6_video') {
+            if (!confirm('Seedance 2 Video generieren?\n\nDauert oft 5-15 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
+            await api(`/api/jobs/${job.id}/generate-step6-video`, {method: 'POST'});
+            toast('Step 6 Video gequeued (Seedance 2)');
+            await refreshJobs();
+          } else if (action === 'generate_action_scene_video') {
+            if (!confirm('Seedance 2 Action-Scene Video generieren?\n\nDauert oft 5-15 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
+            await api(`/api/jobs/${job.id}/generate-action-scene-video`, {method: 'POST'});
+            toast('Action Scene Video gequeued (Seedance 2)');
             await refreshJobs();
           }
         } catch (err) {

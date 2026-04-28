@@ -796,6 +796,131 @@ async def _run_showcase_generation(
         await _update_job(job_id, showcase_status="error", showcase_error=err)
 
 
+async def generate_step6_video(job_id: str) -> None:
+    """Generiert das Step-6 Showcase-Video via Seedance 2 (AI-Auto).
+    Nutzt step6_showcase prompt + Favoriten-Variante als Reference."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Step-6-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+    if job.get("step6_video_status") == "running":
+        raise ValueError("Step-6-Video laeuft bereits.")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    prompt = meta.get("step6_showcase")
+    if not prompt:
+        raise RuntimeError("step6_showcase fehlt in _meta.json.")
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
+
+    _register_task(
+        f"step6video:{job_id}",
+        asyncio.create_task(_run_video_generation(
+            job_id, prompt, fav_path,
+            out_filename="06_seedance_video.mp4",
+            status_field="step6_video_status",
+            path_field="step6_video_path",
+            error_field="step6_video_error",
+        )),
+    )
+
+
+async def generate_action_scene_video(job_id: str) -> None:
+    """Generiert das Action-Scene-Video via Seedance 2 (AI-Auto).
+    Nutzt action_scene_prompt + Favoriten-Variante als Reference."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Action-Scene-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+    if job.get("action_scene_video_status") == "running":
+        raise ValueError("Action-Scene-Video laeuft bereits.")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    prompt = meta.get("action_scene_prompt")
+    if not prompt:
+        raise RuntimeError(
+            "action_scene_prompt fehlt - bitte zuerst 'Generate Action Scene' im "
+            "Next-Steps Panel klicken."
+        )
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
+
+    _register_task(
+        f"actionvideo:{job_id}",
+        asyncio.create_task(_run_video_generation(
+            job_id, prompt, fav_path,
+            out_filename="07_action_scene_video.mp4",
+            status_field="action_scene_video_status",
+            path_field="action_scene_video_path",
+            error_field="action_scene_video_error",
+        )),
+    )
+
+
+async def _run_video_generation(
+    job_id: str,
+    prompt: str,
+    ref_path: Path,
+    *,
+    out_filename: str,
+    status_field: str,
+    path_field: str,
+    error_field: str,
+) -> None:
+    try:
+        await _update_job(
+            job_id,
+            **{status_field: "running", error_field: None},
+        )
+        job = await get_job(job_id)
+        assert job is not None
+        out_dir = PROJECT_ROOT / job["output_dir"]
+        video_out = out_dir / out_filename
+
+        await aiauto_client.generate_video(
+            prompt, video_out, reference_image=ref_path,
+            aspect_ratio="9:16", resolution="720p", seconds=10,
+        )
+
+        await _update_job(
+            job_id,
+            **{
+                status_field: "done",
+                path_field: _relative_to_root(video_out),
+            },
+        )
+    except asyncio.CancelledError:
+        await _update_job(
+            job_id,
+            **{status_field: "cancelled", error_field: "Manuell abgebrochen."},
+        )
+        raise
+    except Exception as exc:  # noqa: BLE001
+        err = f"{type(exc).__name__}: {exc}"
+        await _update_job(
+            job_id,
+            **{status_field: "error", error_field: err},
+        )
+
+
 async def generate_action_scene(job_id: str) -> str:
     """Generiert einen Action-Scene-Prompt (pure motion / high-speed tracking
     fuer Seedance) fuer einen abgeschlossenen Job. On-demand, nicht in der

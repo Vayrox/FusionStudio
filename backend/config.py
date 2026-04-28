@@ -55,6 +55,7 @@ AIAUTO_REQUEST_TIMEOUT_S = 300.0
 AIAUTO_POST_TIMEOUT_S = 100.0  # unter Cloudflare-524-Grenze (120s), dann Fallback via /generations
 AIAUTO_POLL_INTERVAL_S = 5.0
 AIAUTO_POLL_TIMEOUT_S = 900.0  # Nano Banana Pro kann lange brauchen
+AIAUTO_VIDEO_POLL_TIMEOUT_S = 1800.0  # Seedance-2 Video-Gen kann 15+min brauchen
 AIAUTO_LIST_MATCH_ATTEMPTS = 30
 # Toleranz RUECKWAERTS vom submit_ts - nur Generations die hoechstens so
 # viele Sekunden vor unserem POST angelegt wurden, gelten als Treffer.

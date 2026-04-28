@@ -301,6 +301,24 @@ async def api_generate_action_scene(job_id: str) -> dict[str, str]:
     return {"prompt": prompt}
 
 
+@app.post("/api/jobs/{job_id}/generate-step6-video")
+async def api_generate_step6_video(job_id: str) -> dict[str, str]:
+    try:
+        await runner.generate_step6_video(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
+@app.post("/api/jobs/{job_id}/generate-action-scene-video")
+async def api_generate_action_scene_video(job_id: str) -> dict[str, str]:
+    try:
+        await runner.generate_action_scene_video(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued"}
+
+
 # ---------------------------------------------------------------------------
 # Static mounts + Dashboard
 # ---------------------------------------------------------------------------
