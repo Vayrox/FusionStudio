@@ -565,3 +565,81 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
     raise RuntimeError(
         f"OpenAI vision eligibility-check fehlgeschlagen nach {_OPENAI_RETRIES} Versuchen: {last_exc}"
     ) from last_exc
+
+
+# ---------------------------------------------------------------------------
+# Vision: Distinctive-Traits-Beschreibung aus einem Bild ziehen
+# ---------------------------------------------------------------------------
+
+
+_VISION_DESCRIBE_SYSTEM = """You are a creature-design analyst. You look at a single image of a fantasy creature (likely a Pokemon-fusion) and produce a structured Distinctive-Traits brief that downstream prompt-writers can use to generate Seedance / Kling video prompts.
+
+Output ONE continuous paragraph, 180-260 words, in this exact shape:
+
+A [archetype label] hybrid creature with [silhouette + posture]. Its body shows [anatomy: head, eyes, fangs, horns, scales/fur/armor, limbs, tail, wings, signature feature with concrete colors and textures]. Its colour palette: [3-5 specific colors with where they appear]. Signature feature: [the ONE most striking detail]. Mood and personality: [tone]. Primary action archetype: [one of: high-speed flight, blade combat, telekinetic / psychic magic, predatory hunt, brute destruction, summoning, energy bombardment, stealth / teleport, aquatic predator, arcane caster, etc.]. Implied signature ability: [name it in ALL CAPS, with the body part it emanates from and the concrete VFX color and texture, e.g. 'VOID LANCE - violet beam erupting from a third eye that carves a glowing geometric scar in the air'].
+
+Hard rules:
+- Describe ONLY what is visible in the image. Do not invent features that contradict the image.
+- NEVER name any original Pokemon (no 'Charizard', 'Gengar', 'Latios', etc.). Describe by anatomy and color only.
+- Use concrete adjectives, not vague ones. 'Violet' not 'purplish'. 'Cracked obsidian armor' not 'dark shell'.
+- The 'Implied signature ability' must be inferred from visible cues (claws, blades, glowing eyes, energy emanations, wing-shape, body posture, weapon, halo, mark) - not invented from nothing.
+- One paragraph, no headings, no bullet points."""
+
+
+async def describe_creature_image(image_bytes: bytes) -> str:
+    """Erzeugt eine Distinctive-Traits-aehnliche Beschreibung eines hochgeladenen
+    Creature-Bildes via Vision (Provider richtet sich nach settings.vision_provider).
+    Wird als Eingang fuer manuelle Step-5/6 / Action-Scene / Showcase-Image-Prompts
+    genutzt, wenn der User ausserhalb der Pipeline eine Generation will."""
+    if not image_bytes:
+        raise ValueError("Leeres Bild.")
+    client, vision_model = _vision_client_and_model()
+    b64 = _base64.b64encode(image_bytes).decode("ascii")
+    data_url = f"data:image/png;base64,{b64}"
+
+    user_messages = [
+        {"type": "text", "text": "Analyse this creature image and produce the Distinctive-Traits brief."},
+        {"type": "image_url", "image_url": {"url": data_url}},
+    ]
+
+    last_exc: Exception | None = None
+    for attempt in range(1, _OPENAI_RETRIES + 1):
+        try:
+            log.warning(
+                "Vision attempt %d/%d (describe-creature, provider=%s, model=%s)",
+                attempt, _OPENAI_RETRIES, settings.vision_provider, vision_model,
+            )
+            resp = await client.chat.completions.create(
+                model=vision_model,
+                temperature=0.7,
+                messages=[
+                    {"role": "system", "content": _VISION_DESCRIBE_SYSTEM},
+                    {"role": "user", "content": user_messages},
+                ],
+                max_tokens=700,
+                timeout=_OPENAI_TIMEOUT_S,
+            )
+            text = (resp.choices[0].message.content or "").strip()
+            if not text:
+                raise ValueError("Leere Vision-Antwort.")
+            log.warning(
+                "Vision describe-creature -> %d chars (provider=%s)",
+                len(text), settings.vision_provider,
+            )
+            return text
+        except (APITimeoutError, APIConnectionError, httpx.TimeoutException,
+                httpx.NetworkError) as exc:
+            last_exc = exc
+            log.warning("Vision describe network error attempt %d: %s", attempt, exc)
+        except RateLimitError as exc:
+            last_exc = exc
+            log.warning("Vision describe rate limit attempt %d: %s", attempt, exc)
+        except APIError as exc:
+            last_exc = exc
+            log.warning("Vision describe API error attempt %d: %s", attempt, exc)
+        if attempt < _OPENAI_RETRIES:
+            await asyncio.sleep(2 ** attempt)
+    assert last_exc is not None
+    raise RuntimeError(
+        f"Vision describe-creature fehlgeschlagen nach {_OPENAI_RETRIES} Versuchen: {last_exc}"
+    ) from last_exc

@@ -1098,6 +1098,91 @@ async def check_uploaded_image_eligibility(image_bytes: bytes) -> dict[str, Any]
     return await openai_client.check_image_eligibility(image_bytes)
 
 
+async def generate_manual_video_prompts(image_bytes: bytes) -> dict[str, Any]:
+    """Generiert ALLE Seedance / Kling Video-Prompts (Step 5 Transformation,
+    Step 6 Showcase, Showcase Image, Action Scene) fuer ein hochgeladenes
+    Creature-Bild ausserhalb der normalen Pipeline.
+
+    Flow:
+      1. Vision-Modell (Provider per Settings) zieht eine Distinctive-Traits-
+         Beschreibung aus dem Bild.
+      2. Mit dieser Beschreibung werden die 4 Text-Prompt-Generatoren
+         parallel via GPT-4o gestartet (POKEMON_A/B leer - die Generatoren
+         schreiben sowieso keine Pokemon-Namen ins Output).
+
+    Wird NICHT persistiert - reine ad-hoc Generation. Returns dict mit:
+      creature_description, step5_transformation, step6_showcase,
+      showcase_image_prompt, action_scene
+    Felder enthalten entweder den Prompt-String oder einen "error"-Wert
+    wenn dieser einzelne Generator fehlschlug (partial-success).
+    """
+    if not image_bytes:
+        raise ValueError("Leeres Bild.")
+    if len(image_bytes) > 15 * 1024 * 1024:
+        raise ValueError("Bild zu gross (max 15 MB).")
+
+    description = await openai_client.describe_creature_image(image_bytes)
+
+    # Step 6 zuerst, weil Showcase-Image + Action-Scene ihn als Referenz
+    # einbauen. Step 5 laeuft parallel dazu.
+    step5_task = asyncio.create_task(
+        openai_client.generate_step5_transformation(
+            pokemon_a="", pokemon_b="",
+            concept="manual upload (no concept hook)",
+            distinctive_traits=description,
+        )
+    )
+    step6_task = asyncio.create_task(
+        openai_client.generate_step6_showcase(
+            pokemon_a="", pokemon_b="",
+            concept="manual upload (no concept hook)",
+            distinctive_traits=description,
+        )
+    )
+    step5_res, step6_res = await asyncio.gather(
+        step5_task, step6_task, return_exceptions=True,
+    )
+
+    step5_text = step5_res if isinstance(step5_res, str) else None
+    step6_text = step6_res if isinstance(step6_res, str) else None
+    # Fallback: wenn Step 6 selbst fehlschlug, verwende die description als
+    # minimaler Kontext, damit Showcase-Image / Action-Scene nicht alle scheitern.
+    step6_for_refs = step6_text or description
+
+    showcase_task = asyncio.create_task(
+        openai_client.generate_showcase_image_prompt(
+            pokemon_a="", pokemon_b="",
+            concept="manual upload (no concept hook)",
+            distinctive_traits=description,
+            step6_video_prompt=step6_for_refs,
+        )
+    )
+    action_task = asyncio.create_task(
+        openai_client.generate_action_scene_prompt(
+            pokemon_a="", pokemon_b="",
+            concept="manual upload (no concept hook)",
+            distinctive_traits=description,
+            step6_video_prompt=step6_for_refs,
+        )
+    )
+    showcase_res, action_res = await asyncio.gather(
+        showcase_task, action_task, return_exceptions=True,
+    )
+
+    def _coerce(value: Any) -> dict[str, str]:
+        if isinstance(value, str):
+            return {"prompt": value}
+        return {"error": f"{type(value).__name__}: {value}"}
+
+    return {
+        "creature_description": description,
+        "step5_transformation": _coerce(step5_res),
+        "step6_showcase": _coerce(step6_res),
+        "showcase_image_prompt": _coerce(showcase_res),
+        "action_scene": _coerce(action_res),
+    }
+
+
 async def regenerate_step5_prompt(job_id: str) -> str:
     """Regeneriert den Step-5 Transformation-Prompt (Kling) ohne Bilder
     neu zu generieren. Speichert in meta.step5_transformation."""

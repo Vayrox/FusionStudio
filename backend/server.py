@@ -345,6 +345,19 @@ async def api_check_uploaded_eligibility(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/manual-prompts")
+async def api_manual_prompts(
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Generiert Step 5 / Step 6 / Showcase-Image / Action-Scene Prompts
+    fuer ein hochgeladenes Creature-Bild ausserhalb der Pipeline."""
+    image_bytes = await file.read()
+    try:
+        return await runner.generate_manual_video_prompts(image_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/jobs/{job_id}/regenerate-showcase-image-prompt")
 async def api_regenerate_showcase_image_prompt(job_id: str) -> dict[str, str]:
     try:
