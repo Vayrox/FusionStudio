@@ -1471,7 +1471,10 @@ function _renderNextStepsContent(container, job, meta) {
         hint: fav
           ? `First-Last-Frame Modus. Start: <code>03_start_frame.png</code> (beide Pokemon) &middot; End: <code>${escapeHtml(variantFile)}</code> (Fusion). Prompt beschreibt die Transformation dazwischen.`
           : `First-Last-Frame Modus. Start: <code>03_start_frame.png</code>. <span class="no-fav">Waehle oben eine Favoriten-Variante &#9733; fuer den End Frame.</span>`,
-        copies: [{label: '&#128203; Copy Step 5 Prompt', text: step5}],
+        copies: [
+          {label: '&#128203; Copy Step 5 Prompt', text: step5},
+          {label: '&#8634; Regenerate Prompt', action: 'regenerate_step5_prompt'},
+        ],
       },
       {
         key: 'step6a',
@@ -1482,6 +1485,7 @@ function _renderNextStepsContent(container, job, meta) {
         copies: [
           {label: '&#128203; Copy Showcase Prompt', text: step6},
           {label: '&#127909; Generate Video (Seedance 2)', action: 'generate_step6_video'},
+          {label: '&#8634; Regenerate Prompt', action: 'regenerate_step6_prompt'},
         ],
       },
       {
@@ -1496,6 +1500,7 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Prompt fuer Flow', text: step6},
           {label: '&#128203; Prompt fuer Kling Elements (wrapped)', text: step6bText},
           {label: '&#127912; Generate Showcase (AI-Auto)', action: 'generate_showcase'},
+          {label: '&#8634; Regenerate Showcase-Image-Prompt', action: 'regenerate_showcase_image_prompt'},
         ],
       },
       actionScenePrompt ? {
@@ -1721,6 +1726,27 @@ function _renderNextStepsContent(container, job, meta) {
             cached.action_scene_prompt = res.prompt || '';
             _metaCache.set(job.id, cached);
             toast('Action Scene Prompt generated');
+            await refreshJobs();
+          } else if (action === 'regenerate_step5_prompt') {
+            const res = await api(`/api/jobs/${job.id}/regenerate-step5-prompt`, {method: 'POST'});
+            const cached = _metaCache.get(job.id) || {};
+            cached.step5_transformation = res.prompt || '';
+            _metaCache.set(job.id, cached);
+            toast('Step 5 Prompt regenerated');
+            await refreshJobs();
+          } else if (action === 'regenerate_step6_prompt') {
+            const res = await api(`/api/jobs/${job.id}/regenerate-step6-prompt`, {method: 'POST'});
+            const cached = _metaCache.get(job.id) || {};
+            cached.step6_showcase = res.prompt || '';
+            _metaCache.set(job.id, cached);
+            toast('Step 6 Showcase Prompt regenerated');
+            await refreshJobs();
+          } else if (action === 'regenerate_showcase_image_prompt') {
+            const res = await api(`/api/jobs/${job.id}/regenerate-showcase-image-prompt`, {method: 'POST'});
+            const cached = _metaCache.get(job.id) || {};
+            cached.showcase_image_prompt = res.prompt || '';
+            _metaCache.set(job.id, cached);
+            toast('Showcase-Image Prompt regenerated');
             await refreshJobs();
           } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
             const triesSel = $(`.tries-select[data-tries-for="${action}"]`, container);

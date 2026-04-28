@@ -1001,6 +1001,93 @@ async def generate_action_scene(job_id: str) -> str:
     return prompt
 
 
+# ---------------------------------------------------------------------------
+# Re-generate text prompts on-demand (Step 5 / Step 6 / Showcase Image)
+# ---------------------------------------------------------------------------
+
+
+async def _load_prompt_context(job_id: str) -> tuple[Path, dict[str, Any]]:
+    """Common Setup fuer prompt-regen: laedt meta.json, validiert status."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Prompt-Regenerate nur fuer abgeschlossene Jobs.")
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    return meta_path, meta
+
+
+def _save_meta_field(meta_path: Path, meta: dict[str, Any], key: str, value: str) -> None:
+    meta[key] = value
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+async def regenerate_step5_prompt(job_id: str) -> str:
+    """Regeneriert den Step-5 Transformation-Prompt (Kling) ohne Bilder
+    neu zu generieren. Speichert in meta.step5_transformation."""
+    meta_path, meta = await _load_prompt_context(job_id)
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    concept = meta.get("concept", "") or ""
+    traits = meta.get("distinctive_traits", "")
+    if not traits:
+        raise RuntimeError("distinctive_traits fehlt.")
+
+    prompt = await openai_client.generate_step5_transformation(
+        pokemon_a, pokemon_b, concept, traits,
+    )
+    _save_meta_field(meta_path, meta, "step5_transformation", prompt)
+    await _update_job(job_id, step5_prompt_regen_at=_now_iso())
+    return prompt
+
+
+async def regenerate_step6_prompt(job_id: str) -> str:
+    """Regeneriert den Step-6 Showcase-Prompt (Seedance / Kling Elements
+    5-Cut) ohne Bilder neu zu generieren. Speichert in meta.step6_showcase."""
+    meta_path, meta = await _load_prompt_context(job_id)
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    concept = meta.get("concept", "") or ""
+    traits = meta.get("distinctive_traits", "")
+    if not traits:
+        raise RuntimeError("distinctive_traits fehlt.")
+
+    prompt = await openai_client.generate_step6_showcase(
+        pokemon_a, pokemon_b, concept, traits,
+    )
+    _save_meta_field(meta_path, meta, "step6_showcase", prompt)
+    await _update_job(job_id, step6_prompt_regen_at=_now_iso())
+    return prompt
+
+
+async def regenerate_showcase_image_prompt(job_id: str) -> str:
+    """Regeneriert den Static Showcase Image Prompt (Kling Elements
+    @image2 / Flow Blueprint). Speichert in meta.showcase_image_prompt."""
+    meta_path, meta = await _load_prompt_context(job_id)
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    concept = meta.get("concept", "") or ""
+    traits = meta.get("distinctive_traits", "")
+    step6 = meta.get("step6_showcase", "")
+    if not traits or not step6:
+        raise RuntimeError(
+            "distinctive_traits oder step6_showcase fehlt - regenerate Step 6 zuerst."
+        )
+
+    prompt = await openai_client.generate_showcase_image_prompt(
+        pokemon_a, pokemon_b, concept, traits, step6,
+    )
+    _save_meta_field(meta_path, meta, "showcase_image_prompt", prompt)
+    await _update_job(job_id, showcase_image_prompt_regen_at=_now_iso())
+    return prompt
+
+
 async def set_showcase_pick(job_id: str, variant: int | None) -> None:
     job = await get_job(job_id)
     if not job:

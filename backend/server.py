@@ -305,6 +305,33 @@ async def api_generate_action_scene(job_id: str) -> dict[str, str]:
     return {"prompt": prompt}
 
 
+@app.post("/api/jobs/{job_id}/regenerate-step5-prompt")
+async def api_regenerate_step5_prompt(job_id: str) -> dict[str, str]:
+    try:
+        prompt = await runner.regenerate_step5_prompt(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prompt": prompt}
+
+
+@app.post("/api/jobs/{job_id}/regenerate-step6-prompt")
+async def api_regenerate_step6_prompt(job_id: str) -> dict[str, str]:
+    try:
+        prompt = await runner.regenerate_step6_prompt(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prompt": prompt}
+
+
+@app.post("/api/jobs/{job_id}/regenerate-showcase-image-prompt")
+async def api_regenerate_showcase_image_prompt(job_id: str) -> dict[str, str]:
+    try:
+        prompt = await runner.regenerate_showcase_image_prompt(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prompt": prompt}
+
+
 @app.post("/api/jobs/{job_id}/generate-step6-video")
 async def api_generate_step6_video(
     job_id: str, req: GenerateVideoRequest | None = None,
