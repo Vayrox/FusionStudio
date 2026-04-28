@@ -300,6 +300,24 @@
     color: var(--dim); font-family: 'JetBrains Mono', monospace; }
 
   /* Favorite star auf Thumbnails */
+  /* Eligibility-Badge auf Thumbnails */
+  .thumb .elig-badge { position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.78); backdrop-filter: blur(8px); color: #fff;
+    border: 0; border-radius: 6px; padding: 3px 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+    cursor: help; display: inline-flex; align-items: center; gap: 4px;
+    text-transform: uppercase; line-height: 1; }
+  .thumb .elig-badge.go { color: var(--ok); border: 1px solid rgba(16,220,141,0.4); }
+  .thumb .elig-badge.risky { color: var(--warn); border: 1px solid rgba(255,181,71,0.4); }
+  .thumb .elig-badge.block { color: var(--err); border: 1px solid rgba(255,94,107,0.4); }
+  .thumb .elig-check-btn { position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.78); backdrop-filter: blur(8px); color: #fff;
+    border: 0; border-radius: 6px; padding: 4px 8px; font-size: 11px;
+    font-weight: 600; cursor: pointer; opacity: 0;
+    transition: opacity 0.15s, background 0.15s; }
+  .thumb:hover .elig-check-btn { opacity: 1; }
+  .thumb .elig-check-btn:hover { background: rgba(179,255,0,0.85); color: #000; }
+
   .thumb .fav { position: absolute; bottom: 8px; right: 8px;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); color: #fff;
     border: 0; border-radius: 100px; width: 30px; height: 30px;
@@ -346,7 +364,62 @@
   .ns-hint code { font-family: 'JetBrains Mono', monospace; font-size: 11px;
     background: var(--card-2); padding: 1px 6px; border-radius: 4px;
     color: var(--primary-2); }
-  .ns-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .ns-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+    align-items: flex-start; }
+  /* Primary action right + secondary chips full-width below */
+  .ns-item { grid-template-rows: auto auto; }
+  .ns-item .ns-secondary { grid-column: 2 / 4; display: flex; gap: 6px;
+    flex-wrap: wrap; align-items: center; padding-top: 6px;
+    border-top: 1px dashed transparent; margin-top: 2px; }
+  .ns-item .ns-secondary:empty { display: none; }
+  .ns-btn.chip { padding: 4px 9px; font-size: 11px; border-radius: 6px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); }
+  .ns-btn.chip:hover:not(:disabled) { color: var(--primary-2);
+    border-color: var(--border-hi); background: rgba(255,255,255,0.02); }
+  .ns-btn.chip.copied { border-color: var(--ok); color: var(--ok); }
+  .ns-btn.primary { background: linear-gradient(180deg, var(--card-hi) 0%, #252836 100%);
+    border: 1px solid rgba(179,255,0,0.3); color: var(--primary-2);
+    font-weight: 700; }
+  .ns-btn.primary:hover:not(:disabled) { border-color: var(--primary);
+    background: linear-gradient(180deg, #252836 0%, #2c3142 100%); }
+
+  /* Eligibility upload section */
+  section#sec-eligibility .drop-zone { margin-top: 12px;
+    border: 2px dashed var(--border-hi); border-radius: 12px;
+    padding: 28px 20px; text-align: center; color: var(--muted);
+    cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  section#sec-eligibility .drop-zone:hover,
+  section#sec-eligibility .drop-zone.dragover { border-color: var(--primary);
+    background: rgba(179,255,0,0.04); color: var(--primary-2); }
+  section#sec-eligibility .drop-zone.dragover { background: rgba(179,255,0,0.08); }
+  section#sec-eligibility .drop-zone .drop-icon { font-size: 32px; opacity: 0.5;
+    margin-bottom: 6px; display: block; }
+  section#sec-eligibility .drop-zone input[type=file] { display: none; }
+  section#sec-eligibility .elig-result { margin-top: 14px; padding: 14px 16px;
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 12px;
+    display: flex; gap: 14px; align-items: flex-start; }
+  section#sec-eligibility .elig-result img { width: 96px; height: 96px;
+    border-radius: 8px; object-fit: cover; background: var(--card); flex: 0 0 auto; }
+  section#sec-eligibility .elig-result .body { flex: 1; min-width: 0; }
+  section#sec-eligibility .elig-result .score-row { display: flex; gap: 10px;
+    align-items: center; margin-bottom: 6px; }
+  section#sec-eligibility .elig-result .score-num { font-size: 28px;
+    font-weight: 800; letter-spacing: -1px; }
+  section#sec-eligibility .elig-result .score-num.go { color: var(--ok); }
+  section#sec-eligibility .elig-result .score-num.risky { color: var(--warn); }
+  section#sec-eligibility .elig-result .score-num.block { color: var(--err); }
+  section#sec-eligibility .elig-result .rec-pill { font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 100px; text-transform: uppercase;
+    letter-spacing: 0.6px; border: 1px solid; }
+  section#sec-eligibility .elig-result .rec-pill.go { color: var(--ok);
+    border-color: rgba(16,220,141,0.4); background: rgba(16,220,141,0.1); }
+  section#sec-eligibility .elig-result .rec-pill.risky { color: var(--warn);
+    border-color: rgba(255,181,71,0.4); background: rgba(255,181,71,0.1); }
+  section#sec-eligibility .elig-result .rec-pill.block { color: var(--err);
+    border-color: rgba(255,94,107,0.4); background: rgba(255,94,107,0.1); }
+  section#sec-eligibility .elig-result .reasoning { color: var(--muted);
+    font-size: 13px; line-height: 1.55; }
   .ns-btn { background: var(--card-hi); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 11px; font-size: 12px; font-weight: 600;
@@ -635,6 +708,18 @@
         <button id="btn-run-manual" title="Direkt als einzelne Fusion queuen (eigene Narration)">Run now</button>
       </div>
     </div>
+  </section>
+
+  <section id="sec-eligibility">
+    <h2>Eligibility Check</h2>
+    <p class="section-sub">Vor dem Seedance-Video pruefen ob das Bild von Trademark-Filtern (Higgsfield, Kling, etc.) blockiert wird. Funktioniert auch fuer beliebige extern hochgeladene Bilder.</p>
+    <label class="drop-zone" id="elig-drop">
+      <span class="drop-icon">&#128229;</span>
+      <div>Bild hier ablegen oder <b>klicken</b> zum Hochladen</div>
+      <small style="color:var(--dim); font-size:11px; margin-top:4px; display:inline-block;">PNG / JPG / WebP &middot; max 15 MB</small>
+      <input type="file" id="elig-file" accept="image/png,image/jpeg,image/webp" />
+    </label>
+    <div id="elig-result-box"></div>
   </section>
 
   <section id="sec-jobs">
@@ -1161,15 +1246,26 @@ function renderJob(job) {
 
   const cacheKey = encodeURIComponent(job.updated_at || job.id || '');
   const fav = job.favorite_variant || null;
+  const eligMap = job.eligibility || {};
   const thumbs = (job.variants || []).map((v, i) => {
     const url = '/' + v.replace(/^\/+/, '');
     const idx = i + 1;
     const isFav = fav === idx;
+    const elig = eligMap[String(idx)];
+    let eligEl = '';
+    if (elig && typeof elig.score === 'number') {
+      const cls = elig.recommend || (elig.score < 40 ? 'go' : elig.score < 70 ? 'risky' : 'block');
+      const tip = `${elig.score}% ${cls.toUpperCase()} - ${elig.reasoning || ''}`;
+      eligEl = `<button class="elig-badge ${cls}" data-job="${job.id}" data-idx="${idx}" title="${escapeAttr(tip)}">${elig.score}%</button>`;
+    } else {
+      eligEl = `<button class="elig-check-btn" data-job="${job.id}" data-idx="${idx}" title="GPT-4o Vision: pruefen ob Pokemon-IP-Filter triggern">&#10003; Check</button>`;
+    }
     return `
       <div class="thumb${isFav ? ' favorite' : ''}" data-idx="${idx}">
         <img src="${escapeAttr(url)}?v=${cacheKey}" alt="variant ${idx}" loading="lazy" />
         <div class="idx">v${idx}</div>
-        <button class="regen" data-job="${job.id}" data-idx="${idx}" title="Regenerate variant ${idx}">&#8634;</button>
+        ${eligEl}
+        <button class="regen" data-job="${job.id}" data-idx="${idx}" title="Regenerate variant ${idx}" style="top:38px;">&#8634;</button>
         <button class="fav" data-job="${job.id}" data-idx="${idx}" title="${isFav ? 'Unset favorite' : 'Set as favorite'}">${isFav ? '&#9733;' : '&#9734;'}</button>
       </div>
     `;
@@ -1368,6 +1464,27 @@ function renderJob(job) {
     });
   }
 
+  $$('.elig-check-btn', el).forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const jobId = btn.dataset.job;
+      const idx = +btn.dataset.idx;
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '&#8230;';
+      try {
+        await api(`/api/jobs/${jobId}/check-eligibility/${idx}`, {method: 'POST'});
+        toast(`v${idx} eligibility geprueft`);
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
+    });
+  });
+
   $$('.fav', el).forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -1467,128 +1584,139 @@ function _renderNextStepsContent(container, job, meta) {
     const items = [
       {
         key: 'step5',
-        title: 'Step 5 &mdash; Transformation (Kling 2.5 / 3.0 Omni)',
+        title: 'Step 5 &mdash; Transformation (Kling)',
         hint: fav
-          ? `First-Last-Frame Modus. Start: <code>03_start_frame.png</code> (beide Pokemon) &middot; End: <code>${escapeHtml(variantFile)}</code> (Fusion). Prompt beschreibt die Transformation dazwischen.`
-          : `First-Last-Frame Modus. Start: <code>03_start_frame.png</code>. <span class="no-fav">Waehle oben eine Favoriten-Variante &#9733; fuer den End Frame.</span>`,
+          ? `First-Last-Frame. Start: <code>03_start_frame.png</code> &middot; End: <code>${escapeHtml(variantFile)}</code>.`
+          : `First-Last-Frame. Start: <code>03_start_frame.png</code>. <span class="no-fav">Favorit waehlen &#9733;.</span>`,
         copies: [
-          {label: '&#128203; Copy Step 5 Prompt', text: step5},
-          {label: '&#8634; Regenerate Prompt', action: 'regenerate_step5_prompt'},
+          {label: '&#128203; Copy Prompt', text: step5, primary: true},
+          {label: '&#8634; Regen', action: 'regenerate_step5_prompt'},
         ],
       },
       {
         key: 'step6a',
-        title: 'Step 6A &mdash; Showcase (Seedance 2)',
+        title: 'Step 6A &mdash; Showcase Video (Seedance 2)',
         hint: fav
-          ? `Direkt im Tool via <b>Generate Video</b> (Seedance 2 ueber AI-Auto, 9:16, 4k, 15s) oder manuell in Higgsfield mit <code>${escapeHtml(variantFile)}</code> als Reference.`
+          ? `9:16 / 4k / 15s. Reference: <code>${escapeHtml(variantFile)}</code>.`
           : `<span class="no-fav">Waehle oben eine Favoriten-Variante &#9733;.</span>`,
         copies: [
-          {label: '&#128203; Copy Showcase Prompt', text: step6},
-          {label: '&#127909; Generate Video (Seedance 2)', action: 'generate_step6_video'},
-          {label: '&#8634; Regenerate Prompt', action: 'regenerate_step6_prompt'},
+          {label: '&#127909; Generate Video', action: 'generate_step6_video', primary: true},
+          {label: '&#128203; Copy Prompt', text: step6},
+          {label: '&#8634; Regen', action: 'regenerate_step6_prompt'},
         ],
       },
       {
         key: 'step6b',
-        title: 'Step 6B &mdash; Showcase Fallback (Flow &rarr; Kling Elements)',
+        title: 'Step 6B &mdash; Showcase Fallback (Kling Elements)',
         hint: fav
-          ? `<b>Nur falls Seedance abweist.</b><br/>
-             1. Blueprint-Image generieren &mdash; entweder extern in <b>Flow</b> oder direkt via <b>Generate Showcase</b> unten (nutzt AI-Auto mit deiner Favoriten-Variante als Reference, 16:9).<br/>
-             2. In <b>Kling 3.0 Omni &rarr; ELEMENTS mode</b> (NICHT Images!). Elements: @image1=<code>${escapeHtml(variantFile)}</code> (Fusion) &middot; @image2=<code>blueprint.png</code> (Shot Director) &middot; @image3=<code>03_start_frame.png</code> (Background).`
-          : `<b>Nur falls Seedance abweist.</b> Zweistufig: Blueprint-Image (via Flow oder AI-Auto-Generate unten), dann Kling Elements kombiniert. <span class="no-fav">Waehle oben einen Favoriten &#9733;.</span>`,
+          ? `Nur wenn Seedance abweist. Generate Showcase &rarr; <b>blueprint.png</b>, dann Kling 3.0 Omni <b>ELEMENTS mode</b>: @image1=<code>${escapeHtml(variantFile)}</code> &middot; @image2=<code>blueprint.png</code> &middot; @image3=<code>03_start_frame.png</code>.`
+          : `Zweistufig: Blueprint-Image + Kling Elements. <span class="no-fav">Favorit waehlen &#9733;.</span>`,
         copies: [
-          {label: '&#128203; Prompt fuer Flow', text: step6},
-          {label: '&#128203; Prompt fuer Kling Elements (wrapped)', text: step6bText},
-          {label: '&#127912; Generate Showcase (AI-Auto)', action: 'generate_showcase'},
-          {label: '&#8634; Regenerate Showcase-Image-Prompt', action: 'regenerate_showcase_image_prompt'},
+          {label: '&#127912; Generate Showcase', action: 'generate_showcase', primary: true},
+          {label: '&#128203; Prompt Flow', text: step6},
+          {label: '&#128203; Prompt Kling Elements', text: step6bText},
+          {label: '&#8634; Regen Image-Prompt', action: 'regenerate_showcase_image_prompt'},
         ],
       },
       actionScenePrompt ? {
         key: 'action_scene',
-        title: 'Action Scene (Seedance &mdash; signature performance)',
-        hint: 'Komplementaerer Clip basierend auf den Distinctive Traits: Flieger -> Hochgeschwindigkeitsflug + Sound-Barrier; Klingen-Kaempfer -> Blade-Combat + Schatten-Duell; Predator -> Hetzjagd + toxic trails; Brute -> Smash-Down + Wand-Risse.',
+        title: 'Action Scene (Seedance signature performance)',
+        hint: 'Pure-motion Clip auf die Fusion zugeschnitten (Flieger / Kaempfer / Predator / Brute).',
         copies: [
-          {label: '&#128203; Copy Action Scene Prompt', text: actionScenePrompt},
-          {label: '&#127909; Generate Video (Seedance 2)', action: 'generate_action_scene_video'},
-          {label: '&#8634; Regenerate Prompt', action: 'generate_action_scene'},
+          {label: '&#127909; Generate Video', action: 'generate_action_scene_video', primary: true},
+          {label: '&#128203; Copy Prompt', text: actionScenePrompt},
+          {label: '&#8634; Regen Prompt', action: 'generate_action_scene'},
         ],
       } : {
         key: 'action_scene',
-        title: 'Action Scene (Seedance &mdash; signature performance)',
-        hint: 'On-demand: Action-Scene-Prompt zugeschnitten auf die Fusion (Flieger/Kaempfer/Predator/Brute/etc.). Erst Prompt generieren, dann Video.',
+        title: 'Action Scene (Seedance signature performance)',
+        hint: 'Pure-motion Clip zugeschnitten auf die Fusion. Erst Prompt generieren, dann Video.',
         copies: [
-          {label: '&#127909; Generate Action Scene Prompt', action: 'generate_action_scene'},
+          {label: '&#127909; Generate Prompt', action: 'generate_action_scene', primary: true},
         ],
       },
       (narrationDe && narrationEn) ? {
         key: 'narration',
-        title: 'Narration aufnehmen (DE + EN)',
+        title: 'Narration (DE + EN)',
         hint: 'Voice-Over synchronisiert mit Transformation + Showcase.',
         copies: [
-          {label: '&#128203; Copy DE', text: narrationDe},
-          {label: '&#128203; Copy EN', text: narrationEn},
+          {label: '&#128203; Copy DE', text: narrationDe, primary: true},
+          {label: '&#128203; Copy EN', text: narrationEn, primary: true},
         ],
       } : {
         key: 'narration',
-        title: 'Narration aufnehmen (DE + EN)',
+        title: 'Narration (DE + EN)',
         hint: job.batch_id
-          ? `Diese Fusion ist Teil eines Compilation-Batches &mdash; die gemeinsame DE+EN Narration findest du im <b>Batch-Panel</b> oben in der Liste.`
-          : 'Narration-Text noch nicht verfuegbar (Job laeuft noch oder fehlerhaft).',
+          ? `Teil eines Batches &mdash; gemeinsame DE+EN Narration im <b>Batch-Panel</b> oben.`
+          : 'Narration noch nicht verfuegbar.',
         copies: [],
       },
       sunoPrompt ? {
         key: 'suno',
         title: 'Background Music (Suno)',
-        hint: 'Copy den Prompt in Suno.ai, generieren, als Background-Track ueber die Narration legen.',
-        copies: [{label: '&#127928; Copy Suno Prompt', text: sunoPrompt}],
+        hint: 'Prompt in Suno.ai, generieren, als BGM ueber die Narration.',
+        copies: [{label: '&#127928; Copy Suno Prompt', text: sunoPrompt, primary: true}],
       } : {
         key: 'suno',
         title: 'Background Music (Suno)',
-        hint: 'Suno-Prompt nicht verfuegbar (Job laeuft noch oder ist Teil eines Batches &mdash; Prompt dann im Batch-Panel).',
+        hint: 'Nicht verfuegbar (Job laeuft / Batch-Member).',
         copies: [],
       },
       (ytTitle && ytDescription) ? {
         key: 'youtube',
         title: 'YouTube Shorts SEO',
-        hint: `<b>Title:</b> ${escapeHtml(ytTitle)}<br/><b>Description:</b> erste 100 chars: <i>${escapeHtml(ytDescription.slice(0, 110))}...</i>`,
+        hint: `<b>Title:</b> ${escapeHtml(ytTitle)}`,
         copies: [
-          {label: '&#128250; Copy Title', text: ytTitle},
-          {label: '&#128221; Copy Description', text: ytDescription},
+          {label: '&#128250; Copy Title', text: ytTitle, primary: true},
+          {label: '&#128221; Copy Description', text: ytDescription, primary: true},
         ],
       } : {
         key: 'youtube',
         title: 'YouTube Shorts SEO',
-        hint: 'YT-SEO nicht verfuegbar (Job laeuft noch oder ist Teil eines Batches &mdash; SEO dann im Batch-Panel).',
+        hint: 'Nicht verfuegbar (Job laeuft / Batch-Member).',
         copies: [],
       },
       {
         key: 'editing',
         title: 'Editing (Step 9)',
-        hint: 'Clips zusammenschneiden, Narration drueber, SFX + BGM. Editing-Notes siehe <code>video_prompts.md</code>.',
+        hint: 'Clips schneiden, Narration drueber, SFX + BGM. Notes siehe <code>video_prompts.md</code>.',
         copies: [],
       },
     ];
 
+    const renderActionBtn = (c, idx, primary) => {
+      if (c.action) {
+        let triesDropdown = '';
+        if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
+          const tcKey = `${job.id}:${c.action}`;
+          const savedTries = _jobTriesPref.get(tcKey) || '1';
+          const sel = (v) => savedTries === v ? ' selected' : '';
+          triesDropdown = `<select class="tries-select" data-tries-for="${c.action}" data-job-tries="${tcKey}" title="Anzahl paralleler Generations">
+            <option value="1"${sel('1')}>&times;1</option>
+            <option value="2"${sel('2')}>&times;2</option>
+            <option value="3"${sel('3')}>&times;3</option>
+          </select>`;
+        }
+        const cls = primary ? 'ns-btn action primary' : 'ns-btn action chip';
+        return `${triesDropdown}<button class="${cls}" data-action="${c.action}">${c.label}</button>`;
+      }
+      const cls = primary ? 'ns-btn copy primary' : 'ns-btn copy chip';
+      return `<button class="${cls}" data-copy-idx="${idx}">${c.label}</button>`;
+    };
+
     const itemsHtml = items.map(it => {
       const done = !!check[it.key];
-      const actionBtns = it.copies.map((c, i) => {
-        if (c.action) {
-          // Video-Generations bekommen ein Tries-Dropdown davor
-          let triesDropdown = '';
-          if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
-            const cacheKey = `${job.id}:${c.action}`;
-            const savedTries = _jobTriesPref.get(cacheKey) || '1';
-            const sel = (v) => savedTries === v ? ' selected' : '';
-            triesDropdown = `<select class="tries-select" data-tries-for="${c.action}" data-job-tries="${cacheKey}" title="Anzahl paralleler Generations">
-              <option value="1"${sel('1')}>&times;1</option>
-              <option value="2"${sel('2')}>&times;2</option>
-              <option value="3"${sel('3')}>&times;3</option>
-            </select>`;
-          }
-          return `${triesDropdown}<button class="ns-btn action" data-key="${it.key}" data-action="${c.action}">${c.label}</button>`;
-        }
-        return `<button class="ns-btn copy" data-key="${it.key}" data-copy-idx="${i}">${c.label}</button>`;
-      }).join('');
+      const copies = it.copies || [];
+      const primaryBtns = copies
+        .map((c, i) => ({c, i}))
+        .filter(x => x.c.primary)
+        .map(x => renderActionBtn(x.c, x.i, true))
+        .join('');
+      const secondaryBtns = copies
+        .map((c, i) => ({c, i}))
+        .filter(x => !x.c.primary)
+        .map(x => renderActionBtn(x.c, x.i, false))
+        .join('');
       return `
         <div class="ns-item${done ? ' done' : ''}" data-key="${it.key}">
           <input type="checkbox" class="ns-check" data-job="${job.id}" data-key="${it.key}" ${done ? 'checked' : ''} />
@@ -1596,7 +1724,8 @@ function _renderNextStepsContent(container, job, meta) {
             <div class="ns-title">${it.title}</div>
             <div class="ns-hint">${it.hint}</div>
           </div>
-          <div class="ns-actions">${actionBtns}</div>
+          <div class="ns-actions">${primaryBtns}</div>
+          <div class="ns-secondary">${secondaryBtns}</div>
         </div>
       `;
     }).join('');
@@ -1940,6 +2069,66 @@ $('#btn-add-manual').addEventListener('click', addManualToPool);
 });
 $('#btn-save-settings').addEventListener('click', saveSettings);
 $('#hint').addEventListener('keydown', e => { if (e.key === 'Enter') generateIdeas(); });
+
+// ---------------------------------------------------------------------------
+// Eligibility-Check Upload
+// ---------------------------------------------------------------------------
+function setupEligibilityUpload() {
+  const drop = $('#elig-drop');
+  const fileInput = $('#elig-file');
+  const resultBox = $('#elig-result-box');
+  if (!drop || !fileInput || !resultBox) return;
+
+  const showResult = (imgUrl, score, recommend, reasoning) => {
+    const cls = recommend || (score < 40 ? 'go' : score < 70 ? 'risky' : 'block');
+    resultBox.innerHTML = `
+      <div class="elig-result">
+        <img src="${escapeAttr(imgUrl)}" alt="checked" />
+        <div class="body">
+          <div class="score-row">
+            <div class="score-num ${cls}">${score}%</div>
+            <span class="rec-pill ${cls}">${cls.toUpperCase()}</span>
+          </div>
+          <div class="reasoning">${escapeHtml(reasoning || '')}</div>
+        </div>
+      </div>`;
+  };
+
+  const checkFile = async (file) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast('Bild zu gross (max 15 MB)', true);
+      return;
+    }
+    const localUrl = URL.createObjectURL(file);
+    resultBox.innerHTML = `<div class="elig-result">
+      <img src="${localUrl}" alt="checking" />
+      <div class="body"><div class="score-row"><div class="score-num">...</div></div>
+      <div class="reasoning">Pruefe via GPT-4o Vision...</div></div></div>`;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp = await fetch('/api/eligibility-check', {method: 'POST', body: fd});
+      if (!resp.ok) throw new Error(`${resp.status}: ${await resp.text()}`);
+      const data = await resp.json();
+      showResult(localUrl, data.score, data.recommend, data.reasoning);
+    } catch (err) {
+      resultBox.innerHTML = `<div class="elig-result"><div class="body"><div class="reasoning" style="color:var(--err);">${escapeHtml(err.message)}</div></div></div>`;
+    }
+  };
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) checkFile(e.target.files[0]);
+  });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', e => { drop.classList.remove('dragover'); });
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) checkFile(e.dataTransfer.files[0]);
+  });
+}
+setupEligibilityUpload();
 
 // Initial + poll
 refreshSettings();
