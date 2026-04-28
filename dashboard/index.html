@@ -48,7 +48,12 @@
   header .logo { width: 32px; height: 32px; border-radius: 9px;
     background: var(--grad-acc); display: grid; place-items: center;
     font-weight: 800; color: #fff; font-size: 16px; letter-spacing: -1px;
-    box-shadow: 0 6px 24px -6px rgba(179,255,0,0.55); }
+    box-shadow: 0 6px 24px -6px rgba(179,255,0,0.55);
+    text-shadow:
+      -1px -1px 0 rgba(0,0,0,0.7),
+       1px -1px 0 rgba(0,0,0,0.7),
+      -1px  1px 0 rgba(0,0,0,0.7),
+       1px  1px 0 rgba(0,0,0,0.7); }
   header h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
   header .sub { color: var(--muted); font-size: 12px; font-weight: 500; }
   header .spacer { flex: 1; }
@@ -96,13 +101,19 @@
     font-family: inherit; letter-spacing: 0.1px;
     transition: transform 0.08s, box-shadow 0.15s, background-position 0.3s;
     box-shadow: 0 8px 22px -10px rgba(179,255,0,0.6);
+    text-shadow:
+      -1px -1px 0 rgba(0,0,0,0.6),
+       1px -1px 0 rgba(0,0,0,0.6),
+      -1px  1px 0 rgba(0,0,0,0.6),
+       1px  1px 0 rgba(0,0,0,0.6),
+       0    0   2px rgba(0,0,0,0.45);
   }
   button:hover:not(:disabled) { background-position: 100% 50%;
     box-shadow: 0 12px 28px -10px rgba(179,255,0,0.7); transform: translateY(-1px); }
   button:active:not(:disabled) { transform: translateY(0); }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
   button.secondary { background: var(--card-hi); color: var(--text);
-    border: 1px solid var(--border); box-shadow: none; }
+    border: 1px solid var(--border); box-shadow: none; text-shadow: none; }
   button.secondary:hover:not(:disabled) { border-color: var(--border-hi);
     background: #252836; box-shadow: none; }
   button.tiny { padding: 5px 11px; font-size: 11px; border-radius: 7px; }
