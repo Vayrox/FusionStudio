@@ -1034,6 +1034,7 @@ function renderBatch(batch) {
 }
 
 const _jobCache = new Map(); // job.id -> {hash, element}
+const _jobRegenMode = new Map(); // job.id -> '' | 'blend' | 'unique' (overlebt Re-Renders)
 let _modalJobId = null;
 let _currentJobs = [];
 
@@ -1183,15 +1184,19 @@ function renderJob(job) {
     ` : ''}
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
     ${thumbs ? `
-      ${status === 'done' ? `<div class="thumbs-header">
+      ${status === 'done' ? (() => {
+        const savedMode = _jobRegenMode.get(job.id) || '';
+        const sel = (v) => savedMode === v ? ' selected' : '';
+        return `<div class="thumbs-header">
         <span class="mode-label">Mode</span>
         <select class="mode-select" data-job-mode="${job.id}" title="Design Mode fuer dieses Regenerate. Default = globaler Setting; Blend = Features beider erkennbar; Unique = nur Silhouette, neue Farben/Features moeglich.">
-          <option value="">Default (Setting)</option>
-          <option value="blend">Blend</option>
-          <option value="unique">Unique</option>
+          <option value=""${sel('')}>Default (Setting)</option>
+          <option value="blend"${sel('blend')}>Blend</option>
+          <option value="unique"${sel('unique')}>Unique</option>
         </select>
         <button class="btn-regen-all" data-job="${job.id}" title="Regenerate all variants (same traits, fresh seeds)">&#8634; Regenerate all ${(job.variants || []).length || 3}</button>
-      </div>` : ''}
+      </div>`;
+      })() : ''}
       <div class="thumbs">${thumbs}</div>
     ` : ''}
     ${status === 'done' ? `
@@ -1278,12 +1283,21 @@ function renderJob(job) {
     });
   }
 
+  // Mode-Select: Wert in lokalen Cache schreiben damit er Re-Renders ueberlebt
+  $$('.mode-select', el).forEach(sel => {
+    sel.addEventListener('change', e => {
+      _jobRegenMode.set(job.id, e.target.value);
+    });
+  });
+
   const regenAllBtn = $('.btn-regen-all', el);
   if (regenAllBtn) {
     regenAllBtn.addEventListener('click', async () => {
       const n = (job.variants || []).length || 3;
+      // Bevorzuge live-Wert vom DOM, fallback auf cached value
       const modeSel = $(`.mode-select[data-job-mode="${job.id}"]`, el);
-      const mode = modeSel ? (modeSel.value || '') : '';
+      const mode = (modeSel ? modeSel.value : _jobRegenMode.get(job.id)) || '';
+      _jobRegenMode.set(job.id, mode);
       const modeLabel = mode === 'blend' ? 'Blend' : mode === 'unique' ? 'Unique' : 'Default (globales Setting)';
       if (!confirm(`Alle ${n} Varianten neu generieren?\n\nDesign Mode: ${modeLabel}\n\nDie bestehenden Bilder werden ueberschrieben, Favorit und Showcase-Pick werden zurueckgesetzt. Distinctive Traits bleiben gleich.`)) return;
       regenAllBtn.disabled = true;
