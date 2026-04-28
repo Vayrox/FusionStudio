@@ -455,25 +455,36 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
     data_url = f"data:image/png;base64,{b64}"
 
     system = (
-        "You are a trademark / IP filter expert. You evaluate whether an image is "
-        "likely to be blocked by Pokemon-trademark detection in commercial AI "
-        "video / image generators (Seedance, Kling Labs, Higgsfield, Flow). "
-        "Respond strictly in this format:\n\n"
+        "You are a trademark / IP filter expert. You evaluate whether an image "
+        "is likely to be blocked by Pokemon-trademark detection in commercial "
+        "AI video / image generators (Seedance, Kling Labs, Higgsfield, Flow).\n\n"
+        "You MUST analyse the actual visual content of the attached image - "
+        "different images get DIFFERENT scores. Do not return a default score.\n\n"
+        "Respond strictly in this format (one line each, plain text - no JSON, "
+        "no markdown):\n\n"
         "SCORE: <integer 0-100>\n"
         "RECOMMEND: <go|risky|block>\n"
-        "REASONING: <one to three sentences explaining which features trigger "
-        "the score>\n\n"
-        "Score guide:\n"
-        "  0-39  (RECOMMEND: go)    - generic creature, no clearly recognizable "
-        "Pokemon-IP markers; safe to attempt video gen.\n"
-        "  40-69 (RECOMMEND: risky) - some Pokemon-traceable features but "
-        "stylized/hybrid; might pass but might fail.\n"
-        "  70-100 (RECOMMEND: block)- obvious Pokemon-IP (Pikachu cheeks, "
-        "Charizard wings, Gengar grin, Pokeball, type icons, etc.); will almost "
-        "certainly be blocked.\n\n"
-        "Be specific in REASONING - name the exact features (e.g. 'red round "
-        "cheek-circles like Pikachu', 'unmistakable Charizard wing-membrane "
-        "shape', 'Pokeball platform under feet')."
+        "REASONING: <one to three sentences naming SPECIFIC visual features "
+        "you observed in this exact image>\n\n"
+        "Score anchoring (calibrate by example):\n"
+        "  0-9   - Image clearly NOT a creature (e.g. a sneaker, a landscape, "
+        "an abstract pattern). RECOMMEND: go.\n"
+        "  10-29 - Generic creature or fantasy character with NO Pokemon-IP "
+        "markers (e.g. a realistic dragon, a wolf, a spider, original concept "
+        "art unrelated to Pokemon). RECOMMEND: go.\n"
+        "  30-49 - Stylized creature that COULD be confused with Pokemon but "
+        "has no recognizable specific Pokemon (e.g. cute round mascot creature "
+        "with no specific Pikachu/Charizard/etc. markers). RECOMMEND: go to risky.\n"
+        "  50-69 - Recognizable hybrid that combines features from multiple "
+        "Pokemon but is clearly a fan-made fusion, not a single trademark. "
+        "RECOMMEND: risky.\n"
+        "  70-89 - Strong Pokemon-IP signals: clearly recognizable Pikachu "
+        "cheek-circles, Charizard wings, Gengar grin, Pokeball platform, "
+        "type-icons, etc. RECOMMEND: block.\n"
+        "  90-100 - Direct copy of an iconic Pokemon character (e.g. unmodified "
+        "Pikachu / Charizard / Mewtwo). RECOMMEND: block.\n\n"
+        "REASONING must mention SPECIFIC features YOU SEE: shape, colors, body "
+        "parts, accessories. NEVER repeat the score guide verbatim."
     )
 
     user_messages = [
@@ -490,7 +501,7 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
             )
             resp = await client.chat.completions.create(
                 model=settings.openai_model,
-                temperature=0.1,
+                temperature=0.3,
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user_messages},
@@ -499,6 +510,7 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
                 timeout=_OPENAI_TIMEOUT_S,
             )
             text = (resp.choices[0].message.content or "").strip()
+            log.warning("OpenAI vision eligibility raw output: %r", text[:500])
             m = _ELIGIBILITY_RE.search(text)
             if not m:
                 raise ValueError(f"Konnte Eligibility-Output nicht parsen: {text!r}")
@@ -506,8 +518,8 @@ async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
             rec = m.group("rec").lower()
             reasoning = m.group("why").strip().split("\n")[0].strip()
             log.warning(
-                "OpenAI vision eligibility -> score=%d rec=%s",
-                score, rec,
+                "OpenAI vision eligibility -> score=%d rec=%s reasoning=%r",
+                score, rec, reasoning[:120],
             )
             return {"score": score, "recommend": rec, "reasoning": reasoning}
         except (APITimeoutError, APIConnectionError, httpx.TimeoutException,

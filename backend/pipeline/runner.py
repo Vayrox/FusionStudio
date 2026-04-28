@@ -623,13 +623,26 @@ async def _run_regenerate_all(
                         ],
                     )
                 )
-            await asyncio.gather(*variant_tasks)
+            # return_exceptions=True: partial success darf als done gelten.
+            # AI-Auto/Cloudflare hat manchmal RemoteProtocolError mid-stream;
+            # wir wollen nicht 2 erfolgreiche Bilder wegwerfen wegen 1 fail.
+            results = await asyncio.gather(*variant_tasks, return_exceptions=True)
+            success_paths: list[Path] = []
+            errors: list[str] = []
+            for i, res in enumerate(results):
+                if isinstance(res, BaseException):
+                    errors.append(f"v{i+1}: {type(res).__name__}: {res}")
+                else:
+                    success_paths.append(variant_paths[i])
+            if not success_paths:
+                raise RuntimeError("Alle Varianten fehlgeschlagen: " + " | ".join(errors))
 
             await _update_job(
                 job_id,
                 status="done",
                 current_step="done",
-                variants=[_relative_to_root(p) for p in variant_paths],
+                variants=[_relative_to_root(p) for p in success_paths],
+                error=" | ".join(errors) if errors else None,
             )
         except asyncio.CancelledError:
             await _update_job(
@@ -784,12 +797,23 @@ async def _run_showcase_generation(
                     aspect_ratio="16:9",
                 )
             )
-        await asyncio.gather(*tasks)
+        # return_exceptions=True: partial success ist OK fuer Showcase auch.
+        sc_results = await asyncio.gather(*tasks, return_exceptions=True)
+        sc_success_paths: list[Path] = []
+        sc_errors: list[str] = []
+        for i, res in enumerate(sc_results):
+            if isinstance(res, BaseException):
+                sc_errors.append(f"s{i+1}: {type(res).__name__}: {res}")
+            else:
+                sc_success_paths.append(paths[i])
+        if not sc_success_paths:
+            raise RuntimeError("Alle Showcase-Varianten fehlgeschlagen: " + " | ".join(sc_errors))
 
         await _update_job(
             job_id,
             showcase_status="done",
-            showcase_variants=[_relative_to_root(p) for p in paths],
+            showcase_error=" | ".join(sc_errors) if sc_errors else None,
+            showcase_variants=[_relative_to_root(p) for p in sc_success_paths],
         )
     except Exception as exc:  # noqa: BLE001
         err = f"{type(exc).__name__}: {exc}"
@@ -1305,7 +1329,18 @@ async def _pipeline(job_id: str) -> None:
                 reference_images=[SIGNATURE_BACKGROUND_PATH, step2a_out, step2b_out],
             )
         )
-    await asyncio.gather(*variant_tasks)
+    # return_exceptions=True: partial success akzeptieren.
+    results = await asyncio.gather(*variant_tasks, return_exceptions=True)
+    success_paths: list[Path] = []
+    step4_errors: list[str] = []
+    for i, res in enumerate(results):
+        if isinstance(res, BaseException):
+            step4_errors.append(f"v{i+1}: {type(res).__name__}: {res}")
+        else:
+            success_paths.append(variant_paths[i])
+    if not success_paths:
+        raise RuntimeError("Alle Varianten fehlgeschlagen: " + " | ".join(step4_errors))
+    variant_paths = success_paths
 
     # GPT) Step 5, Step 6, Narration - parallel
     await _update_job(job_id, current_step="gpt_video_prompts")
