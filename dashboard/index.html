@@ -359,17 +359,27 @@
   .ns-hint .no-fav { color: var(--warn); }
   .ns-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
-  /* Video-Player fuer Seedance-Outputs */
+  /* Video-Player fuer Seedance-Outputs (Multi-Slot Batch) */
   .ns-video-row { margin-top: 10px; padding: 10px 12px;
     background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
-  .ns-video-row video { width: 100%; max-width: 360px; border-radius: 8px;
+  .ns-video-row .ns-video-slots { display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .ns-video-slot { padding: 8px; background: var(--card-2);
+    border: 1px solid var(--border); border-radius: 8px; }
+  .ns-video-slot video { width: 100%; max-width: 100%; border-radius: 6px;
     background: #000; display: block; }
-  .ns-video-row .vid-status { font-size: 11px; color: var(--muted);
+  .ns-video-slot .vid-status { font-size: 11px; color: var(--muted);
     font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
-  .ns-video-row .vid-status.running { color: var(--run); }
-  .ns-video-row .vid-status.done { color: var(--ok); }
-  .ns-video-row .vid-status.error { color: var(--err); }
-  .ns-video-row .vid-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .ns-video-slot .vid-status.running { color: var(--run); }
+  .ns-video-slot .vid-status.done { color: var(--ok); }
+  .ns-video-slot .vid-status.error { color: var(--err); }
+  .ns-video-slot .vid-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .tries-select { padding: 5px 9px; background: var(--card-2);
+    color: var(--text); border: 1px solid var(--border); border-radius: 7px;
+    font-size: 11px; font-family: inherit; outline: none; cursor: pointer;
+    margin-right: 4px; transition: border-color 0.15s; }
+  .tries-select:hover { border-color: var(--border-hi); }
+  .tries-select:focus { border-color: var(--primary); }
 
   /* Showcase-Thumbnails (16:9 statt 9:16) */
   .showcase-row { margin-top: 12px; }
@@ -1557,7 +1567,16 @@ function _renderNextStepsContent(container, job, meta) {
       const done = !!check[it.key];
       const actionBtns = it.copies.map((c, i) => {
         if (c.action) {
-          return `<button class="ns-btn action" data-key="${it.key}" data-action="${c.action}">${c.label}</button>`;
+          // Video-Generations bekommen ein Tries-Dropdown davor
+          let triesDropdown = '';
+          if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
+            triesDropdown = `<select class="tries-select" data-tries-for="${c.action}" title="Anzahl paralleler Generations">
+              <option value="1">&times;1</option>
+              <option value="2">&times;2</option>
+              <option value="3">&times;3</option>
+            </select>`;
+          }
+          return `${triesDropdown}<button class="ns-btn action" data-key="${it.key}" data-action="${c.action}">${c.label}</button>`;
         }
         return `<button class="ns-btn copy" data-key="${it.key}" data-copy-idx="${i}">${c.label}</button>`;
       }).join('');
@@ -1609,34 +1628,57 @@ function _renderNextStepsContent(container, job, meta) {
     }
 
     // Video-Player Sections (Step 6 + Action Scene Seedance Outputs)
-    const renderVideoRow = (label, statusField, pathField, errorField) => {
-      const status = job[statusField] || null;
-      const path = job[pathField] || null;
-      const err = job[errorField] || null;
-      if (!status && !path && !err) return '';
-      let stateHtml = '';
-      if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(label)}: generating ... (Seedance 2 4k/15s, dauert 10-20 min)</div>`;
-      else if (status === 'cancelled') stateHtml = `<div class="vid-status">${escapeHtml(label)}: cancelled</div>`;
-      else if (status === 'error') stateHtml = `<div class="vid-status error">${escapeHtml(label)}: error</div>`;
-      else if (status === 'done' || path) stateHtml = `<div class="vid-status done">${escapeHtml(label)}: ready</div>`;
-      const errBox = err ? `<div class="sc-err">${escapeHtml(err)}</div>` : '';
-      const videoHtml = path
-        ? `<video controls preload="metadata" src="/${escapeAttr(path)}?v=${cacheKey}"></video>`
-        : '';
-      const dlBtn = path
-        ? `<a class="ns-btn" href="/${escapeAttr(path)}" download style="text-decoration:none;">&#11015; Download mp4</a>`
-        : '';
-      return `<div class="ns-video-row">
-        ${stateHtml}
-        ${videoHtml}
-        ${errBox}
-        ${dlBtn ? `<div class="vid-actions">${dlBtn}</div>` : ''}
-      </div>`;
+    // Backwards-compat: alte Jobs hatten step6_video_path / action_scene_video_path
+    // als Single-Field; neue nutzen step6_videos[] / action_scene_videos[].
+    const collectVideos = (singleStatusField, singlePathField, singleErrorField, listField) => {
+      const list = Array.isArray(job[listField]) ? job[listField].slice() : [];
+      // legacy single fallback
+      const legacyPath = job[singlePathField];
+      const legacyStatus = job[singleStatusField];
+      const legacyErr = job[singleErrorField];
+      if (legacyPath || legacyStatus || legacyErr) {
+        if (!list.length) {
+          list.push({status: legacyStatus, path: legacyPath, error: legacyErr});
+        }
+      }
+      return list;
     };
 
+    const renderVideoSection = (label, slots) => {
+      if (!slots || !slots.length) return '';
+      const slotsHtml = slots.map((slot, idx) => {
+        const status = slot.status || null;
+        const path = slot.path || null;
+        const err = slot.error || null;
+        const slotLabel = `${label} v${idx + 1}`;
+        let stateHtml = '';
+        if (status === 'queued') stateHtml = `<div class="vid-status">${escapeHtml(slotLabel)}: queued ...</div>`;
+        else if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(slotLabel)}: generating ... (Seedance 2 4k/15s, 10-20 min)</div>`;
+        else if (status === 'cancelled') stateHtml = `<div class="vid-status">${escapeHtml(slotLabel)}: cancelled</div>`;
+        else if (status === 'error') stateHtml = `<div class="vid-status error">${escapeHtml(slotLabel)}: error</div>`;
+        else if (status === 'done' || path) stateHtml = `<div class="vid-status done">${escapeHtml(slotLabel)}: ready</div>`;
+        const errBox = err ? `<div class="sc-err">${escapeHtml(err)}</div>` : '';
+        const videoHtml = path
+          ? `<video controls preload="metadata" src="/${escapeAttr(path)}?v=${cacheKey}"></video>`
+          : '';
+        const dlBtn = path
+          ? `<a class="ns-btn" href="/${escapeAttr(path)}" download style="text-decoration:none;">&#11015; Download mp4</a>`
+          : '';
+        return `<div class="ns-video-slot">
+          ${stateHtml}
+          ${videoHtml}
+          ${errBox}
+          ${dlBtn ? `<div class="vid-actions">${dlBtn}</div>` : ''}
+        </div>`;
+      }).join('');
+      return `<div class="ns-video-row"><div class="ns-video-slots">${slotsHtml}</div></div>`;
+    };
+
+    const step6Videos = collectVideos('step6_video_status', 'step6_video_path', 'step6_video_error', 'step6_videos');
+    const actionVideos = collectVideos('action_scene_video_status', 'action_scene_video_path', 'action_scene_video_error', 'action_scene_videos');
     const videosHtml = [
-      renderVideoRow('Step 6 Showcase Video', 'step6_video_status', 'step6_video_path', 'step6_video_error'),
-      renderVideoRow('Action Scene Video', 'action_scene_video_status', 'action_scene_video_path', 'action_scene_video_error'),
+      renderVideoSection('Step 6 Showcase', step6Videos),
+      renderVideoSection('Action Scene', actionVideos),
     ].join('');
 
     container.innerHTML = `
@@ -1668,15 +1710,17 @@ function _renderNextStepsContent(container, job, meta) {
             _metaCache.set(job.id, cached);
             toast('Action Scene Prompt generated');
             await refreshJobs();
-          } else if (action === 'generate_step6_video') {
-            if (!confirm('Seedance 2 Video generieren? (9:16, 4k, 15s)\n\nDauert oft 10-20 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
-            await api(`/api/jobs/${job.id}/generate-step6-video`, {method: 'POST'});
-            toast('Step 6 Video gequeued (Seedance 2, 4k 15s)');
-            await refreshJobs();
-          } else if (action === 'generate_action_scene_video') {
-            if (!confirm('Seedance 2 Action-Scene Video generieren? (9:16, 4k, 15s)\n\nDauert oft 10-20 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
-            await api(`/api/jobs/${job.id}/generate-action-scene-video`, {method: 'POST'});
-            toast('Action Scene Video gequeued (Seedance 2, 4k 15s)');
+          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
+            const triesSel = $(`.tries-select[data-tries-for="${action}"]`, container);
+            const tries = triesSel ? Math.max(1, Math.min(3, parseInt(triesSel.value, 10) || 1)) : 1;
+            const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
+            if (!confirm(`Seedance 2 ${label} Video generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation. Verbraucht ${tries} AI-Auto Video-Generation${tries > 1 ? 'en' : ''}.`)) return;
+            const endpoint = action === 'generate_step6_video' ? 'generate-step6-video' : 'generate-action-scene-video';
+            await api(`/api/jobs/${job.id}/${endpoint}`, {
+              method: 'POST',
+              body: JSON.stringify({tries}),
+            });
+            toast(`${label} Video gequeued (${tries}x Seedance 2, 4k 15s)`);
             await refreshJobs();
           }
         } catch (err) {

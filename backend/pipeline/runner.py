@@ -796,9 +796,15 @@ async def _run_showcase_generation(
         await _update_job(job_id, showcase_status="error", showcase_error=err)
 
 
-async def generate_step6_video(job_id: str) -> None:
+async def generate_step6_video(job_id: str, tries: int = 1) -> None:
     """Generiert das Step-6 Showcase-Video via Seedance 2 (AI-Auto).
-    Nutzt step6_showcase prompt + Favoriten-Variante als Reference."""
+    Nutzt step6_showcase prompt + Favoriten-Variante als Reference.
+
+    tries: 1-3 parallele Generations starten (jede in eigenen mp4-Slot).
+    Nuetzlich weil Seedance gelegentlich fehlschlaegt - bei 3 Versuchen
+    hat man meist mindestens 1-2 erfolgreiche Outputs.
+    """
+    tries = max(1, min(3, tries or 1))
     job = await get_job(job_id)
     if not job:
         raise ValueError(f"Job {job_id} nicht gefunden")
@@ -807,8 +813,6 @@ async def generate_step6_video(job_id: str) -> None:
     fav = job.get("favorite_variant")
     if not fav:
         raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
-    if job.get("step6_video_status") == "running":
-        raise ValueError("Step-6-Video laeuft bereits.")
 
     out_dir = PROJECT_ROOT / job["output_dir"]
     meta_path = out_dir / "_meta.json"
@@ -822,21 +826,20 @@ async def generate_step6_video(job_id: str) -> None:
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
-    _register_task(
-        f"step6video:{job_id}",
-        asyncio.create_task(_run_video_generation(
-            job_id, prompt, fav_path,
-            out_filename="06_seedance_video.mp4",
-            status_field="step6_video_status",
-            path_field="step6_video_path",
-            error_field="step6_video_error",
-        )),
+    await _spawn_video_slots(
+        job_id, prompt, fav_path, tries,
+        list_field="step6_videos",
+        filename_prefix="06_seedance_video",
     )
 
 
-async def generate_action_scene_video(job_id: str) -> None:
+async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
     """Generiert das Action-Scene-Video via Seedance 2 (AI-Auto).
-    Nutzt action_scene_prompt + Favoriten-Variante als Reference."""
+    Nutzt action_scene_prompt + Favoriten-Variante als Reference.
+
+    tries: 1-3 parallele Generations.
+    """
+    tries = max(1, min(3, tries or 1))
     job = await get_job(job_id)
     if not job:
         raise ValueError(f"Job {job_id} nicht gefunden")
@@ -845,8 +848,6 @@ async def generate_action_scene_video(job_id: str) -> None:
     fav = job.get("favorite_variant")
     if not fav:
         raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
-    if job.get("action_scene_video_status") == "running":
-        raise ValueError("Action-Scene-Video laeuft bereits.")
 
     out_dir = PROJECT_ROOT / job["output_dir"]
     meta_path = out_dir / "_meta.json"
@@ -863,32 +864,77 @@ async def generate_action_scene_video(job_id: str) -> None:
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
-    _register_task(
-        f"actionvideo:{job_id}",
-        asyncio.create_task(_run_video_generation(
-            job_id, prompt, fav_path,
-            out_filename="07_action_scene_video.mp4",
-            status_field="action_scene_video_status",
-            path_field="action_scene_video_path",
-            error_field="action_scene_video_error",
-        )),
+    await _spawn_video_slots(
+        job_id, prompt, fav_path, tries,
+        list_field="action_scene_videos",
+        filename_prefix="07_action_scene_video",
     )
 
 
-async def _run_video_generation(
+async def _spawn_video_slots(
     job_id: str,
     prompt: str,
     ref_path: Path,
+    tries: int,
     *,
+    list_field: str,
+    filename_prefix: str,
+) -> None:
+    """Startet `tries` parallele Video-Generations als neue Slots in der
+    list_field-Liste des Jobs (append - bestehende Slots bleiben)."""
+    job = await get_job(job_id)
+    assert job is not None
+    existing = list(job.get(list_field) or [])
+    start_idx = len(existing)
+    for i in range(tries):
+        slot_idx = start_idx + i
+        out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
+        existing.append({
+            "status": "queued",
+            "path": None,
+            "error": None,
+            "filename": out_filename,
+        })
+    await _update_job(job_id, **{list_field: existing})
+
+    for i in range(tries):
+        slot_idx = start_idx + i
+        out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
+        task_key = f"{list_field}:{job_id}:{slot_idx}"
+        _register_task(task_key, asyncio.create_task(
+            _run_video_slot(job_id, prompt, ref_path, slot_idx, out_filename, list_field)
+        ))
+
+
+async def _update_video_slot(
+    job_id: str, list_field: str, slot_idx: int, **patch: Any,
+) -> None:
+    async with _STATE_LOCK:
+        state = await _load_state()
+        job = state["jobs"].setdefault(job_id, {"id": job_id})
+        videos = list(job.get(list_field) or [])
+        while len(videos) <= slot_idx:
+            videos.append({})
+        slot = dict(videos[slot_idx] or {})
+        slot.update(patch)
+        videos[slot_idx] = slot
+        job[list_field] = videos
+        job["updated_at"] = _now_iso()
+        await _save_state()
+
+
+async def _run_video_slot(
+    job_id: str,
+    prompt: str,
+    ref_path: Path,
+    slot_idx: int,
     out_filename: str,
-    status_field: str,
-    path_field: str,
-    error_field: str,
+    list_field: str,
 ) -> None:
     try:
-        await _update_job(
-            job_id,
-            **{status_field: "running", error_field: None},
+        await _update_video_slot(
+            job_id, list_field, slot_idx,
+            status="running", error=None, filename=out_filename,
         )
         job = await get_job(job_id)
         assert job is not None
@@ -899,25 +945,21 @@ async def _run_video_generation(
             prompt, video_out, reference_image=ref_path,
             aspect_ratio="9:16", resolution="4k", seconds=15,
         )
-
-        await _update_job(
-            job_id,
-            **{
-                status_field: "done",
-                path_field: _relative_to_root(video_out),
-            },
+        await _update_video_slot(
+            job_id, list_field, slot_idx,
+            status="done", path=_relative_to_root(video_out), error=None,
         )
     except asyncio.CancelledError:
-        await _update_job(
-            job_id,
-            **{status_field: "cancelled", error_field: "Manuell abgebrochen."},
+        await _update_video_slot(
+            job_id, list_field, slot_idx,
+            status="cancelled", error="Manuell abgebrochen.",
         )
         raise
     except Exception as exc:  # noqa: BLE001
         err = f"{type(exc).__name__}: {exc}"
-        await _update_job(
-            job_id,
-            **{status_field: "error", error_field: err},
+        await _update_video_slot(
+            job_id, list_field, slot_idx,
+            status="error", error=err,
         )
 
 

@@ -58,6 +58,10 @@ class RegenerateAllRequest(BaseModel):
     mode: str | None = None  # 'blend' / 'unique' / null (= globaler Setting)
 
 
+class GenerateVideoRequest(BaseModel):
+    tries: int = 1  # 1-3 parallele Video-Generations
+
+
 class SettingsUpdate(BaseModel):
     AIAUTO_API_KEY: str | None = None
     AIAUTO_BASE_URL: str | None = None
@@ -302,21 +306,27 @@ async def api_generate_action_scene(job_id: str) -> dict[str, str]:
 
 
 @app.post("/api/jobs/{job_id}/generate-step6-video")
-async def api_generate_step6_video(job_id: str) -> dict[str, str]:
+async def api_generate_step6_video(
+    job_id: str, req: GenerateVideoRequest | None = None,
+) -> dict[str, Any]:
+    tries = (req.tries if req else 1) or 1
     try:
-        await runner.generate_step6_video(job_id)
+        await runner.generate_step6_video(job_id, tries=tries)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "queued"}
+    return {"status": "queued", "tries": min(3, max(1, tries))}
 
 
 @app.post("/api/jobs/{job_id}/generate-action-scene-video")
-async def api_generate_action_scene_video(job_id: str) -> dict[str, str]:
+async def api_generate_action_scene_video(
+    job_id: str, req: GenerateVideoRequest | None = None,
+) -> dict[str, Any]:
+    tries = (req.tries if req else 1) or 1
     try:
-        await runner.generate_action_scene_video(job_id)
+        await runner.generate_action_scene_video(job_id, tries=tries)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "queued"}
+    return {"status": "queued", "tries": min(3, max(1, tries))}
 
 
 # ---------------------------------------------------------------------------
