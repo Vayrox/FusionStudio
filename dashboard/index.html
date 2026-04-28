@@ -1466,7 +1466,7 @@ function _renderNextStepsContent(container, job, meta) {
         key: 'step6a',
         title: 'Step 6A &mdash; Showcase (Seedance 2)',
         hint: fav
-          ? `Direkt im Tool via <b>Generate Video</b> (Seedance 2 ueber AI-Auto, 9:16, 10s) oder manuell in Higgsfield mit <code>${escapeHtml(variantFile)}</code> als Reference.`
+          ? `Direkt im Tool via <b>Generate Video</b> (Seedance 2 ueber AI-Auto, 9:16, 4k, 15s) oder manuell in Higgsfield mit <code>${escapeHtml(variantFile)}</code> als Reference.`
           : `<span class="no-fav">Waehle oben eine Favoriten-Variante &#9733;.</span>`,
         copies: [
           {label: '&#128203; Copy Showcase Prompt', text: step6},
@@ -1615,7 +1615,7 @@ function _renderNextStepsContent(container, job, meta) {
       const err = job[errorField] || null;
       if (!status && !path && !err) return '';
       let stateHtml = '';
-      if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(label)}: generating ... (Seedance 2 dauert 5-15 min)</div>`;
+      if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(label)}: generating ... (Seedance 2 4k/15s, dauert 10-20 min)</div>`;
       else if (status === 'cancelled') stateHtml = `<div class="vid-status">${escapeHtml(label)}: cancelled</div>`;
       else if (status === 'error') stateHtml = `<div class="vid-status error">${escapeHtml(label)}: error</div>`;
       else if (status === 'done' || path) stateHtml = `<div class="vid-status done">${escapeHtml(label)}: ready</div>`;
@@ -1669,14 +1669,14 @@ function _renderNextStepsContent(container, job, meta) {
             toast('Action Scene Prompt generated');
             await refreshJobs();
           } else if (action === 'generate_step6_video') {
-            if (!confirm('Seedance 2 Video generieren?\n\nDauert oft 5-15 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
+            if (!confirm('Seedance 2 Video generieren? (9:16, 4k, 15s)\n\nDauert oft 10-20 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
             await api(`/api/jobs/${job.id}/generate-step6-video`, {method: 'POST'});
-            toast('Step 6 Video gequeued (Seedance 2)');
+            toast('Step 6 Video gequeued (Seedance 2, 4k 15s)');
             await refreshJobs();
           } else if (action === 'generate_action_scene_video') {
-            if (!confirm('Seedance 2 Action-Scene Video generieren?\n\nDauert oft 5-15 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
+            if (!confirm('Seedance 2 Action-Scene Video generieren? (9:16, 4k, 15s)\n\nDauert oft 10-20 Minuten. Verbraucht eine AI-Auto Video-Generation.')) return;
             await api(`/api/jobs/${job.id}/generate-action-scene-video`, {method: 'POST'});
-            toast('Action Scene Video gequeued (Seedance 2)');
+            toast('Action Scene Video gequeued (Seedance 2, 4k 15s)');
             await refreshJobs();
           }
         } catch (err) {

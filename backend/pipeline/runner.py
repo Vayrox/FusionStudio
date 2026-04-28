@@ -897,7 +897,7 @@ async def _run_video_generation(
 
         await aiauto_client.generate_video(
             prompt, video_out, reference_image=ref_path,
-            aspect_ratio="9:16", resolution="720p", seconds=10,
+            aspect_ratio="9:16", resolution="4k", seconds=15,
         )
 
         await _update_job(
