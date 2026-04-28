@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -321,6 +321,25 @@ async def api_regenerate_step6_prompt(job_id: str) -> dict[str, str]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"prompt": prompt}
+
+
+@app.post("/api/jobs/{job_id}/check-eligibility/{variant}")
+async def api_check_variant_eligibility(job_id: str, variant: int) -> dict[str, Any]:
+    try:
+        return await runner.check_variant_eligibility(job_id, variant)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/eligibility-check")
+async def api_check_uploaded_eligibility(
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    image_bytes = await file.read()
+    try:
+        return await runner.check_uploaded_image_eligibility(image_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/jobs/{job_id}/regenerate-showcase-image-prompt")

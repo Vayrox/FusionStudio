@@ -1028,6 +1028,52 @@ def _save_meta_field(meta_path: Path, meta: dict[str, Any], key: str, value: str
     )
 
 
+async def check_variant_eligibility(job_id: str, variant_index: int) -> dict[str, Any]:
+    """Prueft eine Step-4-Variante via GPT-4o Vision auf Pokemon-IP-Risiko.
+    Speichert Ergebnis in meta.eligibility[variant_index] und im Job-State."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if not (1 <= variant_index <= STEP4_VARIANTS + 5):
+        raise ValueError(f"variant_index ungueltig: {variant_index}")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    variant_path = out_dir / f"04_fusion_v{variant_index}.png"
+    if not variant_path.exists():
+        raise RuntimeError(f"Variant-Datei fehlt: {variant_path}")
+
+    img_bytes = variant_path.read_bytes()
+    result = await openai_client.check_image_eligibility(img_bytes)
+
+    # In meta.json persistieren
+    meta_path = out_dir / "_meta.json"
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        elig = meta.get("eligibility") or {}
+        elig[str(variant_index)] = result
+        meta["eligibility"] = elig
+        meta_path.write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+    # Auch im Job-State (damit Frontend ohne meta-fetch sieht)
+    job_elig = dict(job.get("eligibility") or {})
+    job_elig[str(variant_index)] = result
+    await _update_job(job_id, eligibility=job_elig)
+
+    return result
+
+
+async def check_uploaded_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
+    """Prueft ein hochgeladenes Bild (z.B. von externer Quelle) auf
+    Pokemon-IP-Risiko. Wird NICHT persistiert - reine ad-hoc Pruefung."""
+    if not image_bytes:
+        raise ValueError("Leeres Bild.")
+    if len(image_bytes) > 15 * 1024 * 1024:
+        raise ValueError("Bild zu gross (max 15 MB).")
+    return await openai_client.check_image_eligibility(image_bytes)
+
+
 async def regenerate_step5_prompt(job_id: str) -> str:
     """Regeneriert den Step-5 Transformation-Prompt (Kling) ohne Bilder
     neu zu generieren. Speichert in meta.step5_transformation."""

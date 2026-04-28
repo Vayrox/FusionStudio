@@ -430,3 +430,99 @@ async def generate_yt_seo(
     if not title or not desc:
         raise ValueError("YT-SEO Title oder Description leer.")
     return title, desc
+
+
+# ---------------------------------------------------------------------------
+# Eligibility Check (GPT-4o Vision)
+# ---------------------------------------------------------------------------
+
+import base64 as _base64
+
+_ELIGIBILITY_RE = re.compile(
+    r"SCORE:\s*(?P<score>\d{1,3}).*?RECOMMEND:\s*(?P<rec>go|risky|block).*?REASONING:\s*(?P<why>.+?)\s*$",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+async def check_image_eligibility(image_bytes: bytes) -> dict[str, Any]:
+    """Bewertet ein Bild via GPT-4o Vision: wie wahrscheinlich wird es von
+    Pokemon-Trademark-Filtern (Seedance / Kling / Flow) blockiert?
+
+    Returns: dict {score: int 0-100, recommend: 'go'|'risky'|'block', reasoning: str}.
+    """
+    client = _client()
+    b64 = _base64.b64encode(image_bytes).decode("ascii")
+    data_url = f"data:image/png;base64,{b64}"
+
+    system = (
+        "You are a trademark / IP filter expert. You evaluate whether an image is "
+        "likely to be blocked by Pokemon-trademark detection in commercial AI "
+        "video / image generators (Seedance, Kling Labs, Higgsfield, Flow). "
+        "Respond strictly in this format:\n\n"
+        "SCORE: <integer 0-100>\n"
+        "RECOMMEND: <go|risky|block>\n"
+        "REASONING: <one to three sentences explaining which features trigger "
+        "the score>\n\n"
+        "Score guide:\n"
+        "  0-39  (RECOMMEND: go)    - generic creature, no clearly recognizable "
+        "Pokemon-IP markers; safe to attempt video gen.\n"
+        "  40-69 (RECOMMEND: risky) - some Pokemon-traceable features but "
+        "stylized/hybrid; might pass but might fail.\n"
+        "  70-100 (RECOMMEND: block)- obvious Pokemon-IP (Pikachu cheeks, "
+        "Charizard wings, Gengar grin, Pokeball, type icons, etc.); will almost "
+        "certainly be blocked.\n\n"
+        "Be specific in REASONING - name the exact features (e.g. 'red round "
+        "cheek-circles like Pikachu', 'unmistakable Charizard wing-membrane "
+        "shape', 'Pokeball platform under feet')."
+    )
+
+    user_messages = [
+        {"type": "text", "text": "Evaluate this image for Pokemon-trademark filter risk."},
+        {"type": "image_url", "image_url": {"url": data_url}},
+    ]
+
+    last_exc: Exception | None = None
+    for attempt in range(1, _OPENAI_RETRIES + 1):
+        try:
+            log.warning(
+                "OpenAI vision attempt %d/%d (eligibility-check)",
+                attempt, _OPENAI_RETRIES,
+            )
+            resp = await client.chat.completions.create(
+                model=settings.openai_model,
+                temperature=0.1,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_messages},
+                ],
+                max_tokens=400,
+                timeout=_OPENAI_TIMEOUT_S,
+            )
+            text = (resp.choices[0].message.content or "").strip()
+            m = _ELIGIBILITY_RE.search(text)
+            if not m:
+                raise ValueError(f"Konnte Eligibility-Output nicht parsen: {text!r}")
+            score = max(0, min(100, int(m.group("score"))))
+            rec = m.group("rec").lower()
+            reasoning = m.group("why").strip().split("\n")[0].strip()
+            log.warning(
+                "OpenAI vision eligibility -> score=%d rec=%s",
+                score, rec,
+            )
+            return {"score": score, "recommend": rec, "reasoning": reasoning}
+        except (APITimeoutError, APIConnectionError, httpx.TimeoutException,
+                httpx.NetworkError) as exc:
+            last_exc = exc
+            log.warning("OpenAI vision network error attempt %d: %s", attempt, exc)
+        except RateLimitError as exc:
+            last_exc = exc
+            log.warning("OpenAI vision rate limit attempt %d: %s", attempt, exc)
+        except APIError as exc:
+            last_exc = exc
+            log.warning("OpenAI vision API error attempt %d: %s", attempt, exc)
+        if attempt < _OPENAI_RETRIES:
+            await asyncio.sleep(2 ** attempt)
+    assert last_exc is not None
+    raise RuntimeError(
+        f"OpenAI vision eligibility-check fehlgeschlagen nach {_OPENAI_RETRIES} Versuchen: {last_exc}"
+    ) from last_exc
