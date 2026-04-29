@@ -899,6 +899,7 @@ async def generate_step5_video(job_id: str, tries: int = 1) -> None:
         job_id, prompt, [start_path, fav_path], tries,
         list_field="step5_videos",
         filename_prefix="05_transformation_video",
+        seconds=5,
     )
 
 
@@ -948,12 +949,15 @@ async def _spawn_video_slots(
     *,
     list_field: str,
     filename_prefix: str,
+    seconds: int = 15,
 ) -> None:
     """Startet `tries` parallele Video-Generations als neue Slots in der
     list_field-Liste des Jobs (append - bestehende Slots bleiben).
 
     `ref_paths` kann ein oder mehrere Bilder enthalten - mehrere Refs werden
     als Ingredients an Seedance gegeben (z.B. Start- + End-Frame fuer Morph).
+    `seconds` steuert die Video-Laenge - Default 15s, Step-5 Transformation
+    nutzt 5s, weil ein kurzer Morph reicht.
     """
     job = await get_job(job_id)
     assert job is not None
@@ -975,7 +979,7 @@ async def _spawn_video_slots(
         out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
         task_key = f"{list_field}:{job_id}:{slot_idx}"
         _register_task(task_key, asyncio.create_task(
-            _run_video_slot(job_id, prompt, ref_paths, slot_idx, out_filename, list_field)
+            _run_video_slot(job_id, prompt, ref_paths, slot_idx, out_filename, list_field, seconds)
         ))
 
 
@@ -1003,6 +1007,7 @@ async def _run_video_slot(
     slot_idx: int,
     out_filename: str,
     list_field: str,
+    seconds: int = 15,
 ) -> None:
     try:
         await _update_video_slot(
@@ -1016,7 +1021,7 @@ async def _run_video_slot(
 
         await aiauto_client.generate_video(
             prompt, video_out, reference_images=list(ref_paths),
-            aspect_ratio="9:16", resolution="4k", seconds=15,
+            aspect_ratio="9:16", resolution="4k", seconds=seconds,
         )
         await _update_video_slot(
             job_id, list_field, slot_idx,
