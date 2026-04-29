@@ -30,7 +30,10 @@ ENV_FILE = PROJECT_ROOT / ".env"
 # Pokemon einen kompletten AI-Auto-Roundtrip (~5min via 524-Fallback).
 REALISTIC_CACHE_DIR = POKEMON_REFS_DIR / "realistic"
 
-for _dir in (ASSETS_DIR, POKEMON_REFS_DIR, OUTPUT_DIR, STATE_DIR, REALISTIC_CACHE_DIR):
+# Audio-Editor: Output-Ordner fuer bereinigte Narration-Files.
+AUDIO_EDITOR_DIR = OUTPUT_DIR / "_audio_editor"
+
+for _dir in (ASSETS_DIR, POKEMON_REFS_DIR, OUTPUT_DIR, STATE_DIR, REALISTIC_CACHE_DIR, AUDIO_EDITOR_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------

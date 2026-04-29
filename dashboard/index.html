@@ -497,6 +497,70 @@
     border-radius: 8px; }
   section#sec-manual-prompts .mp-card .mp-text.err { color: var(--err);
     font-family: inherit; }
+
+  /* Audio Editor */
+  section#sec-audio-editor .drop-zone { margin-top: 12px;
+    border: 2px dashed var(--border-hi); border-radius: 12px;
+    padding: 28px 20px; text-align: center; color: var(--muted);
+    cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  section#sec-audio-editor .drop-zone:hover,
+  section#sec-audio-editor .drop-zone.dragover { border-color: var(--primary);
+    background: rgba(179,255,0,0.04); color: var(--primary-2); }
+  section#sec-audio-editor .drop-zone.dragover { background: rgba(179,255,0,0.08); }
+  section#sec-audio-editor .drop-zone .drop-icon { font-size: 32px; opacity: 0.5;
+    margin-bottom: 6px; display: block; }
+  section#sec-audio-editor .drop-zone input[type=file] { display: none; }
+  .ae-source-name { margin-top: 10px; font-size: 12px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; }
+  .ae-source-name.set { color: var(--primary-2); }
+  .ae-settings-grid { display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px; margin-top: 18px; }
+  @media (max-width: 760px) { .ae-settings-grid { grid-template-columns: 1fr; } }
+  .ae-set-block { background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; }
+  .ae-set-block h3 { margin: 0 0 10px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; color: var(--primary-2); }
+  .ae-slider-row { margin-bottom: 12px; }
+  .ae-slider-row:last-child { margin-bottom: 0; }
+  .ae-slider-row label { display: flex; justify-content: space-between;
+    align-items: baseline; font-size: 12.5px; font-weight: 600;
+    color: var(--text); margin-bottom: 6px; }
+  .ae-slider-row .ae-val { color: var(--primary); font-family: 'JetBrains Mono',
+    monospace; font-size: 12px; font-weight: 700; }
+  .ae-slider-row input[type=range] { width: 100%; accent-color: var(--primary);
+    margin: 2px 0 4px; }
+  .ae-slider-row small { color: var(--muted); font-size: 11px;
+    line-height: 1.45; display: block; }
+  .ae-actions { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+  .ae-actions-hint { color: var(--muted); font-size: 12px; }
+  .ae-actions .ns-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ae-stats-row { display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-top: 18px; }
+  @media (max-width: 760px) { .ae-stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .ae-stat-card { background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+    backdrop-filter: blur(8px); }
+  .ae-stat-card .label { font-size: 10.5px; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--dim); font-weight: 700; }
+  .ae-stat-card .value { font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; font-weight: 700; color: var(--primary);
+    margin-top: 4px; letter-spacing: -0.3px; }
+  .ae-wave-block { margin-top: 18px; background: var(--card-2);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .ae-wave-block .ae-wave-head { display: flex; align-items: baseline;
+    gap: 10px; margin-bottom: 8px; }
+  .ae-wave-block .ae-wave-head .ttl { font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-2); }
+  .ae-wave-block .ae-wave-head .meta { font-size: 11px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; }
+  .ae-wave-block svg.ae-wave { width: 100%; height: 90px; display: block;
+    background: rgba(0,0,0,0.25); border-radius: 8px; }
+  .ae-wave-block svg.ae-wave .bar { fill: var(--primary); }
+  .ae-wave-block svg.ae-wave .silence { fill: rgba(244, 63, 94, 0.18); }
+  .ae-wave-block audio { width: 100%; margin-top: 10px; }
+  .ae-result-actions { margin-top: 14px; display: flex; gap: 10px;
+    flex-wrap: wrap; }
+
   .ns-btn { background: var(--card-hi); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 11px; font-size: 12px; font-weight: 600;
@@ -696,6 +760,9 @@
   <a class="nav-link" data-target="manual-prompts" href="#manual-prompts">
     <span class="ico">&#9998;</span><span>Manual Prompts</span>
   </a>
+  <a class="nav-link" data-target="audio-editor" href="#audio-editor">
+    <span class="ico">&#127925;</span><span>Audio Editor</span>
+  </a>
   <div class="nav-divider"></div>
   <a class="nav-link" data-target="settings" href="#settings">
     <span class="ico">&#9881;</span><span>Settings</span>
@@ -865,6 +932,59 @@
       </label>
       <div id="mp-status-box"></div>
       <div id="mp-results-box"></div>
+    </section>
+  </div>
+
+  <div data-page="audio-editor">
+    <div class="page-head">
+      <h1>Audio Editor</h1>
+      <p>Narration-Pausen automatisch erkennen und entfernen. Lade ein MP3 / WAV / M4A hoch, FFmpeg analysiert Stille-Regionen, schneidet sie raus und liefert eine bereinigte MP3 zurueck. Originaldatei bleibt unangetastet.</p>
+    </div>
+    <section id="sec-audio-editor">
+      <label class="drop-zone" id="ae-drop">
+        <span class="drop-icon">&#127925;</span>
+        <div>Audio-File hier ablegen oder <b>klicken</b> zum Hochladen</div>
+        <small style="color:var(--dim); font-size:11px; margin-top:4px; display:inline-block;">MP3 / WAV / M4A &middot; max 50 MB</small>
+        <input type="file" id="ae-file" accept="audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,.mp3,.wav,.m4a" />
+      </label>
+      <div id="ae-source-name" class="ae-source-name"></div>
+
+      <div class="ae-settings-grid">
+        <div class="ae-set-block">
+          <h3>Silence Detection</h3>
+          <div class="ae-slider-row">
+            <label for="ae-thresh">Silence threshold <span class="ae-val" id="ae-thresh-val">-35 dB</span></label>
+            <input type="range" id="ae-thresh" min="-60" max="-10" step="1" value="-35" />
+            <small>Audio unter diesem Pegel zaehlt als Stille. Niedriger = empfindlicher.</small>
+          </div>
+          <div class="ae-slider-row">
+            <label for="ae-mindur">Minimum silence duration <span class="ae-val" id="ae-mindur-val">300 ms</span></label>
+            <input type="range" id="ae-mindur" min="100" max="2000" step="50" value="300" />
+            <small>Nur Stille die laenger als das ist, wird erkannt.</small>
+          </div>
+        </div>
+        <div class="ae-set-block">
+          <h3>Cut Offsets</h3>
+          <div class="ae-slider-row">
+            <label for="ae-pad-after">Padding after voice ends <span class="ae-val" id="ae-pad-after-val">0.10 s</span></label>
+            <input type="range" id="ae-pad-after" min="0" max="1" step="0.01" value="0.1" />
+            <small>So viel Stille NACH einer Voice-Line behalten, bevor geschnitten wird.</small>
+          </div>
+          <div class="ae-slider-row">
+            <label for="ae-pad-before">Padding before voice starts <span class="ae-val" id="ae-pad-before-val">0.05 s</span></label>
+            <input type="range" id="ae-pad-before" min="0" max="1" step="0.01" value="0.05" />
+            <small>So viel Stille VOR der naechsten Voice-Line behalten.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="ae-actions">
+        <button id="ae-analyze" class="ns-btn primary">&#9889; Analyze &amp; Remove Silences</button>
+        <span class="ae-actions-hint" id="ae-actions-hint">Erst eine Audio-Datei hochladen.</span>
+      </div>
+
+      <div id="ae-stats-box"></div>
+      <div id="ae-waveforms-box"></div>
     </section>
   </div>
 
@@ -2486,9 +2606,195 @@ function setupManualPromptUpload() {
 setupManualPromptUpload();
 
 // ---------------------------------------------------------------------------
+// Audio Editor (Narration Pause Analyzer & Remover)
+// ---------------------------------------------------------------------------
+function setupAudioEditor() {
+  const drop = $('#ae-drop');
+  const fileInput = $('#ae-file');
+  const sourceName = $('#ae-source-name');
+  const analyzeBtn = $('#ae-analyze');
+  const actionsHint = $('#ae-actions-hint');
+  const statsBox = $('#ae-stats-box');
+  const wavesBox = $('#ae-waveforms-box');
+  if (!drop || !fileInput || !analyzeBtn) return;
+
+  let pickedFile = null;
+
+  // Slider value labels
+  const sliders = [
+    {input: '#ae-thresh',     valEl: '#ae-thresh-val',     fmt: v => `${parseInt(v, 10)} dB`},
+    {input: '#ae-mindur',     valEl: '#ae-mindur-val',     fmt: v => `${parseInt(v, 10)} ms`},
+    {input: '#ae-pad-after',  valEl: '#ae-pad-after-val',  fmt: v => `${parseFloat(v).toFixed(2)} s`},
+    {input: '#ae-pad-before', valEl: '#ae-pad-before-val', fmt: v => `${parseFloat(v).toFixed(2)} s`},
+  ];
+  sliders.forEach(s => {
+    const inp = $(s.input);
+    const lbl = $(s.valEl);
+    if (!inp || !lbl) return;
+    const sync = () => { lbl.textContent = s.fmt(inp.value); };
+    inp.addEventListener('input', sync);
+    sync();
+  });
+
+  const setPickedFile = (file) => {
+    pickedFile = file || null;
+    if (pickedFile) {
+      const sizeMb = (pickedFile.size / 1024 / 1024).toFixed(2);
+      sourceName.textContent = `${pickedFile.name} (${sizeMb} MB)`;
+      sourceName.classList.add('set');
+      analyzeBtn.disabled = false;
+      actionsHint.textContent = 'Bereit. Analyse + Cut starten.';
+    } else {
+      sourceName.textContent = '';
+      sourceName.classList.remove('set');
+      analyzeBtn.disabled = true;
+      actionsHint.textContent = 'Erst eine Audio-Datei hochladen.';
+    }
+  };
+  setPickedFile(null);
+
+  fileInput.addEventListener('change', e => {
+    const f = (e.target.files && e.target.files[0]) || null;
+    if (f && f.size > 50 * 1024 * 1024) { toast('Audio zu gross (max 50 MB)', true); return; }
+    setPickedFile(f);
+  });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => { drop.classList.remove('dragover'); });
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('dragover');
+    const f = (e.dataTransfer.files && e.dataTransfer.files[0]) || null;
+    if (f && f.size > 50 * 1024 * 1024) { toast('Audio zu gross (max 50 MB)', true); return; }
+    setPickedFile(f);
+  });
+
+  // SVG-Waveform-Generator: 1200px viewBox, samples werden zu vertikalen
+  // Bars, opacity skaliert mit amplitude. Optional silence-rects als
+  // semi-transparente rote Rechtecke ueber die volle Hoehe.
+  const buildWaveSvg = (samples, duration, silences) => {
+    const W = 1200, H = 100;
+    const barW = samples.length > 0 ? (W / samples.length) : 0;
+    const lines = [];
+    if (Array.isArray(silences) && duration > 0) {
+      silences.forEach(s => {
+        const x = (s.start / duration) * W;
+        const w = Math.max(0.5, ((s.end - s.start) / duration) * W);
+        lines.push(`<rect class="silence" x="${x.toFixed(2)}" y="0" width="${w.toFixed(2)}" height="${H}" />`);
+      });
+    }
+    samples.forEach((amp, i) => {
+      const a = Math.max(0, Math.min(1, amp));
+      const h = Math.max(1, a * H);
+      const y = (H - h) / 2;
+      const opacity = 0.4 + 0.6 * a;
+      const x = i * barW;
+      lines.push(`<rect class="bar" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${Math.max(0.4, barW - 0.05).toFixed(2)}" height="${h.toFixed(2)}" opacity="${opacity.toFixed(2)}" />`);
+    });
+    return `<svg class="ae-wave" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines.join('')}</svg>`;
+  };
+
+  const fmtSecs = (s) => {
+    const v = Number(s) || 0;
+    if (v < 60) return `${v.toFixed(2)}s`;
+    const m = Math.floor(v / 60);
+    const r = (v - m * 60).toFixed(1);
+    return `${m}m ${r}s`;
+  };
+
+  const renderResult = (data) => {
+    const stats = data.stats || {};
+    const original = data.original || {};
+    const edited = data.edited || {};
+    const silences = data.silences || [];
+    const saved = (original.duration || 0) - (edited.duration || 0);
+
+    statsBox.innerHTML = `
+      <div class="ae-stats-row">
+        <div class="ae-stat-card"><div class="label">Silences Found</div><div class="value">${stats.count ?? 0}</div></div>
+        <div class="ae-stat-card"><div class="label">Total Silence</div><div class="value">${fmtSecs(stats.total_silence)}</div></div>
+        <div class="ae-stat-card"><div class="label">Silence Ratio</div><div class="value">${(stats.percentage ?? 0).toFixed(1)}%</div></div>
+        <div class="ae-stat-card"><div class="label">Avg Duration</div><div class="value">${fmtSecs(stats.avg_duration)}</div></div>
+      </div>`;
+
+    const editedUrl = edited.url || '';
+    const editedFilename = edited.filename || 'edited.mp3';
+    wavesBox.innerHTML = `
+      <div class="ae-wave-block">
+        <div class="ae-wave-head">
+          <span class="ttl">Original</span>
+          <span class="meta">${fmtSecs(original.duration)} &middot; ${(original.samples || []).length} samples</span>
+        </div>
+        ${buildWaveSvg(original.samples || [], original.duration || 0, silences)}
+        ${pickedFile ? `<audio controls preload="metadata" src="${URL.createObjectURL(pickedFile)}"></audio>` : ''}
+      </div>
+      <div class="ae-wave-block">
+        <div class="ae-wave-head">
+          <span class="ttl">Edited</span>
+          <span class="meta">${fmtSecs(edited.duration)}${saved > 0 ? ` &middot; saved ${fmtSecs(saved)}` : ''}</span>
+        </div>
+        ${buildWaveSvg(edited.samples || [], edited.duration || 0, [])}
+        <audio controls preload="metadata" src="${escapeAttr(editedUrl)}"></audio>
+        <div class="ae-result-actions">
+          <a class="ns-btn" href="${escapeAttr(editedUrl)}" download="${escapeAttr(editedFilename)}" style="text-decoration:none;">&#11015; Download MP3</a>
+          <button class="ns-btn" id="ae-copy-url" data-url="${escapeAttr(editedUrl)}">&#128203; Copy file URL</button>
+        </div>
+      </div>`;
+
+    const copyBtn = $('#ae-copy-url');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.origin + copyBtn.dataset.url);
+          const orig = copyBtn.innerHTML;
+          copyBtn.classList.add('copied');
+          copyBtn.innerHTML = '&#10003; Copied';
+          setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.innerHTML = orig; }, 1400);
+        } catch (err) { toast('Clipboard-Fehler: ' + err.message, true); }
+      });
+    }
+  };
+
+  analyzeBtn.addEventListener('click', async () => {
+    if (!pickedFile) { toast('Erst Audio-Datei auswaehlen', true); return; }
+    const params = new URLSearchParams({
+      silence_thresh_db: $('#ae-thresh').value,
+      min_silence_ms: $('#ae-mindur').value,
+      offset_before: $('#ae-pad-after').value,   // user-facing 'after voice ends' = backend offset_before
+      offset_after: $('#ae-pad-before').value,   // user-facing 'before voice starts' = backend offset_after
+    });
+
+    statsBox.innerHTML = '';
+    wavesBox.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;">Analyse laeuft &hellip; (FFmpeg silencedetect + atrim concat, kann bei langen Files 10-30s dauern)</div>';
+
+    const orig = analyzeBtn.innerHTML;
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '&hellip; analyzing';
+    try {
+      const fd = new FormData();
+      fd.append('file', pickedFile);
+      const resp = await fetch('/api/audio-editor/analyze?' + params.toString(), {
+        method: 'POST', body: fd,
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`${resp.status}: ${text}`);
+      }
+      const data = await resp.json();
+      renderResult(data);
+    } catch (err) {
+      wavesBox.innerHTML = `<div style="padding:14px 16px;color:var(--err);font-size:13px;">${escapeHtml(err.message)}</div>`;
+      toast(err.message, true);
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = orig;
+    }
+  });
+}
+setupAudioEditor();
+
+// ---------------------------------------------------------------------------
 // Sidebar routing (hash-based)
 // ---------------------------------------------------------------------------
-const VALID_PAGES = new Set(['pipeline', 'eligibility', 'manual-prompts', 'settings']);
+const VALID_PAGES = new Set(['pipeline', 'eligibility', 'manual-prompts', 'audio-editor', 'settings']);
 
 function setActivePage(target) {
   if (!VALID_PAGES.has(target)) target = 'pipeline';

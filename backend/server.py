@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import config
+from backend import audio_editor, config
 from backend.clients import openai_client
 from backend.pipeline import runner
 
@@ -399,6 +399,106 @@ async def api_generate_action_scene_video(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued", "tries": min(3, max(1, tries))}
+
+
+# ---------------------------------------------------------------------------
+# Audio Editor (Narration Pause Analyzer & Remover)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/audio-editor/analyze")
+async def api_audio_editor_analyze(
+    file: UploadFile = File(...),
+    silence_thresh_db: float = -35.0,
+    min_silence_ms: int = 300,
+    offset_before: float = 0.1,
+    offset_after: float = 0.05,
+) -> dict[str, Any]:
+    """Single-shot Endpoint: Detection + Stats + Waveforms + Silence-Removal.
+
+    Limit: 50 MB Upload. Erlaubte Container: mp3 / wav / m4a (ffmpeg liest
+    eh fast alles, der Filter ist nur Schutz vor versehentlichem Bild-Upload).
+    """
+    import os
+    import tempfile
+    import uuid
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Leeres Audio-File.")
+    if len(raw) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Audio zu gross (max 50 MB).")
+
+    # Suffix aus Content-Type / Filename ableiten - ffmpeg ist tolerant.
+    fname = (file.filename or "input.mp3").lower()
+    suffix = ".mp3"
+    for ext in (".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"):
+        if fname.endswith(ext):
+            suffix = ext
+            break
+
+    src_fd, src_path_str = tempfile.mkstemp(prefix="audio_src_", suffix=suffix)
+    os.close(src_fd)
+    src_path = config.AUDIO_EDITOR_DIR / f"src_{uuid.uuid4().hex}{suffix}"
+    edited_path = config.AUDIO_EDITOR_DIR / f"edited_{uuid.uuid4().hex}.mp3"
+    try:
+        # Source-Datei in den persistent dir schreiben (loeschen wir am Ende
+        # des Requests). Streamlit-Aequivalent zu st.session_state.
+        src_path.write_bytes(raw)
+
+        original = await audio_editor.get_audio_samples(src_path, max_points=2000)
+        silences = await audio_editor.detect_silences(
+            src_path,
+            silence_thresh_db=silence_thresh_db,
+            min_silence_ms=min_silence_ms,
+        )
+        await audio_editor.remove_silences(
+            src_path, edited_path, silences,
+            offset_before=offset_before, offset_after=offset_after,
+        )
+        edited = await audio_editor.get_audio_samples(edited_path, max_points=2000)
+        stats = audio_editor.get_silence_stats(silences, original.get("duration", 0.0))
+    except audio_editor.FFmpegMissingError as exc:
+        # Source aufraeumen
+        try:
+            src_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        try:
+            src_path.unlink(missing_ok=True)
+            edited_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
+    else:
+        # Source koennen wir nach erfolgreichem Edit weg - nur das Ergebnis
+        # bleibt liegen fuer Download / Player.
+        try:
+            src_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+    finally:
+        # Tempfile vom mkstemp-Call (haben wir nicht genutzt) auch loeschen
+        try:
+            os.unlink(src_path_str)
+        except OSError:
+            pass
+
+    edited_url = "/output/_audio_editor/" + edited_path.name
+    return {
+        "original": original,
+        "edited": {**edited, "url": edited_url, "filename": edited_path.name},
+        "silences": silences,
+        "stats": stats,
+        "params": {
+            "silence_thresh_db": silence_thresh_db,
+            "min_silence_ms": min_silence_ms,
+            "offset_before": offset_before,
+            "offset_after": offset_after,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
