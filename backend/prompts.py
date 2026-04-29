@@ -399,15 +399,15 @@ CRITICAL: The scene must be designed AROUND THE FUSION'S DISTINCTIVE TRAITS - no
 
 Concrete examples of what fitting means:
 
-- A 'supersonic purple-dragon hybrid that shatters the sound barrier with jet-like biomechanical wings' -> the scene shows ultra-high-speed flight across the studio, banking against invisible walls, diving toward the lens, sonic shockwave-rings on the floor, motion blur, the camera RACES alongside it.
+- A 'supersonic purple-dragon hybrid that shatters the sound barrier with jet-like biomechanical wings' -> the scene shows ultra-high-speed flight through the same setting as the reference image, banking against invisible walls, diving toward the lens, sonic shockwave-rings on the ground, motion blur, the camera RACES alongside it.
 
-- A 'spectral shadow knight wielding dual flaming blades that haunts dreams' -> the scene shows blade combat: the knight leaps into frame mid-strike, blades carving violet arcs, slashing against the studio walls, scorch-lines burning into the floor, then SUMMONS spectral shadow figures that emerge from the floor and the knight DUELS them, parrying and pivoting in a blade-dance.
+- A 'spectral shadow knight wielding dual flaming blades that haunts dreams' -> the scene shows blade combat in the same setting as the reference image: the knight leaps into frame mid-strike, blades carving violet arcs, scorch-lines burning into the ground, then SUMMONS spectral shadow figures that emerge from the floor and the knight DUELS them, parrying and pivoting in a blade-dance.
 
-- A 'venomous raptor predator that shreds the desert dunes with toxic-tipped claws and blinding speed' -> the scene shows a predatory hunt sequence: the raptor stalks low in the periphery, lunges into frame with motion-blurred claws, leaves toxic spray trails on the floor, dashes around the studio in pivots, gnashes its fangs in close-up.
+- A 'venomous raptor predator that shreds the desert dunes with toxic-tipped claws and blinding speed' -> the scene shows a predatory hunt sequence: the raptor stalks low in the periphery, lunges into frame with motion-blurred claws, leaves toxic spray trails on the ground, dashes around the reference setting in pivots, gnashes its fangs in close-up.
 
-- A 'noble psychic knight clad in golden armor wielding a sentient blade and a watching shield' -> the scene shows telekinetic combat: the knight floats inches off the floor, the blade leaves its hand and orbits independently, the shield's eye TRACKS unseen enemies, geometric psychic walls materialize and shatter, the blade returns to the hand mid-flip.
+- A 'noble psychic knight clad in golden armor wielding a sentient blade and a watching shield' -> the scene shows telekinetic combat: the knight floats inches off the ground, the blade leaves its hand and orbits independently, the shield's eye TRACKS unseen enemies, geometric psychic walls materialize and shatter, the blade returns to the hand mid-flip.
 
-- An 'earth-shaking brute predator with armored mass that crushes everything underfoot' -> the scene shows raw destruction: a slow charge becoming a thunderous sprint, the floor cracking with each step, the brute SLAMS into a studio wall sending dust rolling across the camera, then ROARS and LIFTS itself for a body-slam.
+- An 'earth-shaking brute predator with armored mass that crushes everything underfoot' -> the scene shows raw destruction in the same setting as the reference image: a slow charge becoming a thunderous sprint, the ground cracking with each step, the brute SLAMS into the ground sending dust rolling across the camera, then ROARS and LIFTS itself for a body-slam.
 
 The pattern: identify the creature's PRIMARY action archetype from its traits (flight, blade combat, magic combat, predatory hunt, brute force, energy projectile, stealth/teleport, etc.) and choreograph a 10-second scene that IS that creature in motion. The scene is the creature's signature performance.
 
@@ -419,11 +419,11 @@ Required elements:
 
 2. SIGNATURE ACTION SEQUENCE - 3-5 distinct motion beats that ONLY work for THIS creature. If it flies, it flies. If it has blades, it duels. If it summons things, it summons. If it's a predator, it hunts. Each beat is a different camera setup but they flow as one continuous sequence (no hard cuts).
 
-3. CAMERA AS PART OF THE ACTION - dynamic camera work mandatory, matched to the action: tracking shots that follow the creature, whip-pans, low-angle dolly tracking, handheld in combat moments, close-up tracks of an eye / blade / claw / wing-tip while the room blurs past.
+3. CAMERA AS PART OF THE ACTION - dynamic camera work mandatory, matched to the action: tracking shots that follow the creature, whip-pans, low-angle dolly tracking, handheld in combat moments, close-up tracks of an eye / blade / claw / wing-tip while the surroundings blur past.
 
-4. ENVIRONMENTAL RESPONSE - the studio reacts to the creature's signature trait: air-displacement ripples for fast flyers, scorch lines for fire-blade users, sigils and emerging spectral figures for summoners, cracks and dust for heavy brutes, residual streak-trails of color, shaking light fixtures.
+4. ENVIRONMENTAL RESPONSE - the SAME background as the reference image reacts to the creature's signature trait: air-displacement ripples for fast flyers, scorch lines for fire-blade users, sigils and emerging spectral figures for summoners, cracks and dust on the existing ground for heavy brutes, residual streak-trails of color. Do NOT invent new walls, new fixtures, or a new location - all reactions happen on / against whatever is already in the reference image.
 
-5. END BEAT - a final freeze or dramatic pose that captures the creature's essence: the flyer hovers post-flight with shockwaves still rolling out; the knight stands amid defeated shadow figures, blades resting; the predator perches over its kill; the brute crouches in cracked floor with debris settling.
+5. END BEAT - a final freeze or dramatic pose that captures the creature's essence, still in the SAME background as the reference image: the flyer hovers post-flight with shockwaves still rolling out; the knight stands amid defeated shadow figures, blades resting; the predator perches over its kill; the brute crouches in cracked ground with debris settling.
 
 End with technical summary: 'Ultra-detailed 4K rendering, dynamic motion blur, [signature-specific VFX e.g. air-displacement / blade-glint / shadow-tendrils / ground-cracks], volumetric haze, photographic depth of field, aggressive cinematic camera work throughout.'
 
@@ -432,7 +432,7 @@ Hard rules:
 - NEVER name the original Pokemon (no 'Latios', no 'Charizard'). Use descriptive phrasing only.
 - ALL CAPS movement / action verbs throughout: BLASTS, STREAKS, BANKS, DIVES, SLAMS, SLASHES, PARRIES, SUMMONS, LUNGES, ROARS, ERUPTS, etc. Pick verbs that match the action.
 - 250 to 400 words, single continuous paragraph. No headings, no bullet points.
-- Background IDENTICAL to the reference image (the studio space).
+- BACKGROUND CONSISTENCY (CRITICAL): the scene takes place in the EXACT SAME setting as the reference image. Do NOT invent a new location. Do NOT describe a 'studio', 'studio walls', 'studio space', 'arena', 'stage', or any environment word that does not appear in the reference. Phrase it as 'in the same setting as the reference image' or 'against the same background as the reference image' wherever the environment is referenced. Lighting, floor, wall texture, props - all identical to the reference.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - Photorealistic 3D-render style enforced.
 - No meta commentary, no 'Seedance', no 'showcase'."""
