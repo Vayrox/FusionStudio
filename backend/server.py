@@ -379,20 +379,6 @@ async def api_generate_step6_video(
     return {"status": "queued", "tries": min(3, max(1, tries))}
 
 
-@app.post("/api/jobs/{job_id}/generate-step5-video")
-async def api_generate_step5_video(
-    job_id: str, req: GenerateVideoRequest | None = None,
-) -> dict[str, Any]:
-    """Step 5 Transformation-Video via Seedance, mit Start-Frame +
-    Fav-Variant als Ingredients-Refs."""
-    tries = (req.tries if req else 1) or 1
-    try:
-        await runner.generate_step5_video(job_id, tries=tries)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "queued", "tries": min(3, max(1, tries))}
-
-
 @app.post("/api/jobs/{job_id}/generate-action-scene-video")
 async def api_generate_action_scene_video(
     job_id: str, req: GenerateVideoRequest | None = None,

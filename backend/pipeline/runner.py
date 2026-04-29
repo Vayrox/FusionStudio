@@ -857,52 +857,6 @@ async def generate_step6_video(job_id: str, tries: int = 1) -> None:
     )
 
 
-async def generate_step5_video(job_id: str, tries: int = 1) -> None:
-    """Generiert das Step-5 Transformation-Video via Seedance 2 (AI-Auto).
-    Nutzt den step5_transformation Prompt + ZWEI Refs:
-      - 03_start_frame.png  (Start: beide Originale auf der Plattform)
-      - 04_fusion_v{fav}.png (End: die finale Fusion)
-
-    Seedance 2.0 hat keinen expliziten first/last-frame-Mode, aber durch
-    Anhaengen beider Bilder als Ingredients + transformations-orientierten
-    Prompt kann das Modell den Morph zwischen beiden interpolieren.
-
-    tries: 1-3 parallele Generations (Seedance schwankt in Qualitaet).
-    """
-    tries = max(1, min(3, tries or 1))
-    job = await get_job(job_id)
-    if not job:
-        raise ValueError(f"Job {job_id} nicht gefunden")
-    if job.get("status") != "done":
-        raise ValueError("Step-5-Video nur fuer abgeschlossene Jobs.")
-    fav = job.get("favorite_variant")
-    if not fav:
-        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
-
-    out_dir = PROJECT_ROOT / job["output_dir"]
-    meta_path = out_dir / "_meta.json"
-    if not meta_path.exists():
-        raise RuntimeError("_meta.json fehlt.")
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    prompt = meta.get("step5_transformation")
-    if not prompt:
-        raise RuntimeError("step5_transformation fehlt in _meta.json.")
-
-    start_path = out_dir / "03_start_frame.png"
-    fav_path = out_dir / f"04_fusion_v{fav}.png"
-    if not start_path.exists():
-        raise RuntimeError(f"Start-Frame fehlt: {start_path}")
-    if not fav_path.exists():
-        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
-
-    await _spawn_video_slots(
-        job_id, prompt, [start_path, fav_path], tries,
-        list_field="step5_videos",
-        filename_prefix="05_transformation_video",
-        seconds=5,
-    )
-
-
 async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
     """Generiert das Action-Scene-Video via Seedance 2 (AI-Auto).
     Nutzt action_scene_prompt + Favoriten-Variante als Reference.
