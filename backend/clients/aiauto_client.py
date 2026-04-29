@@ -535,14 +535,19 @@ async def generate_video(
     prompt: str,
     output_path: Path,
     reference_image: Path | None = None,
+    reference_images: list[Path] | None = None,
     aspect_ratio: str = "9:16",
     resolution: str = "720p",
     seconds: int = 10,
     model: str = "seedance_2",
 ) -> Path:
     """Generiert ein Seedance-2 Video via AI-Auto und schreibt es als mp4
-    nach output_path. reference_image wird als ingredients-mode I2V-Ref
-    eingebunden (Data-URL)."""
+    nach output_path.
+
+    Refs werden als ingredients-mode I2V-Refs eingebunden (Data-URLs).
+    Entweder `reference_image` (single) ODER `reference_images` (multi,
+    z.B. fuer Start-Frame + End-Frame Morphs). `reference_images` hat
+    Vorrang wenn beide gesetzt sind."""
     body: dict[str, Any] = {
         "prompt": prompt,
         "mode": "shorts",
@@ -551,9 +556,14 @@ async def generate_video(
         "resolution": resolution,
         "seconds": seconds,
     }
-    if reference_image and reference_image.exists():
+    refs: list[Path] = []
+    if reference_images:
+        refs = [p for p in reference_images if p and p.exists()]
+    elif reference_image and reference_image.exists():
+        refs = [reference_image]
+    if refs:
         body["i2v_mode"] = "ingredients"
-        body["i2v_reference_images"] = [_encode_reference_as_data_url(reference_image)]
+        body["i2v_reference_images"] = [_encode_reference_as_data_url(p) for p in refs]
 
     url = f"{settings.aiauto_base_url}/generate"
     submit_ts = time.time()

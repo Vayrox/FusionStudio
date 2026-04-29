@@ -1721,12 +1721,13 @@ function _renderNextStepsContent(container, job, meta) {
     const items = [
       {
         key: 'step5',
-        title: 'Step 5 &mdash; Transformation (Kling)',
+        title: 'Step 5 &mdash; Transformation Video (Seedance 2)',
         hint: fav
-          ? `First-Last-Frame. Start: <code>03_start_frame.png</code> &middot; End: <code>${escapeHtml(variantFile)}</code>.`
-          : `First-Last-Frame. Start: <code>03_start_frame.png</code>. <span class="no-fav">Favorit waehlen &#9733;.</span>`,
+          ? `9:16 / 4k / 15s. Start-Ref: <code>03_start_frame.png</code> &middot; End-Ref: <code>${escapeHtml(variantFile)}</code>.`
+          : `Start-Ref: <code>03_start_frame.png</code>. <span class="no-fav">Favorit waehlen &#9733;.</span>`,
         copies: [
-          {label: '&#128203; Copy Prompt', text: step5, primary: true},
+          {label: '&#127909; Generate Video', action: 'generate_step5_video', primary: true},
+          {label: '&#128203; Copy Prompt', text: step5},
           {label: '&#8634; Regen', action: 'regenerate_step5_prompt'},
         ],
       },
@@ -1824,7 +1825,7 @@ function _renderNextStepsContent(container, job, meta) {
     const renderActionBtn = (c, idx, primary) => {
       if (c.action) {
         let triesDropdown = '';
-        if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
+        if (c.action === 'generate_step5_video' || c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
           const tcKey = `${job.id}:${c.action}`;
           const savedTries = _jobTriesPref.get(tcKey) || '1';
           const sel = (v) => savedTries === v ? ' selected' : '';
@@ -1949,9 +1950,11 @@ function _renderNextStepsContent(container, job, meta) {
       return `<div class="ns-video-row"><div class="ns-video-slots">${slotsHtml}</div></div>`;
     };
 
+    const step5Videos = collectVideos('step5_video_status', 'step5_video_path', 'step5_video_error', 'step5_videos');
     const step6Videos = collectVideos('step6_video_status', 'step6_video_path', 'step6_video_error', 'step6_videos');
     const actionVideos = collectVideos('action_scene_video_status', 'action_scene_video_path', 'action_scene_video_error', 'action_scene_videos');
     const videosHtml = [
+      renderVideoSection('Step 5 Transformation', step5Videos),
       renderVideoSection('Step 6 Showcase', step6Videos),
       renderVideoSection('Action Scene', actionVideos),
     ].join('');
@@ -2014,16 +2017,25 @@ function _renderNextStepsContent(container, job, meta) {
             _metaCache.set(job.id, cached);
             toast('Showcase-Image Prompt regenerated');
             await refreshJobs();
-          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
+          } else if (action === 'generate_step5_video' || action === 'generate_step6_video' || action === 'generate_action_scene_video') {
             const triesSel = $(`.tries-select[data-tries-for="${action}"]`, container);
             const cacheKey = `${job.id}:${action}`;
             const liveVal = triesSel ? triesSel.value : (_jobTriesPref.get(cacheKey) || '1');
             const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
             _jobTriesPref.set(cacheKey, String(tries));
-            const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
+            const labels = {
+              generate_step5_video: 'Step 5 Transformation',
+              generate_step6_video: 'Step 6 Showcase',
+              generate_action_scene_video: 'Action Scene',
+            };
+            const endpoints = {
+              generate_step5_video: 'generate-step5-video',
+              generate_step6_video: 'generate-step6-video',
+              generate_action_scene_video: 'generate-action-scene-video',
+            };
+            const label = labels[action];
             if (!confirm(`Seedance 2 ${label} Video generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation. Verbraucht ${tries} AI-Auto Video-Generation${tries > 1 ? 'en' : ''}.`)) return;
-            const endpoint = action === 'generate_step6_video' ? 'generate-step6-video' : 'generate-action-scene-video';
-            await api(`/api/jobs/${job.id}/${endpoint}`, {
+            await api(`/api/jobs/${job.id}/${endpoints[action]}`, {
               method: 'POST',
               body: JSON.stringify({tries}),
             });

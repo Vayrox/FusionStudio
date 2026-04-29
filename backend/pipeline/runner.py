@@ -851,9 +851,54 @@ async def generate_step6_video(job_id: str, tries: int = 1) -> None:
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
     await _spawn_video_slots(
-        job_id, prompt, fav_path, tries,
+        job_id, prompt, [fav_path], tries,
         list_field="step6_videos",
         filename_prefix="06_seedance_video",
+    )
+
+
+async def generate_step5_video(job_id: str, tries: int = 1) -> None:
+    """Generiert das Step-5 Transformation-Video via Seedance 2 (AI-Auto).
+    Nutzt den step5_transformation Prompt + ZWEI Refs:
+      - 03_start_frame.png  (Start: beide Originale auf der Plattform)
+      - 04_fusion_v{fav}.png (End: die finale Fusion)
+
+    Seedance 2.0 hat keinen expliziten first/last-frame-Mode, aber durch
+    Anhaengen beider Bilder als Ingredients + transformations-orientierten
+    Prompt kann das Modell den Morph zwischen beiden interpolieren.
+
+    tries: 1-3 parallele Generations (Seedance schwankt in Qualitaet).
+    """
+    tries = max(1, min(3, tries or 1))
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Step-5-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    prompt = meta.get("step5_transformation")
+    if not prompt:
+        raise RuntimeError("step5_transformation fehlt in _meta.json.")
+
+    start_path = out_dir / "03_start_frame.png"
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not start_path.exists():
+        raise RuntimeError(f"Start-Frame fehlt: {start_path}")
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
+
+    await _spawn_video_slots(
+        job_id, prompt, [start_path, fav_path], tries,
+        list_field="step5_videos",
+        filename_prefix="05_transformation_video",
     )
 
 
@@ -889,7 +934,7 @@ async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
 
     await _spawn_video_slots(
-        job_id, prompt, fav_path, tries,
+        job_id, prompt, [fav_path], tries,
         list_field="action_scene_videos",
         filename_prefix="07_action_scene_video",
     )
@@ -898,14 +943,18 @@ async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
 async def _spawn_video_slots(
     job_id: str,
     prompt: str,
-    ref_path: Path,
+    ref_paths: list[Path],
     tries: int,
     *,
     list_field: str,
     filename_prefix: str,
 ) -> None:
     """Startet `tries` parallele Video-Generations als neue Slots in der
-    list_field-Liste des Jobs (append - bestehende Slots bleiben)."""
+    list_field-Liste des Jobs (append - bestehende Slots bleiben).
+
+    `ref_paths` kann ein oder mehrere Bilder enthalten - mehrere Refs werden
+    als Ingredients an Seedance gegeben (z.B. Start- + End-Frame fuer Morph).
+    """
     job = await get_job(job_id)
     assert job is not None
     existing = list(job.get(list_field) or [])
@@ -926,7 +975,7 @@ async def _spawn_video_slots(
         out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
         task_key = f"{list_field}:{job_id}:{slot_idx}"
         _register_task(task_key, asyncio.create_task(
-            _run_video_slot(job_id, prompt, ref_path, slot_idx, out_filename, list_field)
+            _run_video_slot(job_id, prompt, ref_paths, slot_idx, out_filename, list_field)
         ))
 
 
@@ -950,7 +999,7 @@ async def _update_video_slot(
 async def _run_video_slot(
     job_id: str,
     prompt: str,
-    ref_path: Path,
+    ref_paths: list[Path],
     slot_idx: int,
     out_filename: str,
     list_field: str,
@@ -966,7 +1015,7 @@ async def _run_video_slot(
         video_out = out_dir / out_filename
 
         await aiauto_client.generate_video(
-            prompt, video_out, reference_image=ref_path,
+            prompt, video_out, reference_images=list(ref_paths),
             aspect_ratio="9:16", resolution="4k", seconds=15,
         )
         await _update_video_slot(
