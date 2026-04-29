@@ -2076,7 +2076,8 @@ function _renderNextStepsContent(container, job, meta) {
     // Copy-Buttons
     $$('.ns-btn.copy', container).forEach(btn => {
       btn.addEventListener('click', async () => {
-        const key = btn.dataset.key;
+        const itemEl = btn.closest('.ns-item');
+        const key = itemEl ? itemEl.dataset.key : null;
         const idx = +btn.dataset.copyIdx;
         const item = items.find(x => x.key === key);
         const text = item && item.copies[idx] ? item.copies[idx].text : '';
