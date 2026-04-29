@@ -1989,11 +1989,13 @@ function _renderNextStepsContent(container, job, meta) {
       let customPromptHtml = '';
       if (it.customPrompt) {
         const cp = it.customPrompt;
-        const triesAttr = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video') ? '1' : '';
         const draftKey = `${job.id}:${it.key}`;
         const draft = _customPromptDraft.get(draftKey) || {};
         const draftText = draft.text != null ? draft.text : (cp.text || '');
         const isOpen = !!draft.open;
+        const triesHint = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video')
+          ? `<span class="hint">Custom-Prompt-Run &mdash; Anzahl wird vom &times;-Dropdown oben uebernommen.</span>`
+          : `<span class="hint">Custom-Prompt-Run &mdash; meta.json bleibt unangetastet.</span>`;
         customPromptHtml = `
           <details class="custom-prompt ns-custom-prompt"${isOpen ? ' open' : ''} data-custom-draft-key="${escapeAttr(draftKey)}">
             <summary>
@@ -2003,9 +2005,8 @@ function _renderNextStepsContent(container, job, meta) {
             <div class="body">
               <textarea data-custom-prompt-key="${escapeAttr(it.key)}" data-custom-prompt-action="${escapeAttr(cp.action)}" placeholder="Eigenen Prompt einfuegen. Wird 1:1 statt des auto-generierten Prompts an Seedance / AI-Auto geschickt.">${escapeHtml(draftText)}</textarea>
               <div class="actions">
-                ${triesAttr ? `<select class="tries-select" data-tries-for="custom_${cp.action}_${it.key}" title="Anzahl paralleler Generations"><option value="1">&times;1</option><option value="2">&times;2</option><option value="3">&times;3</option></select>` : ''}
                 <button class="ns-btn rerun" data-custom-submit-key="${escapeAttr(it.key)}" data-custom-submit-action="${escapeAttr(cp.action)}">&#127909; ${escapeHtml(cp.label || 'Generate with this prompt')}</button>
-                <span class="hint">Custom-Prompt-Run &mdash; meta.json bleibt unangetastet.</span>
+                ${triesHint}
               </div>
             </div>
           </details>
@@ -2260,8 +2261,13 @@ function _renderNextStepsContent(container, job, meta) {
             });
             toast('Custom-Showcase queued (4x 16:9)');
           } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
-            const triesSel = detailsEl ? detailsEl.querySelector('.tries-select') : null;
-            const tries = Math.max(1, Math.min(3, parseInt(triesSel ? triesSel.value : '1', 10) || 1));
+            // Tries-Anzahl vom AEUSSEREN Dropdown lesen (action-button neben dem Step-Titel),
+            // bzw. aus _jobTriesPref falls Dropdown noch nicht geaendert wurde.
+            const outerSel = $(`.tries-select[data-tries-for="${action}"]`, container);
+            const cacheKey = `${job.id}:${action}`;
+            const liveVal = outerSel ? outerSel.value : (_jobTriesPref.get(cacheKey) || '1');
+            const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
+            _jobTriesPref.set(cacheKey, String(tries));
             const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
             if (!confirm(`Seedance 2 ${label} Video mit CUSTOM-Prompt generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation.`)) {
               btn.disabled = false; btn.innerHTML = orig; return;
