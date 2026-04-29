@@ -1278,6 +1278,7 @@ function renderBatch(batch) {
 }
 
 const _jobCache = new Map(); // job.id -> {hash, element}
+const _customPromptDraft = new Map(); // `${jobId}:${itemKey}` -> {open: bool, text: string}
 const _jobRegenMode = new Map(); // job.id -> '' | 'blend' | 'unique' (overlebt Re-Renders)
 const _jobTriesPref = new Map(); // `${job.id}:${action}` -> '1' | '2' | '3'
 let _modalJobId = null;
@@ -1741,6 +1742,7 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Copy Prompt', text: step6},
           {label: '&#8634; Regen', action: 'regenerate_step6_prompt'},
         ],
+        customPrompt: {action: 'generate_step6_video', text: step6, label: 'Generate Video'},
       },
       {
         key: 'step6b',
@@ -1754,6 +1756,11 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Prompt Kling Elements', text: step6bText},
           {label: '&#8634; Regen Image-Prompt', action: 'regenerate_showcase_image_prompt'},
         ],
+        customPrompt: {
+          action: 'generate_showcase',
+          text: meta.showcase_image_prompt || step6 || '',
+          label: 'Generate Showcase',
+        },
       },
       actionScenePrompt ? {
         key: 'action_scene',
@@ -1764,6 +1771,11 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#128203; Copy Prompt', text: actionScenePrompt},
           {label: '&#8634; Regen Prompt', action: 'generate_action_scene'},
         ],
+        customPrompt: {
+          action: 'generate_action_scene_video',
+          text: actionScenePrompt,
+          label: 'Generate Video',
+        },
       } : {
         key: 'action_scene',
         title: 'Action Scene (Seedance signature performance)',
@@ -1854,12 +1866,38 @@ function _renderNextStepsContent(container, job, meta) {
         .filter(x => !x.c.primary)
         .map(x => renderActionBtn(x.c, x.i, false))
         .join('');
+      let customPromptHtml = '';
+      if (it.customPrompt) {
+        const cp = it.customPrompt;
+        const triesAttr = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video') ? '1' : '';
+        const draftKey = `${job.id}:${it.key}`;
+        const draft = _customPromptDraft.get(draftKey) || {};
+        const draftText = draft.text != null ? draft.text : (cp.text || '');
+        const isOpen = !!draft.open;
+        customPromptHtml = `
+          <details class="custom-prompt ns-custom-prompt"${isOpen ? ' open' : ''} data-custom-draft-key="${escapeAttr(draftKey)}">
+            <summary>
+              <span class="chev">&#9656;</span>
+              <span>&#9999;&#65039; Generate with custom prompt</span>
+            </summary>
+            <div class="body">
+              <textarea data-custom-prompt-key="${escapeAttr(it.key)}" data-custom-prompt-action="${escapeAttr(cp.action)}" placeholder="Eigenen Prompt einfuegen. Wird 1:1 statt des auto-generierten Prompts an Seedance / AI-Auto geschickt.">${escapeHtml(draftText)}</textarea>
+              <div class="actions">
+                ${triesAttr ? `<select class="tries-select" data-tries-for="custom_${cp.action}_${it.key}" title="Anzahl paralleler Generations"><option value="1">&times;1</option><option value="2">&times;2</option><option value="3">&times;3</option></select>` : ''}
+                <button class="ns-btn rerun" data-custom-submit-key="${escapeAttr(it.key)}" data-custom-submit-action="${escapeAttr(cp.action)}">&#127909; ${escapeHtml(cp.label || 'Generate with this prompt')}</button>
+                <span class="hint">Custom-Prompt-Run &mdash; meta.json bleibt unangetastet.</span>
+              </div>
+            </div>
+          </details>
+        `;
+      }
       return `
         <div class="ns-item${done ? ' done' : ''}" data-key="${it.key}">
           <input type="checkbox" class="ns-check" data-job="${job.id}" data-key="${it.key}" ${done ? 'checked' : ''} />
           <div class="ns-body">
             <div class="ns-title">${it.title}</div>
             <div class="ns-hint">${it.hint}</div>
+            ${customPromptHtml}
           </div>
           <div class="ns-actions">${primaryBtns}</div>
           <div class="ns-secondary">${secondaryBtns}</div>
@@ -2056,6 +2094,71 @@ function _renderNextStepsContent(container, job, meta) {
           toast(err.message, true);
         } finally {
           btn.disabled = false;
+        }
+      });
+    });
+
+    // Custom-Prompt: Draft persistence across polling re-renders
+    $$('details.ns-custom-prompt', container).forEach(det => {
+      const draftKey = det.dataset.customDraftKey;
+      if (!draftKey) return;
+      det.addEventListener('toggle', () => {
+        const cur = _customPromptDraft.get(draftKey) || {};
+        cur.open = det.open;
+        _customPromptDraft.set(draftKey, cur);
+      });
+      const ta = det.querySelector('textarea');
+      if (ta) {
+        ta.addEventListener('input', () => {
+          const cur = _customPromptDraft.get(draftKey) || {};
+          cur.text = ta.value;
+          _customPromptDraft.set(draftKey, cur);
+        });
+      }
+    });
+
+    // Custom-Prompt Submit (Step 6A / 6B / Action Scene)
+    $$('.ns-btn.rerun[data-custom-submit-action]', container).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.customSubmitAction;
+        const itemKey = btn.dataset.customSubmitKey;
+        const detailsEl = btn.closest('details.custom-prompt');
+        const ta = detailsEl ? detailsEl.querySelector(`textarea[data-custom-prompt-key="${itemKey}"]`) : null;
+        const promptText = (ta ? ta.value : '').trim();
+        if (!promptText) { toast('Custom-Prompt darf nicht leer sein', true); return; }
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '&hellip; running';
+        try {
+          if (action === 'generate_showcase') {
+            if (!confirm('Showcase-Image mit Custom-Prompt generieren? (4x 16:9 Varianten)\n\nBestehende Showcase-Variants werden ueberschrieben.')) {
+              btn.disabled = false; btn.innerHTML = orig; return;
+            }
+            await api(`/api/jobs/${job.id}/generate-showcase`, {
+              method: 'POST',
+              body: JSON.stringify({prompt_override: promptText}),
+            });
+            toast('Custom-Showcase queued (4x 16:9)');
+          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
+            const triesSel = detailsEl ? detailsEl.querySelector('.tries-select') : null;
+            const tries = Math.max(1, Math.min(3, parseInt(triesSel ? triesSel.value : '1', 10) || 1));
+            const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
+            if (!confirm(`Seedance 2 ${label} Video mit CUSTOM-Prompt generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation.`)) {
+              btn.disabled = false; btn.innerHTML = orig; return;
+            }
+            const endpoint = action === 'generate_step6_video' ? 'generate-step6-video' : 'generate-action-scene-video';
+            await api(`/api/jobs/${job.id}/${endpoint}`, {
+              method: 'POST',
+              body: JSON.stringify({tries, prompt_override: promptText}),
+            });
+            toast(`${label} Video gequeued (custom prompt, ${tries}x)`);
+          }
+          await refreshJobs();
+        } catch (err) {
+          toast(err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = orig;
         }
       });
     });

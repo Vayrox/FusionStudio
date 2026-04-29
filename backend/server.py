@@ -60,6 +60,11 @@ class RegenerateAllRequest(BaseModel):
 
 class GenerateVideoRequest(BaseModel):
     tries: int = 1  # 1-3 parallele Video-Generations
+    prompt_override: str | None = None  # optional: User-Custom-Prompt statt meta
+
+
+class GenerateShowcaseRequest(BaseModel):
+    prompt_override: str | None = None  # optional: Custom showcase-image-prompt
 
 
 class SettingsUpdate(BaseModel):
@@ -282,9 +287,12 @@ async def api_toggle_checklist(job_id: str, req: ChecklistUpdate) -> dict[str, b
 
 
 @app.post("/api/jobs/{job_id}/generate-showcase")
-async def api_generate_showcase(job_id: str) -> dict[str, str]:
+async def api_generate_showcase(
+    job_id: str, req: GenerateShowcaseRequest | None = None,
+) -> dict[str, str]:
+    override = req.prompt_override if req else None
     try:
-        await runner.generate_showcase_images(job_id)
+        await runner.generate_showcase_images(job_id, prompt_override=override)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued"}
@@ -372,8 +380,9 @@ async def api_generate_step6_video(
     job_id: str, req: GenerateVideoRequest | None = None,
 ) -> dict[str, Any]:
     tries = (req.tries if req else 1) or 1
+    override = req.prompt_override if req else None
     try:
-        await runner.generate_step6_video(job_id, tries=tries)
+        await runner.generate_step6_video(job_id, tries=tries, prompt_override=override)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued", "tries": min(3, max(1, tries))}
@@ -384,8 +393,9 @@ async def api_generate_action_scene_video(
     job_id: str, req: GenerateVideoRequest | None = None,
 ) -> dict[str, Any]:
     tries = (req.tries if req else 1) or 1
+    override = req.prompt_override if req else None
     try:
-        await runner.generate_action_scene_video(job_id, tries=tries)
+        await runner.generate_action_scene_video(job_id, tries=tries, prompt_override=override)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued", "tries": min(3, max(1, tries))}

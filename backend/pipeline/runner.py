@@ -733,12 +733,15 @@ async def set_favorite(job_id: str, variant: int | None) -> None:
     await _update_job(job_id, favorite_variant=variant)
 
 
-async def generate_showcase_images(job_id: str) -> None:
+async def generate_showcase_images(
+    job_id: str, prompt_override: str | None = None,
+) -> None:
     """Generiert SHOWCASE_VARIANTS (default 4) statische Showcase-Composition-
     Images als Blueprint-Kandidaten fuer den Kling-Elements-Fallback (Step 7).
 
-    Nutzt die Favoriten-Fusion-Variante als Reference und den Step-6-
-    Showcase-Prompt, rendert in 16:9.
+    Nutzt die Favoriten-Fusion-Variante als Reference und den Showcase-Image-
+    Prompt aus meta (bzw. prompt_override falls vom User gesetzt), rendert
+    in 16:9.
     """
     job = await get_job(job_id)
     if not job:
@@ -756,11 +759,14 @@ async def generate_showcase_images(job_id: str) -> None:
     if not meta_path.exists():
         raise RuntimeError("_meta.json fehlt - Job-Output unvollstaendig.")
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    # Bevorzuge den Static-Image-Prompt (gezielt fuer 1 Frame komponiert);
-    # fallback auf step6_showcase fuer Backwards-Compat mit alten Jobs.
-    image_prompt = meta.get("showcase_image_prompt") or meta.get("step6_showcase")
-    if not image_prompt:
-        raise RuntimeError("showcase_image_prompt / step6_showcase fehlt in _meta.json")
+    if prompt_override and prompt_override.strip():
+        image_prompt = prompt_override.strip()
+    else:
+        # Bevorzuge den Static-Image-Prompt (gezielt fuer 1 Frame komponiert);
+        # fallback auf step6_showcase fuer Backwards-Compat mit alten Jobs.
+        image_prompt = meta.get("showcase_image_prompt") or meta.get("step6_showcase")
+        if not image_prompt:
+            raise RuntimeError("showcase_image_prompt / step6_showcase fehlt in _meta.json")
     fav_path = out_dir / f"04_fusion_v{fav}.png"
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
@@ -820,9 +826,12 @@ async def _run_showcase_generation(
         await _update_job(job_id, showcase_status="error", showcase_error=err)
 
 
-async def generate_step6_video(job_id: str, tries: int = 1) -> None:
+async def generate_step6_video(
+    job_id: str, tries: int = 1, prompt_override: str | None = None,
+) -> None:
     """Generiert das Step-6 Showcase-Video via Seedance 2 (AI-Auto).
-    Nutzt step6_showcase prompt + Favoriten-Variante als Reference.
+    Nutzt step6_showcase prompt (oder prompt_override falls vom User
+    gesetzt) + Favoriten-Variante als Reference.
 
     tries: 1-3 parallele Generations starten (jede in eigenen mp4-Slot).
     Nuetzlich weil Seedance gelegentlich fehlschlaegt - bei 3 Versuchen
@@ -843,9 +852,12 @@ async def generate_step6_video(job_id: str, tries: int = 1) -> None:
     if not meta_path.exists():
         raise RuntimeError("_meta.json fehlt.")
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    prompt = meta.get("step6_showcase")
-    if not prompt:
-        raise RuntimeError("step6_showcase fehlt in _meta.json.")
+    if prompt_override and prompt_override.strip():
+        prompt = prompt_override.strip()
+    else:
+        prompt = meta.get("step6_showcase")
+        if not prompt:
+            raise RuntimeError("step6_showcase fehlt in _meta.json.")
     fav_path = out_dir / f"04_fusion_v{fav}.png"
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
@@ -857,9 +869,12 @@ async def generate_step6_video(job_id: str, tries: int = 1) -> None:
     )
 
 
-async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
+async def generate_action_scene_video(
+    job_id: str, tries: int = 1, prompt_override: str | None = None,
+) -> None:
     """Generiert das Action-Scene-Video via Seedance 2 (AI-Auto).
-    Nutzt action_scene_prompt + Favoriten-Variante als Reference.
+    Nutzt action_scene_prompt (oder prompt_override falls vom User
+    gesetzt) + Favoriten-Variante als Reference.
 
     tries: 1-3 parallele Generations.
     """
@@ -878,12 +893,15 @@ async def generate_action_scene_video(job_id: str, tries: int = 1) -> None:
     if not meta_path.exists():
         raise RuntimeError("_meta.json fehlt.")
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    prompt = meta.get("action_scene_prompt")
-    if not prompt:
-        raise RuntimeError(
-            "action_scene_prompt fehlt - bitte zuerst 'Generate Action Scene' im "
-            "Next-Steps Panel klicken."
-        )
+    if prompt_override and prompt_override.strip():
+        prompt = prompt_override.strip()
+    else:
+        prompt = meta.get("action_scene_prompt")
+        if not prompt:
+            raise RuntimeError(
+                "action_scene_prompt fehlt - bitte zuerst 'Generate Action Scene' im "
+                "Next-Steps Panel klicken."
+            )
     fav_path = out_dir / f"04_fusion_v{fav}.png"
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
