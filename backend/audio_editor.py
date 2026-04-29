@@ -18,6 +18,7 @@ import asyncio
 import logging
 import re
 import struct
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -33,14 +34,20 @@ class FFmpegMissingError(RuntimeError):
     """ffmpeg / ffprobe ist nicht im PATH installiert."""
 
 
-async def _run(cmd: list[str], capture_stderr: bool = False) -> tuple[bytes, bytes, int]:
-    """asyncio-Wrapper um subprocess fuer ffmpeg-Calls. Wirft
-    FFmpegMissingError wenn die Binary nicht gefunden wird."""
+def _run_sync(cmd: list[str]) -> tuple[bytes, bytes, int]:
+    """Synchrones subprocess.run. Wirft FFmpegMissingError wenn Binary fehlt.
+
+    Wir benutzen subprocess.run statt asyncio.create_subprocess_exec, weil
+    letzteres auf Windows einen ProactorEventLoop voraussetzt - bei einem
+    SelectorEventLoop wirft es NotImplementedError. subprocess.run im
+    Threadpool ist plattformunabhaengig.
+    """
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
         )
     except FileNotFoundError as exc:
         bin_name = cmd[0]
@@ -48,8 +55,14 @@ async def _run(cmd: list[str], capture_stderr: bool = False) -> tuple[bytes, byt
             f"'{bin_name}' nicht gefunden. ffmpeg + ffprobe muessen im PATH "
             f"installiert sein (siehe https://ffmpeg.org/download.html)."
         ) from exc
-    out, err = await proc.communicate()
-    return out, err, proc.returncode or 0
+    return proc.stdout or b"", proc.stderr or b"", proc.returncode or 0
+
+
+async def _run(cmd: list[str], capture_stderr: bool = False) -> tuple[bytes, bytes, int]:
+    """Async-Facade: laeuft subprocess.run im Default-Threadpool, damit der
+    FastAPI-Eventloop nicht blockiert."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _run_sync, cmd)
 
 
 # ---------------------------------------------------------------------------
