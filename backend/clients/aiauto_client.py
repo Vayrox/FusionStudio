@@ -334,6 +334,13 @@ async def _post_generate(
             "AI-Auto POST /generate transient %d - fallback to listing", resp.status_code
         )
         return None, None
+    if resp.status_code in (401, 403):
+        raise AIAutoError(
+            f"AI-Auto Auth-Error {resp.status_code} beim Image-Generate. "
+            f"Der API-Key wurde abgelehnt. Pruefe in den Settings ob der "
+            f"AIAUTO_API_KEY noch gueltig ist (ggf. in https://ai-auto.io "
+            f"neu generieren). Server-Antwort: {resp.text[:300]}"
+        )
     if resp.status_code >= 400:
         raise AIAutoError(
             f"AI-Auto POST /generate {resp.status_code}: {resp.text[:500]}"
@@ -579,6 +586,15 @@ async def generate_video(
                     log.warning(
                         "AI-Auto POST /generate (video) transient %d - fallback to listing",
                         resp.status_code,
+                    )
+                elif resp.status_code in (401, 403):
+                    raise AIAutoError(
+                        f"AI-Auto Auth-Error {resp.status_code} beim Video-Generate. "
+                        f"Der API-Key wurde abgelehnt. Pruefe in den Settings: "
+                        f"(1) ist der AIAUTO_API_KEY noch gueltig? "
+                        f"(2) hat dein Account Seedance-Zugriff? "
+                        f"(3) muss der Key in https://ai-auto.io neu generiert werden? "
+                        f"Server-Antwort: {resp.text[:300]}"
                     )
                 elif resp.status_code >= 400:
                     raise AIAutoError(
