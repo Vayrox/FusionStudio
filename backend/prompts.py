@@ -195,6 +195,7 @@ Hard rules:
 - If the hint names a type pairing (e.g. "Fire and Water"), each fusion must blend those types.
 - Never repeat the same Pokemon across ideas.
 - Use the official English Pokemon name WITHOUT dots (write "Mr Mime", not "Mr. Mime"; "Ho Oh" is also acceptable as "Ho-Oh").
+- Regional variants are valid picks. Use the prefix form: "Alolan Vulpix", "Alolan Ninetales", "Alolan Marowak", "Alolan Raichu", "Alolan Exeggutor", "Galarian Mr Mime", "Galarian Slowking", "Galarian Articuno", "Galarian Zapdos", "Galarian Moltres", "Galarian Darmanitan", "Hisuian Zoroark", "Hisuian Typhlosion", "Hisuian Samurott", "Hisuian Decidueye", "Hisuian Arcanine", "Hisuian Goodra", "Paldean Wooper", "Paldean Tauros". Use them when the hint suggests it (e.g. "Ice variants", "Hisui forms") OR for natural creative picks (Alolan Marowak fits a Ghost/Fire fusion).
 - Concepts should be cinematic and emotional: grotesque, majestic, tragic, eerie, awe-inspiring. Avoid generic phrasing.
 - Each run should surprise: don't repeat obvious classics if the user runs the same hint twice (variation token: {SEED})."""
 

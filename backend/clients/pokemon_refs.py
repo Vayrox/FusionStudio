@@ -47,7 +47,50 @@ _SPECIAL_SLUG_MAP = {
     "roaringmoon": "roaring-moon",
     "ironleaves": "iron-leaves",
     "walkingwake": "walking-wake",
+    # Paldean Tauros breeds (komplexere Slug-Struktur als die generische
+    # Regional-Variant-Logik abdeckt - hier explizit gemappt).
+    "paldeantauros": "tauros-paldea-combat-breed",
+    "paldeantauroscombat": "tauros-paldea-combat-breed",
+    "paldeantaurosblaze": "tauros-paldea-blaze-breed",
+    "paldeantaurosaqua": "tauros-paldea-aqua-breed",
+    "tauroscombatbreed": "tauros-paldea-combat-breed",
+    "taurosblazebreed": "tauros-paldea-blaze-breed",
+    "taurosaquabreed": "tauros-paldea-aqua-breed",
 }
+
+
+# Regional-Variant-Erkennung. PokeAPI nutzt {base}-{region} Slugs:
+#   "Alolan Vulpix"       -> vulpix-alola
+#   "Galarian Mr Mime"    -> mr-mime-galar
+#   "Hisuian Zoroark"     -> zoroark-hisui
+#   "Paldean Wooper"      -> wooper-paldea
+# Wir erkennen sowohl Praefix ("Alolan X") als auch Suffix ("X Alolan").
+_REGIONAL_FORMS: dict[str, str] = {
+    "alolan": "alola",
+    "alola": "alola",
+    "galarian": "galar",
+    "galar": "galar",
+    "hisuian": "hisui",
+    "hisui": "hisui",
+    "paldean": "paldea",
+    "paldea": "paldea",
+}
+
+
+def _split_regional_form(slug: str) -> tuple[str, str | None]:
+    """Sucht ein regional-form-Wort am Anfang oder Ende des Slugs.
+
+    Returns: (base_slug, region_suffix_or_None).
+    Beispiel: 'alolan-vulpix' -> ('vulpix', 'alola').
+    """
+    parts = slug.split("-")
+    if len(parts) < 2:
+        return slug, None
+    if parts[0] in _REGIONAL_FORMS:
+        return "-".join(parts[1:]), _REGIONAL_FORMS[parts[0]]
+    if parts[-1] in _REGIONAL_FORMS:
+        return "-".join(parts[:-1]), _REGIONAL_FORMS[parts[-1]]
+    return slug, None
 
 
 def pokemon_slug(name: str) -> str:
@@ -80,6 +123,15 @@ def pokemon_slug(name: str) -> str:
     if key in _SPECIAL_SLUG_MAP:
         return _SPECIAL_SLUG_MAP[key]
 
+    # Regionale Varianten: 'alolan-vulpix' / 'vulpix-alolan' -> 'vulpix-alola'.
+    # Erst auf den BASE-Slug nochmal die SPECIAL-Map anwenden (z.B. fuer
+    # Slowpoke, Mr Mime), dann das Region-Suffix anhaengen.
+    base, region = _split_regional_form(slug)
+    if region:
+        base_key = base.replace("-", "")
+        base = _SPECIAL_SLUG_MAP.get(base_key, base)
+        return f"{base}-{region}"
+
     return slug
 
 
@@ -92,22 +144,44 @@ def cached_path(slug: str) -> Path:
 _LOCALIZED_NAMES_CACHE: dict[str, dict[str, str]] = {}
 
 
+# Lokalisierte Region-Praefixe fuer regionale Varianten. PokeAPI hat
+# keine /pokemon-species/{variant} Eintraege, also muessen wir Praefixe
+# manuell prependen wenn die Base-Species gefetched wird.
+_REGION_LOCALIZED_PREFIXES: dict[str, dict[str, str]] = {
+    "alola": {"en": "Alolan ", "de": "Alola-", "fr": "d'Alola "},
+    "galar": {"en": "Galarian ", "de": "Galar-", "fr": "de Galar "},
+    "hisui": {"en": "Hisuian ", "de": "Hisui-", "fr": "de Hisui "},
+    "paldea": {"en": "Paldean ", "de": "Paldea-", "fr": "de Paldea "},
+}
+
+
 async def get_localized_names(name: str) -> dict[str, str]:
     """Holt alle Sprachvarianten des Pokemon-Namens von PokeAPI.
 
     Rueckgabe: dict {lang_code: localized_name}, z.B.
     {"en": "Charizard", "de": "Glurak", "fr": "Dracaufeu", ...}.
-    Falls PokeAPI keine species liefert (selten), wird der Input
-    als Fallback sowohl fuer 'en' als auch 'de' genommen.
+
+    Fuer regionale Varianten (vulpix-alola etc.) faellt PokeAPI's
+    species-Endpoint zurueck auf die Base-Species (vulpix), und wir
+    prependen manuell den Region-Praefix in der jeweiligen Sprache.
     """
     slug = pokemon_slug(name)
     if slug in _LOCALIZED_NAMES_CACHE:
         return _LOCALIZED_NAMES_CACHE[slug]
 
+    base_slug = slug
+    region: str | None = None
+    for region_suffix in _REGION_LOCALIZED_PREFIXES:
+        full = f"-{region_suffix}"
+        if slug.endswith(full):
+            base_slug = slug[: -len(full)]
+            region = region_suffix
+            break
+
     out: dict[str, str] = {}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon-species/{slug}")
+            resp = await client.get(f"{POKEAPI_BASE_URL}/pokemon-species/{base_slug}")
             if resp.status_code == 200:
                 species = resp.json()
                 for entry in species.get("names") or []:
@@ -117,6 +191,13 @@ async def get_localized_names(name: str) -> dict[str, str]:
                         out[lang] = nm
     except Exception:  # noqa: BLE001
         pass
+
+    if region:
+        prefixes = _REGION_LOCALIZED_PREFIXES[region]
+        for lang, prefix in prefixes.items():
+            base_name = out.get(lang)
+            if base_name:
+                out[lang] = f"{prefix}{base_name}"
 
     out.setdefault("en", name)
     out.setdefault("de", out["en"])
