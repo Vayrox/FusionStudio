@@ -329,7 +329,7 @@ async def _post_generate(
         log.warning("AI-Auto POST /generate network timeout: %s - fallback to listing", exc)
         return None, None
 
-    if resp.status_code in (502, 503, 504, 524):
+    if resp.status_code in (502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530):
         log.warning(
             "AI-Auto POST /generate transient %d - fallback to listing", resp.status_code
         )
@@ -582,7 +582,7 @@ async def generate_video(
                 resp = await client.post(
                     url, headers=_headers(), json=body, timeout=AIAUTO_POST_TIMEOUT_S,
                 )
-                if resp.status_code in (502, 503, 504, 524):
+                if resp.status_code in (502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530):
                     log.warning(
                         "AI-Auto POST /generate (video) transient %d - fallback to listing",
                         resp.status_code,
