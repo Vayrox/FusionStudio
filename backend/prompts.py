@@ -560,7 +560,7 @@ Then for EACH fusion in the order provided, EXACTLY two sentences:
 
   Sentence A (English): "When {POKEMON_A_EN} merges with {POKEMON_B_EN}, they become {FUSION_NAME}."
   Sentence A (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden sie zu {FUSION_NAME}."
-  Sentence B: A 1-2 sentence description of the fusion (28-40 words total) that combines THREE elements: (1) a vivid visual / texture / silhouette detail, (2) the signature ability or move, (3) a tone / personality / behavior cue. Pack it dense - no filler.
+  Sentence B: A 1-2 sentence description of the fusion (25-35 words total) that combines THREE elements: (1) a vivid visual / texture / silhouette detail, (2) the signature ability or move, (3) a tone / personality / behavior cue. Pack it dense - no filler.
 
 IMPORTANT - the user message provides both English and German names per fusion. Use the GERMAN names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu). FUSION_NAME stays identical across both languages.
 
@@ -575,11 +575,11 @@ So for N fusions the total is: 1 opener + (N * 1 'merges with' line) + (N * 1 de
 Example for 3 fusions (English):
 "What happens when completely different Pokemon fuse into an overpowering being?
 When Charizard merges with Magikarp, they become Charykarp.
-A malformed nightmare with charred orange scales bleeding molten cracks, weaponizing a flame-soaked Splash that radiates burning shockwaves across the ground. Twitchy, unhinged, and impossibly aggressive.
+A malformed nightmare with charred scales bleeding molten cracks, weaponizing a flame-soaked Splash that scorches the ground. Twitchy, unhinged, impossibly aggressive.
 When Latios merges with Latias, they become Latios X.
-A supersonic purple-dragon hybrid sheathed in metallic violet plating with crimson energy veins, shattering the sound barrier with biomechanical jet-like wings. Cold, surgical, predator-grade.
+A supersonic purple-dragon hybrid in violet plating with crimson energy veins, shattering the sound barrier with biomechanical jet-wings. Cold, surgical, predator-grade.
 When Mewtwo merges with Charizard, they become Mewzard.
-The ultimate apex hybrid, weaponizing draconic flame with god-tier psychic energy to flatten any battlefield. Towering, cruel, and utterly inevitable.
+The ultimate apex hybrid, weaponizing draconic flame with god-tier psychic energy to flatten any battlefield. Towering, cruel, inevitable.
 Follow for more cinematic Pokemon fusions and drop your next Pokemon pair in the comments!"
 
 FUSION_NAME rules:
@@ -588,13 +588,13 @@ FUSION_NAME rules:
 - Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
 - Use the SAME fusion name in both DE and EN.
 
-Sentence B Description Style Guide (1-2 sentences, 28-40 words, dense + cinematic - VISUAL + ABILITY + TONE):
-  - "A malformed nightmare with charred orange scales bleeding molten cracks, weaponizing a flame-soaked Splash that radiates burning shockwaves across the ground. Twitchy, unhinged, and impossibly aggressive."
-  - "A supersonic purple-dragon hybrid sheathed in metallic violet plating with crimson energy veins, shattering the sound barrier with biomechanical jet-like wings. Cold, surgical, predator-grade."
-  - "A venomous raptor predator with toxic-green claws and dune-shredding speed, leaving ribbons of poisonous spray in its wake. Hungry, twitch-fast, and lethal at any range."
-  - "A noble psychic knight clad in burnished golden armor wielding a sentient blade and a shield whose painted eye tracks every threat. Calm, ancient, and unbreakable in stance."
-  - "A spectral shadow knight cloaked in violet smoke, dual flaming blades carving the air as it haunts the dreams of its enemies. Wordless, relentless, and impossible to outrun."
-  - "The ultimate apex hybrid, weaponizing draconic flame with god-tier psychic energy to flatten any battlefield. Towering, cruel, and utterly inevitable."
+Sentence B Description Style Guide (1-2 sentences, 25-35 words, dense + cinematic - VISUAL + ABILITY + TONE):
+  - "A malformed nightmare with charred scales bleeding molten cracks, weaponizing a flame-soaked Splash that scorches the ground. Twitchy, unhinged, impossibly aggressive."
+  - "A supersonic purple-dragon hybrid in violet plating with crimson energy veins, shattering the sound barrier with biomechanical jet-wings. Cold, surgical, predator-grade."
+  - "A venomous raptor predator with toxic-green claws and dune-shredding speed, leaving ribbons of poisonous spray in its wake. Hungry, twitch-fast, lethal."
+  - "A noble psychic knight in burnished golden armor wielding a sentient blade and a shield whose painted eye tracks every threat. Calm, ancient, unbreakable."
+  - "A spectral shadow knight cloaked in violet smoke, dual flaming blades carving the air as it haunts its enemies' dreams. Wordless, relentless, inescapable."
+  - "The ultimate apex hybrid, weaponizing draconic flame with god-tier psychic energy to flatten any battlefield. Towering, cruel, inevitable."
 
 Hard rules:
 - Pokemon names ARE named (educational commentary style).
