@@ -1841,6 +1841,14 @@ function _renderNextStepsContent(container, job, meta) {
 
     const items = [
       {
+        key: 'start_frame',
+        title: 'Start Frame (Side-by-Side)',
+        hint: `<code>03_start_frame.png</code> &mdash; beide Originale auf dem Pokeball-Sockel. Wird als Start-Ref fuer Step 5 + als <code>@image3</code> fuer Kling Elements gebraucht. Falls verkorkst oder fehlend, hier neu generieren (Refs: signature_background + 02a + 02b).`,
+        copies: [
+          {label: '&#8634; Regenerate', action: 'regenerate_start_frame', primary: true},
+        ],
+      },
+      {
         key: 'step5',
         title: 'Step 5 &mdash; Transformation (Kling)',
         hint: fav
@@ -2151,6 +2159,11 @@ function _renderNextStepsContent(container, job, meta) {
             cached.action_scene_prompt = res.prompt || '';
             _metaCache.set(job.id, cached);
             toast('Action Scene Prompt generated');
+            await refreshJobs();
+          } else if (action === 'regenerate_start_frame') {
+            if (!confirm('Start Frame (03_start_frame.png) neu generieren?\n\nNutzt die bestehenden 02a + 02b Realistic-Singles + Signature-Background. Dauert ca. 30-60s.')) return;
+            await api(`/api/jobs/${job.id}/regenerate-start-frame`, {method: 'POST'});
+            toast('Start Frame wird neu generiert ...');
             await refreshJobs();
           } else if (action === 'regenerate_step5_prompt') {
             const res = await api(`/api/jobs/${job.id}/regenerate-step5-prompt`, {method: 'POST'});

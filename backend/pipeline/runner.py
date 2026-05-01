@@ -1269,6 +1269,69 @@ async def regenerate_showcase_image_prompt(job_id: str) -> str:
     return prompt
 
 
+async def regenerate_start_frame(job_id: str) -> str:
+    """Regeneriert den Step-3 Start-Frame (03_start_frame.png) - das
+    'beide Pokemon Seite an Seite auf dem Sockel'-Bild.
+
+    Nutzt die bestehenden Step-2A/2B Realistic-Singles + Signature-Background
+    als Refs. Size-Hint wird neu aus den PokeAPI-Hoehen berechnet (Cache).
+
+    Returns: relative path to 03_start_frame.png.
+    """
+    meta_path, meta = await _load_prompt_context(job_id)
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    if not pokemon_a or not pokemon_b:
+        raise RuntimeError("pokemon_a / pokemon_b fehlen in _meta.json.")
+
+    out_dir = meta_path.parent
+    files = meta.get("files") or {}
+    step2a_rel = files.get("step_2a")
+    step2b_rel = files.get("step_2b")
+    if not step2a_rel or not step2b_rel:
+        raise RuntimeError("step_2a / step_2b Files fehlen in meta.files.")
+    step2a_out = out_dir / step2a_rel
+    step2b_out = out_dir / step2b_rel
+    if not step2a_out.exists() or not step2b_out.exists():
+        raise RuntimeError(
+            f"Realistic-Singles fehlen ({step2a_out.name} / {step2b_out.name}) - "
+            "kann Start-Frame ohne sie nicht regenerieren."
+        )
+
+    # Size-Hint analog zur _pipeline-Logik (Hoehen via PokeAPI-Cache).
+    height_a, height_b = await asyncio.gather(
+        pokemon_refs.get_pokemon_height_m(pokemon_a),
+        pokemon_refs.get_pokemon_height_m(pokemon_b),
+    )
+    size_hint = "Maintain canonical body-size proportions between both Pokemon."
+    if height_a and height_b and height_a > 0 and height_b > 0:
+        ratio = max(height_a, height_b) / min(height_a, height_b)
+        if ratio >= 1.5:
+            if height_a >= height_b:
+                bigger, smaller = pokemon_a, pokemon_b
+                bigger_h, smaller_h = height_a, height_b
+            else:
+                bigger, smaller = pokemon_b, pokemon_a
+                bigger_h, smaller_h = height_b, height_a
+            size_hint = (
+                f"Important: {bigger} is canonically much larger than {smaller} "
+                f"({bigger}: ~{bigger_h:.1f}m tall, {smaller}: ~{smaller_h:.1f}m tall, "
+                f"a {ratio:.1f}x size difference). This proportion MUST be visible "
+                f"in the frame - {bigger} towers over {smaller}."
+            )
+
+    step3_out = out_dir / "03_start_frame.png"
+    step3_prompt = prompts.STEP3_START_FRAME.replace("{SIZE_HINT}", size_hint).strip()
+    await aiauto_client.generate_image(
+        step3_prompt,
+        step3_out,
+        reference_images=[SIGNATURE_BACKGROUND_PATH, step2a_out, step2b_out],
+    )
+
+    await _update_job(job_id, start_frame_regen_at=_now_iso())
+    return _relative_to_root(step3_out)
+
+
 async def set_showcase_pick(job_id: str, variant: int | None) -> None:
     job = await get_job(job_id)
     if not job:
