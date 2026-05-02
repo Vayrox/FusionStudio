@@ -1828,6 +1828,7 @@ function _renderNextStepsContent(container, job, meta) {
     const ytTitle = meta.yt_title || '';
     const ytDescription = meta.yt_description || '';
     const actionScenePrompt = meta.action_scene_prompt || job.action_scene_prompt || '';
+    const funnyScenePrompt = meta.funny_scene_prompt || job.funny_scene_prompt || '';
 
     const variantFile = fav ? `04_fusion_v${fav}.png` : null;
     const favHint = fav
@@ -1912,6 +1913,28 @@ function _renderNextStepsContent(container, job, meta) {
           {label: '&#127909; Generate Prompt', action: 'generate_action_scene', primary: true},
         ],
       },
+      funnyScenePrompt ? {
+        key: 'funny_scene',
+        title: 'Funny Scene (5s Comedy Gag)',
+        hint: '5-Sekunden One-Shot Comedy-Gag aus den Traits der Fusion (Vulplaxo Fire-Fart Style). Hit-or-miss &mdash; mehrere Tries lohnen sich.',
+        copies: [
+          {label: '&#128514; Generate Video', action: 'generate_funny_scene_video', primary: true},
+          {label: '&#128203; Copy Prompt', text: funnyScenePrompt},
+          {label: '&#8634; Regen Prompt', action: 'generate_funny_scene'},
+        ],
+        customPrompt: {
+          action: 'generate_funny_scene_video',
+          text: funnyScenePrompt,
+          label: 'Generate Video',
+        },
+      } : {
+        key: 'funny_scene',
+        title: 'Funny Scene (5s Comedy Gag)',
+        hint: '5-Sekunden Comedy-Clip basierend auf den Traits dieser Fusion. Erst Prompt generieren, dann Video.',
+        copies: [
+          {label: '&#128514; Generate Funny Scene', action: 'generate_funny_scene', primary: true},
+        ],
+      },
       (narrationDe && narrationEn) ? {
         key: 'narration',
         title: 'Narration (DE + EN)',
@@ -1964,7 +1987,7 @@ function _renderNextStepsContent(container, job, meta) {
     const renderActionBtn = (c, idx, primary) => {
       if (c.action) {
         let triesDropdown = '';
-        if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video') {
+        if (c.action === 'generate_step6_video' || c.action === 'generate_action_scene_video' || c.action === 'generate_funny_scene_video') {
           const tcKey = `${job.id}:${c.action}`;
           const savedTries = _jobTriesPref.get(tcKey) || '1';
           const sel = (v) => savedTries === v ? ' selected' : '';
@@ -2001,7 +2024,7 @@ function _renderNextStepsContent(container, job, meta) {
         const draft = _customPromptDraft.get(draftKey) || {};
         const draftText = draft.text != null ? draft.text : (cp.text || '');
         const isOpen = !!draft.open;
-        const triesHint = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video')
+        const triesHint = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video' || cp.action === 'generate_funny_scene_video')
           ? `<span class="hint">Custom-Prompt-Run &mdash; Anzahl wird vom &times;-Dropdown oben uebernommen.</span>`
           : `<span class="hint">Custom-Prompt-Run &mdash; meta.json bleibt unangetastet.</span>`;
         customPromptHtml = `
@@ -2086,8 +2109,9 @@ function _renderNextStepsContent(container, job, meta) {
       return list;
     };
 
-    const renderVideoSection = (label, slots) => {
+    const renderVideoSection = (label, slots, durationHint) => {
       if (!slots || !slots.length) return '';
+      const dur = durationHint || '4k/15s, 10-20 min';
       const slotsHtml = slots.map((slot, idx) => {
         const status = slot.status || null;
         const path = slot.path || null;
@@ -2095,7 +2119,7 @@ function _renderNextStepsContent(container, job, meta) {
         const slotLabel = `${label} v${idx + 1}`;
         let stateHtml = '';
         if (status === 'queued') stateHtml = `<div class="vid-status">${escapeHtml(slotLabel)}: queued ...</div>`;
-        else if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(slotLabel)}: generating ... (Seedance 2 4k/15s, 10-20 min)</div>`;
+        else if (status === 'running') stateHtml = `<div class="vid-status running">${escapeHtml(slotLabel)}: generating ... (Seedance 2 ${escapeHtml(dur)})</div>`;
         else if (status === 'cancelled') stateHtml = `<div class="vid-status">${escapeHtml(slotLabel)}: cancelled</div>`;
         else if (status === 'error') stateHtml = `<div class="vid-status error">${escapeHtml(slotLabel)}: error</div>`;
         else if (status === 'done' || path) stateHtml = `<div class="vid-status done">${escapeHtml(slotLabel)}: ready</div>`;
@@ -2118,9 +2142,11 @@ function _renderNextStepsContent(container, job, meta) {
 
     const step6Videos = collectVideos('step6_video_status', 'step6_video_path', 'step6_video_error', 'step6_videos');
     const actionVideos = collectVideos('action_scene_video_status', 'action_scene_video_path', 'action_scene_video_error', 'action_scene_videos');
+    const funnyVideos = collectVideos('funny_scene_video_status', 'funny_scene_video_path', 'funny_scene_video_error', 'funny_scene_videos');
     const videosHtml = [
       renderVideoSection('Step 6 Showcase', step6Videos),
       renderVideoSection('Action Scene', actionVideos),
+      renderVideoSection('Funny Scene', funnyVideos, '4k/5s, 3-7 min'),
     ].join('');
 
     container.innerHTML = `
@@ -2160,6 +2186,19 @@ function _renderNextStepsContent(container, job, meta) {
             _metaCache.set(job.id, cached);
             toast('Action Scene Prompt generated');
             await refreshJobs();
+          } else if (action === 'generate_funny_scene') {
+            const hintRaw = window.prompt(
+              'Optionaler Gag-Hint (z.B. "fire fart", "hiccup", "trip"). Leer lassen, damit GPT den Gag selbst aus den Traits waehlt.',
+              ''
+            );
+            if (hintRaw === null) return;
+            const body = JSON.stringify({gag_hint: (hintRaw || '').trim()});
+            const res = await api(`/api/jobs/${job.id}/generate-funny-scene`, {method: 'POST', body});
+            const cached = _metaCache.get(job.id) || {};
+            cached.funny_scene_prompt = res.prompt || '';
+            _metaCache.set(job.id, cached);
+            toast('Funny Scene Prompt generated');
+            await refreshJobs();
           } else if (action === 'regenerate_start_frame') {
             if (!confirm('Start Frame (03_start_frame.png) neu generieren?\n\nNutzt die bestehenden 02a + 02b Realistic-Singles + Signature-Background. Dauert ca. 30-60s.')) return;
             await api(`/api/jobs/${job.id}/regenerate-start-frame`, {method: 'POST'});
@@ -2186,20 +2225,32 @@ function _renderNextStepsContent(container, job, meta) {
             _metaCache.set(job.id, cached);
             toast('Showcase-Image Prompt regenerated');
             await refreshJobs();
-          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
+          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video' || action === 'generate_funny_scene_video') {
             const triesSel = $(`.tries-select[data-tries-for="${action}"]`, container);
             const cacheKey = `${job.id}:${action}`;
             const liveVal = triesSel ? triesSel.value : (_jobTriesPref.get(cacheKey) || '1');
             const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
             _jobTriesPref.set(cacheKey, String(tries));
-            const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
-            if (!confirm(`Seedance 2 ${label} Video generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation. Verbraucht ${tries} AI-Auto Video-Generation${tries > 1 ? 'en' : ''}.`)) return;
-            const endpoint = action === 'generate_step6_video' ? 'generate-step6-video' : 'generate-action-scene-video';
+            const labelMap = {
+              generate_step6_video: 'Step 6 Showcase',
+              generate_action_scene_video: 'Action Scene',
+              generate_funny_scene_video: 'Funny Scene',
+            };
+            const endpointMap = {
+              generate_step6_video: 'generate-step6-video',
+              generate_action_scene_video: 'generate-action-scene-video',
+              generate_funny_scene_video: 'generate-funny-scene-video',
+            };
+            const label = labelMap[action];
+            const endpoint = endpointMap[action];
+            const dur = action === 'generate_funny_scene_video' ? '5s' : '15s';
+            const eta = action === 'generate_funny_scene_video' ? '3-7' : '10-20';
+            if (!confirm(`Seedance 2 ${label} Video generieren? (9:16, 4k, ${dur}, ${tries}x parallel)\n\nDauert oft ${eta} Minuten pro Generation. Verbraucht ${tries} AI-Auto Video-Generation${tries > 1 ? 'en' : ''}.`)) return;
             await api(`/api/jobs/${job.id}/${endpoint}`, {
               method: 'POST',
               body: JSON.stringify({tries}),
             });
-            toast(`${label} Video gequeued (${tries}x Seedance 2, 4k 15s)`);
+            toast(`${label} Video gequeued (${tries}x Seedance 2, 4k ${dur})`);
             await refreshJobs();
           }
         } catch (err) {
@@ -2273,7 +2324,7 @@ function _renderNextStepsContent(container, job, meta) {
               body: JSON.stringify({prompt_override: promptText}),
             });
             toast('Custom-Showcase queued (4x 16:9)');
-          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video') {
+          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video' || action === 'generate_funny_scene_video') {
             // Tries-Anzahl vom AEUSSEREN Dropdown lesen (action-button neben dem Step-Titel),
             // bzw. aus _jobTriesPref falls Dropdown noch nicht geaendert wurde.
             const outerSel = $(`.tries-select[data-tries-for="${action}"]`, container);
@@ -2281,11 +2332,23 @@ function _renderNextStepsContent(container, job, meta) {
             const liveVal = outerSel ? outerSel.value : (_jobTriesPref.get(cacheKey) || '1');
             const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
             _jobTriesPref.set(cacheKey, String(tries));
-            const label = action === 'generate_step6_video' ? 'Step 6 Showcase' : 'Action Scene';
-            if (!confirm(`Seedance 2 ${label} Video mit CUSTOM-Prompt generieren? (9:16, 4k, 15s, ${tries}x parallel)\n\nDauert oft 10-20 Minuten pro Generation.`)) {
+            const labelMap = {
+              generate_step6_video: 'Step 6 Showcase',
+              generate_action_scene_video: 'Action Scene',
+              generate_funny_scene_video: 'Funny Scene',
+            };
+            const endpointMap = {
+              generate_step6_video: 'generate-step6-video',
+              generate_action_scene_video: 'generate-action-scene-video',
+              generate_funny_scene_video: 'generate-funny-scene-video',
+            };
+            const label = labelMap[action];
+            const endpoint = endpointMap[action];
+            const dur = action === 'generate_funny_scene_video' ? '5s' : '15s';
+            const eta = action === 'generate_funny_scene_video' ? '3-7' : '10-20';
+            if (!confirm(`Seedance 2 ${label} Video mit CUSTOM-Prompt generieren? (9:16, 4k, ${dur}, ${tries}x parallel)\n\nDauert oft ${eta} Minuten pro Generation.`)) {
               btn.disabled = false; btn.innerHTML = orig; return;
             }
-            const endpoint = action === 'generate_step6_video' ? 'generate-step6-video' : 'generate-action-scene-video';
             await api(`/api/jobs/${job.id}/${endpoint}`, {
               method: 'POST',
               body: JSON.stringify({tries, prompt_override: promptText}),

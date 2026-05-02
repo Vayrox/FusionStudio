@@ -67,6 +67,10 @@ class GenerateShowcaseRequest(BaseModel):
     prompt_override: str | None = None  # optional: Custom showcase-image-prompt
 
 
+class GenerateFunnySceneRequest(BaseModel):
+    gag_hint: str | None = None  # optional: User-Hint fuer den Gag (z.B. 'fire fart')
+
+
 class SettingsUpdate(BaseModel):
     AIAUTO_API_KEY: str | None = None
     AIAUTO_BASE_URL: str | None = None
@@ -406,6 +410,31 @@ async def api_generate_action_scene_video(
     override = req.prompt_override if req else None
     try:
         await runner.generate_action_scene_video(job_id, tries=tries, prompt_override=override)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued", "tries": min(3, max(1, tries))}
+
+
+@app.post("/api/jobs/{job_id}/generate-funny-scene")
+async def api_generate_funny_scene(
+    job_id: str, req: GenerateFunnySceneRequest | None = None,
+) -> dict[str, str]:
+    gag_hint = (req.gag_hint if req else "") or ""
+    try:
+        prompt = await runner.generate_funny_scene(job_id, gag_hint=gag_hint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prompt": prompt}
+
+
+@app.post("/api/jobs/{job_id}/generate-funny-scene-video")
+async def api_generate_funny_scene_video(
+    job_id: str, req: GenerateVideoRequest | None = None,
+) -> dict[str, Any]:
+    tries = (req.tries if req else 1) or 1
+    override = req.prompt_override if req else None
+    try:
+        await runner.generate_funny_scene_video(job_id, tries=tries, prompt_override=override)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued", "tries": min(3, max(1, tries))}

@@ -913,6 +913,53 @@ async def generate_action_scene_video(
     )
 
 
+async def generate_funny_scene_video(
+    job_id: str, tries: int = 1, prompt_override: str | None = None,
+) -> None:
+    """Generiert das Funny-Scene-Video via Seedance 2 (AI-Auto).
+    5-Sekunden One-Shot Comedy-Gag basierend auf der Anatomie / Element
+    der Fusion. Nutzt funny_scene_prompt (oder prompt_override) +
+    Favoriten-Variante als Reference.
+
+    tries: 1-3 parallele Generations - Comedy-Beats sind hit-or-miss,
+    multiple Tries lohnen sich.
+    """
+    tries = max(1, min(3, tries or 1))
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Funny-Scene-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if prompt_override and prompt_override.strip():
+        prompt = prompt_override.strip()
+    else:
+        prompt = meta.get("funny_scene_prompt")
+        if not prompt:
+            raise RuntimeError(
+                "funny_scene_prompt fehlt - bitte zuerst 'Generate Funny Scene' im "
+                "Next-Steps Panel klicken."
+            )
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path}")
+
+    await _spawn_video_slots(
+        job_id, prompt, [fav_path], tries,
+        list_field="funny_scene_videos",
+        filename_prefix="08_funny_scene_video",
+        seconds=5,
+    )
+
+
 async def _spawn_video_slots(
     job_id: str,
     prompt: str,
@@ -1048,6 +1095,45 @@ async def generate_action_scene(job_id: str) -> str:
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     await _update_job(job_id, action_scene_prompt=prompt)
+    return prompt
+
+
+async def generate_funny_scene(job_id: str, gag_hint: str = "") -> str:
+    """Generiert einen 5-Sekunden Funny-Scene Prompt fuer einen
+    abgeschlossenen Job. On-demand, nicht in der Hauptpipeline.
+    Speichert das Ergebnis in meta.funny_scene_prompt und gibt den
+    Prompt zurueck. gag_hint optional - User-Input wenn der Gag in eine
+    bestimmte Richtung gehen soll (z.B. 'fire fart', 'sneeze')."""
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Funny-Scene nur fuer abgeschlossene Jobs.")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    concept = meta.get("concept", "") or ""
+    traits = meta.get("distinctive_traits", "")
+    step6 = meta.get("step6_showcase", "")
+    if not traits or not step6:
+        raise RuntimeError("distinctive_traits oder step6_showcase fehlt.")
+
+    prompt = await openai_client.generate_funny_scene_prompt(
+        pokemon_a, pokemon_b, concept, traits, step6, gag_hint=gag_hint,
+    )
+
+    meta["funny_scene_prompt"] = prompt
+    if gag_hint.strip():
+        meta["funny_scene_gag_hint"] = gag_hint.strip()
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    await _update_job(job_id, funny_scene_prompt=prompt)
     return prompt
 
 

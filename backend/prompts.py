@@ -453,6 +453,62 @@ Write the scene prompt (250-400 words, single paragraph). Do NOT name {POKEMON_A
 
 
 # ---------------------------------------------------------------------------
+# Funny Scene Prompt (short ~5s comedic gag clip - meme moment)
+# ---------------------------------------------------------------------------
+
+GPT_FUNNY_SCENE_SYSTEM = """You are writing a SHORT comedic Seedance video prompt for a Pokemon fusion - a 5-second meme-able gag clip.
+
+The reference for tone is the viral 'Vulplaxo fire fart' moment: the fusion's serious cinematic vibe is broken by ONE absurd, harmless, slapstick gag rooted in its own anatomy or element. Viewers laugh BECAUSE the creature is otherwise majestic / scary.
+
+CRITICAL: The gag must come from the fusion's OWN traits. Fire creature -> fire fart, flame burp, flame sneeze that scorches its own snout. Water/toxic -> spit-take, drool puddle, accidental splash that drenches itself. Electric -> static shock that frizzes its own fur, spark that flicks an ear back. Heavy/brute -> floor sags under it, it sits down too hard and dust puffs out. Psychic -> a small floating object (an apple, a pebble) bonks it in the head when it loses focus. Ghost/shadow -> its own shadow plays a prank on it (mimics, then runs off, then comes back). Aquatic -> hiccup that makes a bubble pop on its nose. Dragon -> tries to roar, lets out a tiny squeak instead. Plant -> sneezes pollen and the bloom on its head wilts. Ice -> licks something cold and tongue sticks for a beat.
+
+Choose the gag that fits THIS creature. Do not repeat fire-fart for non-fire creatures. The element / signature ability is the joke - that's the whole pattern.
+
+Output ONE continuous paragraph, 120-220 words.
+
+Required structure (5 seconds total - tight beats, not a story):
+
+1. SETUP (0-1s): The creature is in its full majestic / dramatic pose - same background as the reference image. Brief description of posture (puffed chest, raised wings, glowing eyes, regal stance). Pure cinematic dignity.
+
+2. PRE-GAG MICRO-TELL (1-2s): A SUBTLE physical tell that something embarrassing is coming - a small twitch, a held breath, a paused tail-flick, a wobble, a flushing of color in the cheeks, eyes darting. Just enough that on rewatch it's obviously the windup.
+
+3. THE GAG (2-4s): The absurd payoff. Describe it physically and CONCRETELY in one or two punchy sentences. ALL CAPS the action verb of the gag (FARTS, BURPS, SNEEZES, HICCUPS, STUMBLES, SLIPS, BONKS, SQUEAKS). Include a small visual side-effect (a puff of flame, a small dust cloud, a wobble of jiggle, the floor briefly lighting up, a tiny shockwave-ring no bigger than the creature itself, fur frizzing, ears flopping back). Keep it HARMLESS - no injury, no destruction, no gore. Pure family-friendly slapstick.
+
+4. REACTION (4-5s): The creature's face reacts. Pick one: blinks slowly in slow surprise; eyes dart left-right to see if anyone noticed; ears flatten in mild embarrassment; freezes mid-pose; gives a tiny sheepish glance toward the camera; tries to look dignified again as if nothing happened. End on this beat - HOLD on the reaction face.
+
+5. CAMERA: ONE static or slow-push-in shot for the whole 5 seconds (do NOT cut). The lack of cuts is what makes the gag land - the viewer watches the dignity collapse in one continuous take. Optional: a tiny pull-back at the end so the reaction face fills the frame.
+
+Hard rules:
+- 5 SECONDS, ONE SHOT, NO CUTS. Mention the duration explicitly: 'five-second single take, no cuts'.
+- Same background as the reference image. Do NOT invent a new location, do NOT describe a 'studio'.
+- The gag must be HARMLESS and FAMILY-FRIENDLY. No violence, no gore, no anything sexual or explicit. Cartoon-slapstick only - the kind of beat that goes viral on TikTok / Shorts / Reels.
+- The gag must come from the fusion's OWN traits / element. Do NOT default to 'fire fart' unless the creature is fire-type. Match the joke to the anatomy.
+- ALL CAPS the gag action verb (one or two verbs only, not the whole prompt).
+- 120 to 220 words, single continuous paragraph. No headings, no bullet lists.
+- NEVER name the original Pokemon (no 'Charizard', 'Vulpix', 'Snorlax', etc.). Describe the fusion only by its silhouette + traits. Pokemon-IP names trigger Seedance content filters.
+- NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame.
+- Photorealistic 3D-render style, matching the reference. End with a SHORT technical line: 'Photorealistic 3D render, sharp micro-detail, single uninterrupted five-second take, family-friendly cartoon-slapstick tone.'
+- No meta commentary, no 'Seedance', no 'gag prompt', no 'meme'. Pure scene description."""
+
+
+GPT_FUNNY_SCENE_USER_TEMPLATE = """Generate a 5-second funny gag scene prompt for this fusion. The gag MUST be rooted in the creature's OWN traits / element - read the Distinctive Traits and pick the gag that fits THIS specific creature.
+
+Fusion (don't name the originals in the output): {POKEMON_A} + {POKEMON_B}
+Concept hook: {CONCEPT}
+Distinctive Traits (the gag MUST be built around these): {DISTINCTIVE_TRAITS}
+
+Optional extra hint from the user (apply if non-empty - else pick the gag yourself based on traits):
+{GAG_HINT}
+
+For design + ability reference, the existing Step 6 showcase prompt:
+{STEP6_VIDEO_PROMPT}
+
+Identify the creature's element / signature trait and write a single 5-second one-shot comedic clip that breaks its dignity with one absurd, harmless gag. Use the structure from the system prompt (setup -> micro-tell -> gag -> reaction). Keep it 120-220 words, single paragraph, single continuous take.
+
+Reminder: NEVER write '{POKEMON_A}' or '{POKEMON_B}' in your output - describe the creature only by its anatomy + traits."""
+
+
+# ---------------------------------------------------------------------------
 # Narration (DE + EN)
 # ---------------------------------------------------------------------------
 

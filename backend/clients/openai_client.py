@@ -284,6 +284,35 @@ async def generate_action_scene_prompt(
     )
 
 
+async def generate_funny_scene_prompt(
+    pokemon_a: str,
+    pokemon_b: str,
+    concept: str,
+    distinctive_traits: str,
+    step6_video_prompt: str,
+    gag_hint: str = "",
+) -> str:
+    """Generiert einen 5-Sekunden Funny-Scene Seedance-Prompt - ein One-Shot
+    Comedy-Gag basierend auf dem Element / Anatomie der Fusion (Vulplaxo
+    Fire-Fart als Tonal Reference). Pokemon-Namen werden im Output NICHT
+    verwendet. gag_hint optional - wenn leer waehlt GPT selbst den Gag
+    aus den Traits."""
+    user = prompts.GPT_FUNNY_SCENE_USER_TEMPLATE.format(
+        POKEMON_A=pokemon_a,
+        POKEMON_B=pokemon_b,
+        CONCEPT=concept,
+        DISTINCTIVE_TRAITS=distinctive_traits,
+        STEP6_VIDEO_PROMPT=step6_video_prompt,
+        GAG_HINT=gag_hint.strip() or "(none - pick the gag yourself)",
+    )
+    return await _chat(
+        prompts.GPT_FUNNY_SCENE_SYSTEM,
+        user,
+        temperature=0.95,
+        max_tokens=700,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Narration (DE + EN)
 # ---------------------------------------------------------------------------
