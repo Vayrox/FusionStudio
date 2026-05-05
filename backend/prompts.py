@@ -541,12 +541,12 @@ LINE 2 (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden si
 
 IMPORTANT - use the GERMAN Pokemon names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu, Noivern -> UHaFnir, Mimikyu -> Mimigma). The user message provides both name sets per fusion.
 
-LINE 3: A single-sentence description of the fusion (around 28-32 words, max 35) - its look, primary ability, or personality. Evocative, punchy, with one extra concrete sensory detail (color, texture, motion, or impact) beyond the headline trait. Examples:
-  - "a malformed nightmare clad in burnt orange-bronze scales, its limp barbels dripping flame as splashes radiate burning heatwaves across the cracked ground"
-  - "a supersonic crimson-violet dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings, leaving shockwave-rings rippling across the floor"
-  - "a noble psychic knight clad in radiant golden armor, wielding a sentient blade humming with violet energy and a shield-eye that tracks your every move"
-  - "a spectral shadow knight that haunts the dreams of its enemies with dual flaming blades of pure darkness, summoning whispering wraiths from its scorch-lit footprints"
-  - "the ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy through glowing violet eyes to dominate the battlefield in a single radiant strike"
+LINE 3: A single-sentence description of the fusion (around 22-27 words, max 30) - its look, primary ability, or personality. Evocative, punchy, with one extra concrete sensory detail (color, texture, motion, or impact) beyond the headline trait. Examples:
+  - "a malformed nightmare in burnt orange-bronze scales, its barbels dripping flame as splashes radiate burning heatwaves across the cracked ground"
+  - "a supersonic crimson-violet dragon hybrid that shatters the sound barrier with biomechanical jet-wings, leaving shockwave-rings rippling in its wake"
+  - "a noble psychic knight in radiant golden armor, wielding a sentient blade and a shield-eye that tracks your every move"
+  - "a spectral shadow knight haunting the dreams of its enemies with dual flaming blades, summoning wraiths from its scorch-lit footprints"
+  - "the ultimate apex hybrid, weaponizing draconic fire and god-tier psychic energy through glowing violet eyes to dominate the battlefield"
 
 LINE 4 (CTA + engagement) - one short sentence per language, combining a follow/subscribe call-to-action with a question for next fusion suggestions. Examples:
   - English: "Follow for more cinematic Pokemon fusions and tell us which pair we should merge next!"
@@ -616,7 +616,7 @@ Then for EACH fusion in the order provided, EXACTLY two sentences:
 
   Sentence A (English): "When {POKEMON_A_EN} merges with {POKEMON_B_EN}, they become {FUSION_NAME}."
   Sentence A (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden sie zu {FUSION_NAME}."
-  Sentence B: A single-sentence description of the fusion (around 25-30 words, max 32) - its look, primary ability, or personality, with one extra concrete sensory detail (color, texture, motion, or impact) beyond the headline trait.
+  Sentence B: A single-sentence description of the fusion (around 20-25 words, max 27) - its look, primary ability, or personality, with one extra concrete sensory detail (color, texture, motion, or impact) beyond the headline trait.
 
 IMPORTANT - the user message provides both English and German names per fusion. Use the GERMAN names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu). FUSION_NAME stays identical across both languages.
 
@@ -631,11 +631,11 @@ So for N fusions the total is: 1 opener + (N * 2) sentences + 1 CTA = 2 + 2N lin
 Example for 3 fusions (English):
 "What happens when completely different Pokemon fuse into an overpowering being?
 When Charizard merges with Magikarp, they become Charykarp.
-A malformed nightmare clad in burnt orange-bronze scales, its limp barbels dripping flame as splashes radiate burning heatwaves across the cracked ground.
+A malformed nightmare in burnt orange-bronze scales, its barbels dripping flame as splashes radiate heatwaves across the cracked ground.
 When Latios merges with Latias, they become Latios X.
-A supersonic crimson-violet dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings, leaving shockwave-rings rippling in its wake.
+A supersonic crimson-violet dragon hybrid that shatters the sound barrier with biomechanical jet-wings, leaving shockwave-rings rippling in its wake.
 When Mewtwo merges with Charizard, they become Mewzard.
-The ultimate apex hybrid, weaponizing draconic fire and god-tier psychic energy through glowing violet eyes to dominate the entire battlefield.
+The ultimate apex hybrid, weaponizing draconic fire and god-tier psychic energy through glowing violet eyes to dominate the battlefield.
 Follow for more cinematic Pokemon fusions and drop your next Pokemon pair in the comments!"
 
 FUSION_NAME rules:
@@ -644,13 +644,13 @@ FUSION_NAME rules:
 - Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
 - Use the SAME fusion name in both DE and EN.
 
-Sentence B Description Style Guide (one sentence, around 25-30 words, max 32, evocative + punchy, with one extra concrete sensory detail beyond the headline trait):
-  - "a malformed nightmare clad in burnt orange-bronze scales, its limp barbels dripping flame as splashes radiate burning heatwaves across the cracked ground"
-  - "a supersonic crimson-violet dragon hybrid that shatters the sound barrier with its biomechanical jet-like wings, leaving shockwave-rings rippling across the floor"
-  - "a venomous raptor predator that shreds the desert dunes with toxic-tipped claws and blinding speed, leaving a glowing trail of acid-green spray behind"
-  - "a noble psychic knight clad in radiant golden armor, wielding a sentient blade humming with violet energy and a shield-eye that tracks your every move"
-  - "a spectral shadow knight that haunts the dreams of its enemies with dual flaming blades of pure darkness, summoning whispering wraiths from its scorch-lit footprints"
-  - "the ultimate apex hybrid, weaponizing draconic fire with god-tier psychic energy through glowing violet eyes to dominate the battlefield in a single radiant strike"
+Sentence B Description Style Guide (one sentence, around 20-25 words, max 27, evocative + punchy, with one extra concrete sensory detail beyond the headline trait):
+  - "a malformed nightmare in burnt orange-bronze scales, its barbels dripping flame as splashes radiate heatwaves across the cracked ground"
+  - "a supersonic crimson-violet dragon hybrid that shatters the sound barrier with biomechanical jet-wings, leaving shockwave-rings rippling in its wake"
+  - "a venomous raptor predator that shreds desert dunes with toxic-tipped claws, leaving a glowing trail of acid-green spray behind"
+  - "a noble psychic knight in radiant golden armor, wielding a sentient blade and a shield-eye that tracks your every move"
+  - "a spectral shadow knight haunting the dreams of its enemies with dual flaming blades, summoning wraiths from its scorch-lit footprints"
+  - "the ultimate apex hybrid, weaponizing draconic fire and god-tier psychic energy through glowing violet eyes to dominate the battlefield"
 
 Hard rules:
 - Pokemon names ARE named (educational commentary style).
