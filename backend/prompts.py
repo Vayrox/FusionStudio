@@ -560,7 +560,7 @@ Then for EACH fusion in the order provided, EXACTLY two sentences:
 
   Sentence A (English): "When {POKEMON_A_EN} merges with {POKEMON_B_EN}, they become {FUSION_NAME}."
   Sentence A (German):  "Wenn {POKEMON_A_DE} mit {POKEMON_B_DE} verschmilzt, werden sie zu {FUSION_NAME}."
-  Sentence B: A 1-2 short sentence description of the fusion (around 25 words, max 30) covering its look + signature ability or move + a tone/behavior cue. Punchy, no filler.
+  Sentence B: A 1-2 short sentence description of the fusion (around 25 words, MIN 22, max 30) covering its look + signature ability or move + a tone/behavior cue. CRITICAL: this MIN/target applies to BOTH languages independently - the German version must NOT be shorter than the English just because German tends to compress. Punchy, no filler.
 
 IMPORTANT - the user message provides both English and German names per fusion. Use the GERMAN names in the German narration (e.g. Charizard -> Glurak, Squirtle -> Schiggy, Mewtwo -> Mewtu). FUSION_NAME stays identical across both languages.
 
