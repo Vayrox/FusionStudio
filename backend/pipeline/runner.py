@@ -930,25 +930,38 @@ async def _spawn_video_slots(
     als Ingredients an Seedance gegeben (z.B. Start- + End-Frame fuer Morph).
     `seconds` steuert die Video-Laenge - Default 15s, Step-5 Transformation
     nutzt 5s, weil ein kurzer Morph reicht.
-    """
-    job = await get_job(job_id)
-    assert job is not None
-    existing = list(job.get(list_field) or [])
-    start_idx = len(existing)
-    for i in range(tries):
-        slot_idx = start_idx + i
-        out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
-        existing.append({
-            "status": "queued",
-            "path": None,
-            "error": None,
-            "filename": out_filename,
-        })
-    await _update_job(job_id, **{list_field: existing})
 
-    for i in range(tries):
-        slot_idx = start_idx + i
-        out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
+    Slot-Reservierung ist atomar unter _STATE_LOCK - sonst koennen
+    quasi-gleichzeitige Spawn-Calls (z.B. Custom-Prompt-Run waehrend
+    eines normalen Runs) den gleichen start_idx lesen, kollidierende
+    Slots schreiben und sich gegenseitig in der Liste ueberschreiben.
+    Resultat waere: Datei landet auf Disk, aber der Slot verschwindet
+    aus dem Job-State und das mp4 koennte vom anderen Task ueberschrieben
+    werden.
+    """
+    slot_specs: list[tuple[int, str]] = []
+    async with _STATE_LOCK:
+        state = await _load_state()
+        job = state["jobs"].setdefault(job_id, {"id": job_id})
+        existing = list(job.get(list_field) or [])
+        start_idx = len(existing)
+        for i in range(tries):
+            slot_idx = start_idx + i
+            out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
+            slot_specs.append((slot_idx, out_filename))
+            existing.append({
+                "status": "queued",
+                "path": None,
+                "error": None,
+                "filename": out_filename,
+            })
+        job[list_field] = existing
+        job["updated_at"] = _now_iso()
+        await _save_state()
+
+    # Tasks ausserhalb vom Lock starten damit der Lock nicht waehrend des
+    # I/O / Seedance-Roundtrips gehalten wird.
+    for slot_idx, out_filename in slot_specs:
         task_key = f"{list_field}:{job_id}:{slot_idx}"
         _register_task(task_key, asyncio.create_task(
             _run_video_slot(job_id, prompt, ref_paths, slot_idx, out_filename, list_field, seconds)
