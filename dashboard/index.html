@@ -260,6 +260,18 @@
     white-space: pre-wrap; background: rgba(255,94,107,0.06);
     border: 1px solid rgba(255,94,107,0.2);
     padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+  .job-edit-form { margin-top: 12px; padding: 12px 14px;
+    background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 10px; }
+  .job-edit-form .job-edit-row { display: flex; gap: 10px; margin-bottom: 8px; }
+  .job-edit-form .job-edit-row label { display: flex; flex-direction: column;
+    flex: 1; font-size: 11px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px; gap: 4px; }
+  .job-edit-form .job-edit-row input { padding: 7px 10px; font-size: 13px;
+    background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; font-family: inherit; outline: none; }
+  .job-edit-form .job-edit-row input:focus { border-color: var(--primary); }
+  .job-edit-form .job-edit-actions { display: flex; gap: 8px; margin-top: 4px; }
 
   /* Thumbnails */
   .thumbs-header { display: flex; align-items: center; justify-content: flex-end;
@@ -698,6 +710,18 @@
   .modal-card .job:hover { border-color: transparent; box-shadow: none; }
   html.modal-open { overflow: hidden; }
   .batch-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .batch-narration-regen { margin-top: 10px; padding: 8px 12px;
+    background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 8px; display: inline-flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--muted); }
+  .batch-narration-regen .bnr-label { font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--primary-2); }
+  .batch-narration-regen .bnr-words { display: inline-flex; align-items: center; gap: 6px; }
+  .batch-narration-regen .bnr-words input { width: 56px; padding: 4px 8px;
+    background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    text-align: center; outline: none; }
+  .batch-narration-regen .bnr-words input:focus { border-color: var(--primary); }
   .job .batch-chip { display: inline-flex; align-items: center; gap: 6px;
     padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
     background: rgba(168,139,255,0.12); color: var(--violet);
@@ -1283,6 +1307,16 @@ function renderBatch(batch) {
       ${(status === 'error' || status === 'done' || status === 'cancelled') ? `<button class="ns-btn rerun" data-batch="${batch.id}">&#8634; Rerun failed</button>` : ''}
       ${(status === 'running' || status === 'queued' || status === 'generating_narration') ? `<button class="ns-btn stop" data-batch-stop="${batch.id}">&#9632; Stop Batch</button>` : ''}
     </div>
+    ${hasNarration ? `
+      <div class="batch-narration-regen" data-batch="${batch.id}">
+        <span class="bnr-label">Regenerate narration</span>
+        <label class="bnr-words">
+          <span>words/fusion</span>
+          <input type="number" min="8" max="60" step="1" value="${batch.narration_words_per_fusion || 25}" data-batch-words="${batch.id}" />
+        </label>
+        <button class="ns-btn" data-batch-regen-narration="${batch.id}">&#8634; Regen narration</button>
+      </div>
+    ` : ''}
   `;
 
   // Fusions-Liste async nachladen (mit Links zu den einzelnen Job-Cards + Regen-Icon)
@@ -1328,6 +1362,31 @@ function renderBatch(batch) {
           btn.disabled = false;
         }
       });
+    });
+  });
+
+  // Regenerate-Narration-Handler (mit words_per_fusion override)
+  $$('button[data-batch-regen-narration]', el).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const wordsInput = $(`input[data-batch-words="${batch.id}"]`, el);
+      const wpf = wordsInput ? Math.max(8, Math.min(60, parseInt(wordsInput.value, 10) || 25)) : 25;
+      if (!confirm(`Narration neu generieren mit ~${wpf} Woertern pro Fusion?\n\nSuno + YT-SEO bleiben unangetastet. narration.md wird ueberschrieben.`)) return;
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '&#8230; regenerating';
+      try {
+        await api(`/api/batches/${batch.id}/regenerate-narration`, {
+          method: 'POST',
+          body: JSON.stringify({words_per_fusion: wpf}),
+        });
+        toast(`Narration neu generiert (~${wpf} Woerter/Fusion)`);
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
     });
   });
 
@@ -1552,6 +1611,7 @@ function renderJob(job) {
       ${job.batch_id ? `<span class="batch-chip" title="Teil eines Compilation-Batches">&#11054; ${escapeHtml(job.batch_id)}</span>` : ''}
       ${(status === 'running' || status === 'queued') ? `<button class="ns-btn stop tiny" data-job-stop="${job.id}" style="margin-left:8px;">&#9632; Stop</button>` : ''}
       ${(status === 'error' || status === 'cancelled') ? `<button class="ns-btn rerun tiny" data-job-rerun="${job.id}" style="margin-left:8px;">&#8634; Rerun</button>` : ''}
+      ${(status === 'error' || status === 'cancelled') ? `<button class="ns-btn tiny" data-job-edit-toggle="${job.id}" style="margin-left:6px;" title="Pokemon-Namen aendern und neu starten">&#9998; Edit names</button>` : ''}
       <span class="id">${escapeHtml(job.id)}</span>
     </div>
     ${job.concept ? `<div class="concept-line">${escapeHtml(job.concept)}</div>` : ''}
@@ -1560,6 +1620,27 @@ function renderJob(job) {
       <div class="steps-label">step: <span class="active-step">${escapeHtml(activeLabel)}</span></div>
     ` : ''}
     ${job.error ? `<div class="err-box">${escapeHtml(job.error)}</div>` : ''}
+    ${(status === 'error' || status === 'cancelled') ? `
+      <div class="job-edit-form" data-job-edit-form="${job.id}" style="display:none;">
+        <div class="job-edit-row">
+          <label>Pokemon A
+            <input type="text" data-edit-pa="${job.id}" value="${escapeAttr(job.pokemon_a || '')}" placeholder="z.B. Feraligatr" />
+          </label>
+          <label>Pokemon B
+            <input type="text" data-edit-pb="${job.id}" value="${escapeAttr(job.pokemon_b || '')}" placeholder="z.B. Furret" />
+          </label>
+        </div>
+        <div class="job-edit-row">
+          <label style="flex:1;">Concept
+            <input type="text" data-edit-concept="${job.id}" value="${escapeAttr(job.concept || '')}" placeholder="optional" />
+          </label>
+        </div>
+        <div class="job-edit-actions">
+          <button class="ns-btn" data-job-edit-submit="${job.id}">&#9889; Save &amp; Rerun</button>
+          <button class="ns-btn" data-job-edit-cancel="${job.id}">Cancel</button>
+        </div>
+      </div>
+    ` : ''}
     ${thumbs ? `
       ${status === 'done' ? (() => {
         const savedMode = _jobRegenMode.get(job.id) || '';
@@ -1635,6 +1716,51 @@ function renderJob(job) {
       } finally {
         rerunBtn.disabled = false;
         rerunBtn.innerHTML = orig;
+      }
+    });
+  }
+
+  const editToggle = $('button[data-job-edit-toggle]', el);
+  if (editToggle) {
+    editToggle.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const form = $(`.job-edit-form[data-job-edit-form="${job.id}"]`, el);
+      if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+    });
+  }
+  const editCancel = $('button[data-job-edit-cancel]', el);
+  if (editCancel) {
+    editCancel.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const form = $(`.job-edit-form[data-job-edit-form="${job.id}"]`, el);
+      if (form) form.style.display = 'none';
+    });
+  }
+  const editSubmit = $('button[data-job-edit-submit]', el);
+  if (editSubmit) {
+    editSubmit.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const pa = ($(`input[data-edit-pa="${job.id}"]`, el) || {}).value || '';
+      const pb = ($(`input[data-edit-pb="${job.id}"]`, el) || {}).value || '';
+      const cn = ($(`input[data-edit-concept="${job.id}"]`, el) || {}).value || '';
+      if (!pa.trim() || !pb.trim()) { toast('Beide Pokemon-Namen muessen gesetzt sein', true); return; }
+      if (!confirm(`Job mit angepassten Namen neu starten?\n\nPokemon A: ${pa.trim()}\nPokemon B: ${pb.trim()}\n\nEin neuer Pipeline-Run wird gequeued.`)) return;
+      editSubmit.disabled = true;
+      const orig = editSubmit.innerHTML;
+      editSubmit.innerHTML = '&#8230;';
+      try {
+        await api(`/api/jobs/${job.id}/edit-and-rerun`, {
+          method: 'POST',
+          body: JSON.stringify({pokemon_a: pa.trim(), pokemon_b: pb.trim(), concept: cn.trim()}),
+        });
+        toast('Edited rerun gequeued');
+        if (_modalJobId === job.id) closeJobModal();
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        editSubmit.disabled = false;
+        editSubmit.innerHTML = orig;
       }
     });
   }

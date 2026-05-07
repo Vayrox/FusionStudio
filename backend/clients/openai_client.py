@@ -339,11 +339,18 @@ async def generate_narration(
     return de, en
 
 
-async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, str]:
+async def generate_batch_narration(
+    fusions: list[dict[str, str]],
+    words_per_fusion: int | None = None,
+) -> tuple[str, str]:
     """Generiert EINE durchgehende DE+EN Narration fuer eine Liste von Fusionen.
 
     Jede Fusion im Input dict muss haben:
       pokemon_a, pokemon_b, distinctive_traits, step5_transformation, step6_showcase
+
+    words_per_fusion: optionaler Override fuer den Sentence-B-Word-Count.
+    Wird per User-Message als Override durchgereicht. Default (None) =
+    System-Prompt-Spec (~25 Woerter).
     """
     if not fusions:
         raise ValueError("Keine Fusionen fuer Batch-Narration uebergeben.")
@@ -367,6 +374,16 @@ async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, 
         OPENER_DE=prompts.NARRATION_OPENER_DE,
         OPENER_EN=prompts.NARRATION_OPENER_EN,
     )
+    if words_per_fusion is not None and 8 <= int(words_per_fusion) <= 60:
+        wpf = int(words_per_fusion)
+        # +/- 4 Toleranz, damit GPT etwas Spielraum hat
+        user += (
+            f"\n\nLENGTH OVERRIDE: For Sentence B (the description per fusion), "
+            f"aim for approximately {wpf} words (acceptable range {max(8, wpf-4)}-"
+            f"{wpf+4}). This applies independently to BOTH the German and English "
+            f"version - DE must NOT be shorter than EN. Override the default "
+            f"~25 word target from the system prompt accordingly."
+        )
     raw = await _chat(
         prompts.GPT_BATCH_NARRATION_SYSTEM,
         user,

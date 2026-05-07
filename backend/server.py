@@ -209,6 +209,30 @@ async def api_rerun_job(job_id: str) -> dict[str, Any]:
     return {"new_job_id": new_jid}
 
 
+class EditAndRerunRequest(BaseModel):
+    pokemon_a: str | None = None
+    pokemon_b: str | None = None
+    concept: str | None = None
+
+
+@app.post("/api/jobs/{job_id}/edit-and-rerun")
+async def api_edit_and_rerun_job(
+    job_id: str, req: EditAndRerunRequest,
+) -> dict[str, Any]:
+    """Erlaubt pokemon_a / pokemon_b / concept zu aendern und dann den
+    Job neu zu starten. Nur fuer error/cancelled Status."""
+    try:
+        new_jid = await runner.edit_and_rerun_job(
+            job_id,
+            pokemon_a=req.pokemon_a,
+            pokemon_b=req.pokemon_b,
+            concept=req.concept,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"new_job_id": new_jid}
+
+
 @app.post("/api/batches/{batch_id}/cancel")
 async def api_cancel_batch(batch_id: str) -> dict[str, Any]:
     try:
@@ -216,6 +240,27 @@ async def api_cancel_batch(batch_id: str) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"cancelled_count": count}
+
+
+class RegenerateNarrationRequest(BaseModel):
+    words_per_fusion: int | None = None  # 8-60, None = Default ~25
+
+
+@app.post("/api/batches/{batch_id}/regenerate-narration")
+async def api_regenerate_batch_narration(
+    batch_id: str, req: RegenerateNarrationRequest | None = None,
+) -> dict[str, Any]:
+    """Generiert die DE+EN Narration eines abgeschlossenen Batches neu.
+    Suno + YT-SEO bleiben unangetastet. Optional: words_per_fusion zur
+    Steuerung der Beschreibungs-Laenge pro Fusion."""
+    wpf = req.words_per_fusion if req else None
+    try:
+        de, en = await runner.regenerate_batch_narration(
+            batch_id, words_per_fusion=wpf,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"narration_de": de, "narration_en": en}
 
 
 # ---------------------------------------------------------------------------

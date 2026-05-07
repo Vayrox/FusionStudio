@@ -395,6 +395,84 @@ async def _run_batch_monitor(batch_id: str) -> None:
         await _update_batch(batch_id, status="error", error=err)
 
 
+async def regenerate_batch_narration(
+    batch_id: str,
+    words_per_fusion: int | None = None,
+) -> tuple[str, str]:
+    """Generiert nur die DE+EN Narration fuer einen abgeschlossenen Batch
+    neu. Suno / YT-SEO / fusion_count bleiben unangetastet (User wollte
+    nur die Narration tauschen, nicht den Music-/SEO-Output kippen).
+
+    `words_per_fusion`: optional, gibt die Wortanzahl pro Fusion-Beschreibung
+    vor (Default = System-Prompt-Spec ~25). 8-60 erlaubt.
+    """
+    batch = await get_batch(batch_id)
+    if not batch:
+        raise ValueError(f"Batch {batch_id} nicht gefunden")
+    job_ids = batch.get("job_ids") or []
+    fusions_for_narration: list[dict[str, str]] = []
+    for jid in job_ids:
+        j = await get_job(jid)
+        if not j or j.get("status") != "done":
+            continue
+        out_dir_rel = j.get("output_dir")
+        if not out_dir_rel:
+            continue
+        meta_path = PROJECT_ROOT / out_dir_rel / "_meta.json"
+        if not meta_path.exists():
+            continue
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        fusions_for_narration.append({
+            "pokemon_a": meta.get("pokemon_a", ""),
+            "pokemon_b": meta.get("pokemon_b", ""),
+            "pokemon_a_de": meta.get("pokemon_a_de", meta.get("pokemon_a", "")),
+            "pokemon_b_de": meta.get("pokemon_b_de", meta.get("pokemon_b", "")),
+            "distinctive_traits": meta.get("distinctive_traits", ""),
+            "step5_transformation": meta.get("step5_transformation", ""),
+            "step6_showcase": meta.get("step6_showcase", ""),
+            "showcase_image_prompt": meta.get("showcase_image_prompt", ""),
+        })
+    if not fusions_for_narration:
+        raise ValueError("Keine abgeschlossenen Fusionen in diesem Batch.")
+
+    de, en = await openai_client.generate_batch_narration(
+        fusions_for_narration, words_per_fusion=words_per_fusion,
+    )
+
+    # MD-Datei mit neuer Narration ueberschreiben (Suno + YT bleiben).
+    batch_dir = OUTPUT_DIR / "batches"
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    md_path = batch_dir / f"{batch_id}_narration.md"
+    suno_prompt = batch.get("suno_prompt") or ""
+    yt_title = batch.get("yt_title") or ""
+    yt_desc = batch.get("yt_description") or ""
+    fusion_list = "\n".join(
+        f"- {f['pokemon_a']} x {f['pokemon_b']}" for f in fusions_for_narration
+    )
+    md = (
+        f"# Batch Narration - {batch_id}\n\n"
+        f"> Durchgehende DE + EN Narration fuer eine Fusion-Compilation.\n\n"
+        f"Fusionen in Reihenfolge:\n{fusion_list}\n\n"
+        f"---\n\n## Deutsch\n\n{de}\n\n"
+        f"---\n\n## English\n\n{en}\n\n"
+        f"---\n\n## Suno Background Music Prompt\n\n{suno_prompt}\n\n"
+        f"---\n\n## YouTube Shorts SEO\n\n"
+        f"**Title:** {yt_title}\n\n"
+        f"**Description:**\n\n{yt_desc}\n"
+    )
+    md_path.write_text(md, encoding="utf-8")
+
+    await _update_batch(
+        batch_id,
+        narration_de=de,
+        narration_en=en,
+        narration_path=_relative_to_root(md_path),
+        narration_regen_at=_now_iso(),
+        narration_words_per_fusion=int(words_per_fusion) if words_per_fusion else None,
+    )
+    return de, en
+
+
 async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
     """Rerun failed jobs eines Batches. Erfolgreiche Fusionen bleiben,
     fuer jeden failed Job wird ein neuer Job-Submit gemacht (gleiche
@@ -460,6 +538,33 @@ async def rerun_job(job_id: str) -> str:
 
     Gibt neue job_id zurueck.
     """
+    return await _rerun_job_with_overrides(job_id)
+
+
+async def edit_and_rerun_job(
+    job_id: str,
+    pokemon_a: str | None = None,
+    pokemon_b: str | None = None,
+    concept: str | None = None,
+) -> str:
+    """Wie rerun_job, erlaubt aber pokemon_a / pokemon_b / concept zu
+    aendern bevor der neue Job startet. Praktisch bei Tippfehlern
+    ('Feraligator' statt 'Feraligatr') ohne die Pipeline von vorne
+    aufzubauen."""
+    return await _rerun_job_with_overrides(
+        job_id,
+        pokemon_a_override=pokemon_a,
+        pokemon_b_override=pokemon_b,
+        concept_override=concept,
+    )
+
+
+async def _rerun_job_with_overrides(
+    job_id: str,
+    pokemon_a_override: str | None = None,
+    pokemon_b_override: str | None = None,
+    concept_override: str | None = None,
+) -> str:
     job = await get_job(job_id)
     if not job:
         raise ValueError(f"Job {job_id} nicht gefunden")
@@ -469,10 +574,18 @@ async def rerun_job(job_id: str) -> str:
             f"(aktuell: {job.get('status')!r})"
         )
 
+    pa = (pokemon_a_override if pokemon_a_override is not None else job.get("pokemon_a", "")) or ""
+    pb = (pokemon_b_override if pokemon_b_override is not None else job.get("pokemon_b", "")) or ""
+    pa = pa.strip()
+    pb = pb.strip()
+    if not pa or not pb:
+        raise ValueError("pokemon_a und pokemon_b duerfen nicht leer sein.")
+    cn = (concept_override if concept_override is not None else (job.get("concept", "") or "")) or ""
+
     new_jid = await submit_fusion(
-        pokemon_a=job.get("pokemon_a", ""),
-        pokemon_b=job.get("pokemon_b", ""),
-        concept=job.get("concept", "") or "",
+        pokemon_a=pa,
+        pokemon_b=pb,
+        concept=cn,
         tone_hint=job.get("tone_hint"),
         batch_id=job.get("batch_id"),
     )
