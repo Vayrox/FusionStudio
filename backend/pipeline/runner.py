@@ -527,8 +527,11 @@ async def regenerate_variant(job_id: str, variant_index: int) -> None:
         raise ValueError(f"Job {job_id} nicht gefunden")
     if job.get("status") != "done":
         raise ValueError("Regenerate nur erlaubt, wenn Job bereits 'done' ist.")
-    if not (1 <= variant_index <= STEP4_VARIANTS):
-        raise ValueError(f"variant_index muss zwischen 1 und {STEP4_VARIANTS} liegen")
+    # 1-8: STEP4_VARIANTS + 5 extra Slots (analog zu set_favorite / upload-variants)
+    if not (1 <= variant_index <= STEP4_VARIANTS + 5):
+        raise ValueError(
+            f"variant_index muss zwischen 1 und {STEP4_VARIANTS + 5} liegen"
+        )
 
     _register_task(job_id, asyncio.create_task(_run_regenerate(job_id, variant_index)))
 
@@ -744,8 +747,14 @@ async def set_favorite(job_id: str, variant: int | None) -> None:
     job = await get_job(job_id)
     if not job:
         raise ValueError(f"Job {job_id} nicht gefunden")
-    if variant is not None and not (1 <= variant <= STEP4_VARIANTS):
-        raise ValueError(f"variant muss zwischen 1 und {STEP4_VARIANTS} sein oder null")
+    # 1-8 erlaubt: STEP4_VARIANTS (=3 Standard-Varianten) + bis zu 5 extra
+    # Slots aus Regenerate / Manual-Upload. Validation lokal hier, weil
+    # set_favorite frueher hardcoded auf 1..3 begrenzt war und damit alle
+    # manuell hochgeladenen v4 / v5 nicht-fav-bar gewesen sind.
+    if variant is not None and not (1 <= variant <= STEP4_VARIANTS + 5):
+        raise ValueError(
+            f"variant muss zwischen 1 und {STEP4_VARIANTS + 5} sein oder null"
+        )
     await _update_job(job_id, favorite_variant=variant)
 
 
