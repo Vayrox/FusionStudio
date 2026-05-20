@@ -1,0 +1,109 @@
+←[32mINFO←[0m:     127.0.0.1:56139 - "←[1mGET /api/batches HTTP/1.1←[0m" ←[32m200 OK←[0m
+←[32mINFO←[0m:     127.0.0.1:56140 - "←[1mGET /api/jobs HTTP/1.1←[0m" ←[32m200 OK←[0m
+←[32mINFO←[0m:     127.0.0.1:56139 - "←[1mGET /api/batches HTTP/1.1←[0m" ←[32m200 OK←[0m
+←[33mWARNING←[0m:  WatchFiles detected changes in 'backend\clients\aiauto_client.py'. Reloading...
+ ←[32mINFO←[0m:     Shutting down
+←[32mINFO←[0m:     Waiting for application shutdown.
+←[32mINFO←[0m:     Application shutdown complete.
+←[32mINFO←[0m:     Finished server process [←[36m39780←[0m]
+Process SpawnProcess-6:
+Traceback (most recent call last):
+  File "C:\Users\Lucas\miniconda3\Lib\multiprocessing\process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Users\Lucas\miniconda3\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+    ~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 75, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 79, in serve
+    await self._serve(sockets)
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 86, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\config.py", line 449, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\importer.py", line 22, in import_from_string
+    raise exc from None
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "C:\Users\Lucas\miniconda3\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\server.py", line 16, in <module>
+    from backend.pipeline import runner
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\pipeline\runner.py", line 24, in <module>
+    from backend.clients import aiauto_client, openai_client, pokemon_refs
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\clients\aiauto_client.py", line 40, in <module>
+    from PIL import Image
+ModuleNotFoundError: No module named 'PIL'
+←[33mWARNING←[0m:  WatchFiles detected changes in 'backend\clients\aiauto_client.py'. Reloading...
+ Process SpawnProcess-7:
+Traceback (most recent call last):
+  File "C:\Users\Lucas\miniconda3\Lib\multiprocessing\process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Users\Lucas\miniconda3\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+    ~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 75, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Lucas\miniconda3\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 79, in serve
+    await self._serve(sockets)
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\server.py", line 86, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\config.py", line 449, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\importer.py", line 22, in import_from_string
+    raise exc from None
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\.venv\Lib\site-packages\uvicorn\importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "C:\Users\Lucas\miniconda3\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\server.py", line 16, in <module>
+    from backend.pipeline import runner
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\pipeline\runner.py", line 24, in <module>
+    from backend.clients import aiauto_client, openai_client, pokemon_refs
+  File "C:\Users\Lucas\Desktop\Neuer Ordner (4)\FusionStudio\FusionStudio\backend\clients\aiauto_client.py", line 40, in <module>
+    from PIL import Image
+ModuleNotFoundError: No module named 'PIL'

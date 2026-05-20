@@ -10,3 +10,11 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+.claude/
+build/
+dist/
+vendor/
+__pycache__/
+*.pyc
+*.spec
+.env
