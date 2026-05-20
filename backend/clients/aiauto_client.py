@@ -862,10 +862,23 @@ async def _find_recent_video_generation(
     prompt: str,
     submit_ts: float,
 ) -> str | None:
-    """Findet die frisch gestartete Video-Generation im Listing (analog
-    zu image-listing, aber gegen den Seedance v2-Endpoint)."""
+    """Findet die frisch gestartete Video-Generation im Listing.
+
+    Analog zu _find_recent_generation fuer Bilder - aber:
+      - probiert MEHRERE Endpoint-Varianten (saas hat ein video-spezifisches
+        Listing, aber AI-Auto hat das schon mehrfach umbenannt)
+      - der Type-Filter ist permissiv: alles AUSSER 'image' / 'images' wird
+        als Video-Kandidat akzeptiert (also v2's 'type=video' aber auch
+        'seedance', 'kling', 'shorts', 'longform' und Neue die wir nicht
+        kennen)
+      - logt bei Exhaustion ein Sample der gesehenen Items + raw Response-
+        Previews, damit man im Server-Log direkt erkennt was AI-Auto
+        tatsaechlich liefert."""
+    base = settings.aiauto_video_base_url
     list_urls = [
-        f"{settings.aiauto_video_base_url}/generations?limit=100",
+        f"{base}/generations/videos?limit=100",
+        f"{base}/generations/shorts?limit=100",
+        f"{base}/generations?limit=100",
     ]
     prompt_prefix = (prompt or "")[:220].strip()
     if not prompt_prefix:
@@ -875,16 +888,67 @@ async def _find_recent_video_generation(
         return " ".join((s or "").split()).lower()
 
     want_full = _normalize(prompt_prefix)
-    match_lens = [180, 120, 80, 40]
+    match_lens = [180, 120, 80, 40, 25]
+    last_samples: list[dict[str, Any]] = []
+    last_raw_previews: list[str] = []
+
+    log.warning(
+        "AI-Auto video fallback START: want-prefix=%r submit_ts=%.0f",
+        want_full[:40], submit_ts,
+    )
 
     for attempt in range(AIAUTO_LIST_MATCH_ATTEMPTS):
         for list_url in list_urls:
             try:
                 resp = await client.get(list_url, headers=_headers())
-                if resp.status_code != 200:
+                if resp.status_code == 404:
                     continue
-                data = resp.json()
-                items = data.get("generations", []) if isinstance(data, dict) else []
+                if resp.status_code != 200:
+                    log.warning(
+                        "AI-Auto video GET %s -> %d: %s",
+                        list_url, resp.status_code, resp.text[:200],
+                    )
+                    continue
+                raw_text = resp.text
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = None
+
+                # Items aus verschiedenen moeglichen Shapes extrahieren
+                items: list[Any] = []
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict):
+                    for key in ("generations", "videos", "shorts", "results", "data", "items"):
+                        v = data.get(key)
+                        if isinstance(v, list):
+                            items = v
+                            break
+
+                src = list_url.rsplit("/", 1)[-1].split("?")[0]
+                preview = raw_text[:250].replace("\n", " ")
+                last_raw_previews.append(
+                    f"[{src}] attempt={attempt+1} items={len(items)} "
+                    f"top-level-keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__} "
+                    f"raw={preview!r}"
+                )
+                last_raw_previews = last_raw_previews[-3:]
+
+                if items:
+                    last_samples = [
+                        {
+                            "id": g.get("id") if isinstance(g, dict) else None,
+                            "type": g.get("type") if isinstance(g, dict) else None,
+                            "mode": g.get("mode") if isinstance(g, dict) else None,
+                            "status": g.get("status") if isinstance(g, dict) else None,
+                            "created_at": g.get("created_at") if isinstance(g, dict) else None,
+                            "prompt_prefix": (g.get("prompt") or "")[:80] if isinstance(g, dict) else "",
+                            "source": src,
+                        }
+                        for g in items[:5]
+                    ]
+
                 for match_len in match_lens:
                     needle = want_full[:match_len]
                     if len(needle) < 6:
@@ -893,11 +957,12 @@ async def _find_recent_video_generation(
                     for g in items:
                         if not isinstance(g, dict):
                             continue
-                        # v2 nutzt 'type' (video/image) statt 'mode' (shorts/images).
-                        # Beides tolerieren - alte saas-Listings haben 'mode',
-                        # neue v2-Listings haben 'type'.
+                        # Permissive type filter: alles AUSSER explizit Bild-Typ
+                        # als Video-Kandidat behandeln. Neue AI-Auto type-Werte
+                        # ('seedance', 'kling', 'v2_video', ...) werden dadurch
+                        # nicht versehentlich rausgefiltert.
                         gtype = (g.get("type") or g.get("mode") or "").lower()
-                        if gtype and gtype not in ("video", "shorts", "longform"):
+                        if gtype in ("image", "images"):
                             continue
                         g_prompt = _normalize(g.get("prompt") or "")
                         if not g_prompt:
@@ -919,13 +984,29 @@ async def _find_recent_video_generation(
                                 continue
                             _CLAIMED_IDS.add(gen_id)
                             log.warning(
-                                "AI-Auto video fallback CLAIM: id=%s prefix=%d (attempt %d)",
-                                gen_id, match_len, attempt + 1,
+                                "AI-Auto video fallback CLAIM: id=%s prefix=%d source=%s "
+                                "(attempt %d, candidates=%d)",
+                                gen_id, match_len, src, attempt + 1, len(candidates),
                             )
                             return gen_id
             except Exception as exc:  # noqa: BLE001
-                log.warning("AI-Auto video listing attempt %d failed: %s", attempt + 1, exc)
+                log.warning(
+                    "AI-Auto video listing %s attempt %d failed: %s",
+                    list_url, attempt + 1, exc,
+                )
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
+
+    sample_repr = "\n".join(
+        f"  - [{s['source']}] id={s['id']} type={s['type']!r} mode={s['mode']!r} "
+        f"status={s['status']!r} created={s['created_at']!r} prompt={s['prompt_prefix']!r}"
+        for s in last_samples
+    ) or "  (listing was empty)"
+    raw_repr = "\n".join(f"  {p}" for p in last_raw_previews) or "  (no raw responses)"
+    log.warning(
+        "AI-Auto video listing fallback EXHAUSTED %d attempts. want-prefix=%r\n"
+        "Samples:\n%s\nLast raw:\n%s",
+        AIAUTO_LIST_MATCH_ATTEMPTS, want_full[:40], sample_repr, raw_repr,
+    )
     return None
 
 
@@ -1076,7 +1157,13 @@ async def generate_video(
                 if not generation_id:
                     raise AIAutoError(
                         "AI-Auto POST /generate (video) hat nicht geantwortet und "
-                        "die Generation wurde auch nicht im Listing gefunden."
+                        "die Generation wurde auch nicht im Listing gefunden. "
+                        "Mehr Details im Server-Terminal: such nach 'AI-Auto video "
+                        "listing fallback EXHAUSTED' - der Log zeigt Sample-Items "
+                        "die AI-Auto in der Liste zurueckgibt und die letzten Raw-"
+                        "Responses, damit man sieht ob (1) das Listing leer ist, "
+                        "(2) die Items einen unbekannten 'type' haben oder (3) "
+                        "der prompt-prefix in keiner Generation matcht."
                     )
 
             video_bytes = await _poll_and_download_video(client, str(generation_id))
