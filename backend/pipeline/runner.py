@@ -1757,6 +1757,275 @@ async def regenerate_start_frame(job_id: str) -> str:
     return _relative_to_root(step3_out)
 
 
+async def complete_with_manual_variants(
+    job_id: str,
+    variants: dict[int, bytes],
+) -> dict[str, Any]:
+    """Fallback fuer Jobs bei denen AI-Auto ein oder mehrere Step-4 Variants
+    nicht zuverlaessig runtergeladen hat. Der User laedt sich die Bilder
+    manuell aus der AI-Auto Web-UI runter und uploaded sie hier.
+
+    Was die Funktion macht:
+      1. Speichert die Bytes als 04_fusion_v{N}.png im Job-Output-Ordner.
+      2. Falls Distinctive Traits noch nicht da: holt sie aus dem Job-State
+         (Step 3 setzt sie schon, also normalerweise praesent) oder
+         generiert sie frisch via GPT.
+      3. Generiert step5_transformation, step6_showcase, showcase_image_prompt
+         via GPT falls noch nicht in meta.
+      4. Wenn der Job KEIN Batch-Member ist: Narration + Suno + YT-SEO mit.
+      5. Schreibt _meta.json (mergt mit existierender) + video_prompts.md.
+      6. Setzt status=done.
+
+    Funktioniert sowohl fuer Jobs in 'error'-State (alle Variants
+    fehlgeschlagen) als auch fuer 'done'-Jobs (zusaetzliche Variants
+    nachschieben oder bestehende ueberschreiben).
+    """
+    if not variants:
+        raise ValueError("Keine Variant-Bilder uebergeben.")
+    for slot in variants:
+        if not (1 <= slot <= 10):
+            raise ValueError(f"Variant-Slot {slot} ausserhalb 1..10")
+
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") == "running":
+        raise ValueError("Job laeuft gerade - manuelle Variants nicht moeglich.")
+
+    pokemon_a = job.get("pokemon_a", "")
+    pokemon_b = job.get("pokemon_b", "")
+    concept = job.get("concept") or f"A cinematic fusion of {pokemon_a} and {pokemon_b}."
+    tone_hint = job.get("tone_hint")
+    if not pokemon_a or not pokemon_b:
+        raise RuntimeError("pokemon_a / pokemon_b fehlen im Job-State.")
+
+    # Output-Ordner. Bei manchen alten error-Jobs kann der noch nicht existieren -
+    # dann legen wir ihn jetzt an (gleicher Algo wie der reguläre Pipeline-Path).
+    out_dir_rel = job.get("output_dir")
+    if out_dir_rel:
+        out_dir = PROJECT_ROOT / out_dir_rel
+    else:
+        out_dir = _make_output_dir(pokemon_a, pokemon_b)
+        await _update_job(job_id, output_dir=_relative_to_root(out_dir))
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) Variants auf Disk schreiben
+    saved_paths: list[Path] = []
+    for slot in sorted(variants):
+        vpath = out_dir / f"04_fusion_v{slot}.png"
+        vpath.write_bytes(variants[slot])
+        saved_paths.append(vpath)
+        log.info("manual variant uploaded: %s (%d bytes)", vpath.name, len(variants[slot]))
+
+    # 2) Existing meta laden (falls Pipeline bis vor Step 4 lief) oder leeres dict.
+    meta_path = out_dir / "_meta.json"
+    meta: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manual-variants: _meta.json invalid, regenerating: %s", exc)
+            meta = {}
+
+    # 3) Distinctive Traits sicherstellen
+    distinctive_traits = (
+        meta.get("distinctive_traits")
+        or job.get("distinctive_traits")
+        or ""
+    )
+    if not distinctive_traits:
+        log.info("manual-variants: generiere fehlende distinctive_traits via GPT")
+        distinctive_traits = await openai_client.generate_distinctive_traits(
+            pokemon_a, pokemon_b, concept, tone_hint,
+        )
+    meta["distinctive_traits"] = distinctive_traits
+
+    # 4) Pokemon-DE-Namen (falls Pipeline frueh starb sind die noch nicht da)
+    pokemon_a_de = meta.get("pokemon_a_de") or job.get("pokemon_a_de")
+    pokemon_b_de = meta.get("pokemon_b_de") or job.get("pokemon_b_de")
+    if not pokemon_a_de or not pokemon_b_de:
+        try:
+            names_a, names_b = await asyncio.gather(
+                pokemon_refs.get_localized_names(pokemon_a),
+                pokemon_refs.get_localized_names(pokemon_b),
+            )
+            pokemon_a_de = pokemon_a_de or names_a.get("de", pokemon_a)
+            pokemon_b_de = pokemon_b_de or names_b.get("de", pokemon_b)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manual-variants: localized names failed (%s), using EN", exc)
+            pokemon_a_de = pokemon_a_de or pokemon_a
+            pokemon_b_de = pokemon_b_de or pokemon_b
+    meta["pokemon_a_de"] = pokemon_a_de
+    meta["pokemon_b_de"] = pokemon_b_de
+
+    # 5) Step5 / Step6 / Showcase Image Prompt falls fehlend
+    if not meta.get("step5_transformation"):
+        meta["step5_transformation"] = await openai_client.generate_step5_transformation(
+            pokemon_a, pokemon_b, concept, distinctive_traits,
+        )
+    if not meta.get("step6_showcase"):
+        meta["step6_showcase"] = await openai_client.generate_step6_showcase(
+            pokemon_a, pokemon_b, concept, distinctive_traits,
+        )
+    if not meta.get("showcase_image_prompt"):
+        meta["showcase_image_prompt"] = await openai_client.generate_showcase_image_prompt(
+            pokemon_a, pokemon_b, concept, distinctive_traits,
+            meta["step6_showcase"],
+        )
+
+    # 6) Single-Job-Narration nur generieren wenn NICHT Batch-Member.
+    #    Bei Batch-Jobs uebernimmt der Batch-Monitor die gemeinsame Narration
+    #    sobald alle Mitglieder done sind.
+    is_batch_member = bool(job.get("batch_id"))
+    if not is_batch_member:
+        if not (meta.get("narration_de") and meta.get("narration_en")):
+            try:
+                de, en = await openai_client.generate_narration(
+                    pokemon_a, pokemon_b,
+                    pokemon_a_de, pokemon_b_de,
+                    distinctive_traits,
+                    meta["step5_transformation"],
+                    meta["step6_showcase"],
+                )
+                meta["narration_de"] = de
+                meta["narration_en"] = en
+            except Exception as exc:  # noqa: BLE001
+                log.warning("manual-variants: narration failed: %s", exc)
+        if not meta.get("suno_prompt"):
+            try:
+                meta["suno_prompt"] = await openai_client.generate_suno_prompt(
+                    meta.get("narration_en", ""),
+                    fusion_count=1,
+                    overall_tone=distinctive_traits,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("manual-variants: suno failed: %s", exc)
+        if not meta.get("yt_title"):
+            try:
+                yt_title, yt_desc = await openai_client.generate_yt_seo(
+                    meta.get("narration_en", ""),
+                    fusions=[{"pokemon_a": pokemon_a, "pokemon_b": pokemon_b}],
+                    overall_tone=distinctive_traits,
+                )
+                meta["yt_title"] = yt_title
+                meta["yt_description"] = yt_desc
+            except Exception as exc:  # noqa: BLE001
+                log.warning("manual-variants: yt-seo failed: %s", exc)
+
+    # 7) ALLE existing variants im Output-Ordner sammeln (auch die die schon
+    #    vorher da waren - z.B. wenn 2/3 die Pipeline geschafft haben).
+    all_variant_paths: list[Path] = []
+    for n in range(1, 11):
+        p = out_dir / f"04_fusion_v{n}.png"
+        if p.exists():
+            all_variant_paths.append(p)
+    if not all_variant_paths:
+        raise RuntimeError("Nach Upload keine Variant-Files gefunden - irgendwas ist schiefgelaufen.")
+
+    # 8) files-Block in meta updaten
+    files_meta = dict(meta.get("files") or {})
+    # step_2a / step_2b / step_3 falls vorhanden - sonst leer (Pipeline kann
+    # vor Step 2 abgebrochen sein, das ist OK fuer Manual-Completion).
+    for key, fname in (("step_2a", None), ("step_2b", None), ("step_3", "03_start_frame.png")):
+        existing = files_meta.get(key)
+        if existing:
+            continue
+        if fname and (out_dir / fname).exists():
+            files_meta[key] = fname
+    files_meta["variants"] = [p.name for p in all_variant_paths]
+    files_meta["manual_variants"] = sorted(variants.keys())
+    meta["files"] = files_meta
+    meta["id"] = job_id
+    meta["pokemon_a"] = pokemon_a
+    meta["pokemon_b"] = pokemon_b
+    meta["concept"] = concept
+    meta["tone_hint"] = tone_hint
+    meta.setdefault("created_at", job.get("created_at"))
+    meta["manual_completed_at"] = _now_iso()
+    meta.setdefault("finished_at", _now_iso())
+
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    # 9) Output-MDs schreiben
+    try:
+        _write_video_prompts_md(
+            out_dir,
+            pokemon_a=pokemon_a,
+            pokemon_b=pokemon_b,
+            distinctive_traits=distinctive_traits,
+            step5=meta["step5_transformation"],
+            step6=meta["step6_showcase"],
+            showcase_image_prompt=meta["showcase_image_prompt"],
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("manual-variants: video_prompts.md write failed: %s", exc)
+    if not is_batch_member and meta.get("narration_de"):
+        try:
+            _write_narration_md(
+                out_dir,
+                meta.get("narration_de", ""),
+                meta.get("narration_en", ""),
+                meta.get("suno_prompt", ""),
+                yt_title=meta.get("yt_title", ""),
+                yt_description=meta.get("yt_description", ""),
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manual-variants: narration.md write failed: %s", exc)
+
+    # 10) Job-State updaten
+    files_map = {
+        "meta_json": _relative_to_root(meta_path),
+        "video_prompts_md": _relative_to_root(out_dir / "video_prompts.md"),
+    }
+    for key in ("step_2a", "step_2b", "step_3"):
+        fname = files_meta.get(key)
+        if fname and (out_dir / fname).exists():
+            files_map[key] = _relative_to_root(out_dir / fname)
+    if not is_batch_member and (out_dir / "narration.md").exists():
+        files_map["narration_md"] = _relative_to_root(out_dir / "narration.md")
+
+    await _update_job(
+        job_id,
+        status="done",
+        current_step="done",
+        error=None,
+        variants=[_relative_to_root(p) for p in all_variant_paths],
+        files=files_map,
+        distinctive_traits=distinctive_traits,
+        manual_completed_at=_now_iso(),
+    )
+
+    # 11) Falls Batch-Member: Batch-Monitor neu anstossen damit Compilation-
+    #     Narration nach Abschluss aller Mitglieder generiert wird.
+    batch_id = job.get("batch_id")
+    if batch_id:
+        try:
+            await _update_batch(
+                batch_id,
+                # Status auf "running" damit der Monitor weiterlaeuft / neu startet.
+                # Wenn der Batch schon done war: Narration wird neu generiert
+                # nach Abschluss aller Mitglieder (siehe Batch-Monitor-Logik).
+                status="running",
+                error=None,
+            )
+            _register_task(
+                f"batch:{batch_id}",
+                asyncio.create_task(_run_batch_monitor(batch_id)),
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manual-variants: batch-monitor restart failed: %s", exc)
+
+    return {
+        "job_id": job_id,
+        "status": "done",
+        "uploaded_slots": sorted(variants.keys()),
+        "total_variants": len(all_variant_paths),
+        "is_batch_member": is_batch_member,
+    }
+
+
 async def set_showcase_pick(job_id: str, variant: int | None) -> None:
     job = await get_job(job_id)
     if not job:

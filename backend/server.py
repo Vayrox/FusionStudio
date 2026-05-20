@@ -436,6 +436,48 @@ async def api_regenerate_start_frame(job_id: str) -> dict[str, str]:
     return {"path": path}
 
 
+@app.post("/api/jobs/{job_id}/upload-variants")
+async def api_upload_variants(
+    job_id: str,
+    variant_1: UploadFile | None = File(None),
+    variant_2: UploadFile | None = File(None),
+    variant_3: UploadFile | None = File(None),
+    variant_4: UploadFile | None = File(None),
+    variant_5: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    """Manuell hochgeladene Step-4 Variants. Wird genutzt wenn AI-Auto
+    Bilder nicht zuverlaessig downloaded hat - der User laedt sie sich
+    aus AI-Auto's Web-UI runter und uploaded sie hier. Backend speichert
+    sie als 04_fusion_v{N}.png und finalisiert den Job (generiert
+    fehlende GPT-Prompts, schreibt _meta.json + video_prompts.md,
+    markiert status=done)."""
+    slots: dict[int, bytes] = {}
+    for idx, upload in enumerate(
+        (variant_1, variant_2, variant_3, variant_4, variant_5), start=1,
+    ):
+        if upload is None or not upload.filename:
+            continue
+        raw = await upload.read()
+        if not raw:
+            continue
+        if len(raw) > 30 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Variant {idx}: Datei zu gross (max 30 MB)",
+            )
+        slots[idx] = raw
+    if not slots:
+        raise HTTPException(
+            status_code=400,
+            detail="Keine Variant-Bilder hochgeladen.",
+        )
+    try:
+        result = await runner.complete_with_manual_variants(job_id, slots)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
 @app.post("/api/jobs/{job_id}/generate-step6-video")
 async def api_generate_step6_video(
     job_id: str, req: GenerateVideoRequest | None = None,

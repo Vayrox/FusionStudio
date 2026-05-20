@@ -800,6 +800,76 @@
   }
   .rename-box .rb-row button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  /* Upload-Variants Box - identische Optik wie .rename-box, aber blau-tint
+     damit's klar als 'add files' und nicht 'edit names' lesbar ist. */
+  .upload-variants-box {
+    margin-top: var(--s-3);
+    background: rgba(96, 165, 250, 0.05);
+    border: 1px solid rgba(96, 165, 250, 0.25);
+    border-radius: var(--r-md);
+    padding: 10px var(--s-3) 12px;
+  }
+  .upload-variants-box .uv-title {
+    font-size: 11.5px; font-weight: 600;
+    color: var(--text); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .upload-variants-box .uv-hint {
+    font-size: 11px; color: var(--text-muted);
+    margin-bottom: 10px; line-height: 1.5;
+  }
+  .upload-variants-box .uv-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .upload-variants-box .uv-slot {
+    background: var(--bg-elev-1);
+    border: 1px dashed var(--border);
+    border-radius: var(--r-sm);
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 56px;
+    cursor: pointer;
+    transition: border-color var(--t-fast), background var(--t-fast);
+  }
+  .upload-variants-box .uv-slot:hover { border-color: var(--accent);
+    background: rgba(96, 165, 250, 0.04); }
+  .upload-variants-box .uv-slot.has-file {
+    border-style: solid; border-color: var(--accent);
+    background: rgba(96, 165, 250, 0.08); color: var(--text);
+  }
+  .upload-variants-box .uv-slot input[type=file] { display: none; }
+  .upload-variants-box .uv-slot .uv-slot-label {
+    font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase; font-size: 10px;
+  }
+  .upload-variants-box .uv-slot .uv-fname {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .upload-variants-box .uv-actions {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .upload-variants-box .uv-actions button {
+    padding: 6px 12px; font-size: 11.5px; font-weight: 600;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    cursor: pointer; box-shadow: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+  .upload-variants-box .uv-actions button:hover:not(:disabled) {
+    border-color: var(--accent); color: var(--accent-hi);
+  }
+  .upload-variants-box .uv-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .upload-variants-box .uv-actions .uv-status { font-size: 11px; color: var(--text-muted); }
+
   /* Thumbnails */
   .thumbs-header {
     display: flex; align-items: center; justify-content: flex-end;
@@ -3468,6 +3538,26 @@ function renderJob(job) {
         </div>
       </div>
     ` : ''}
+    ${(status === 'error' || status === 'cancelled' || status === 'done') ? `
+      <div class="upload-variants-box" data-job-uv="${job.id}">
+        <div class="uv-title">${icon('upload') || '&#8593;'} Upload missing variants manually</div>
+        <div class="uv-hint">Falls AI-Auto die Bilder nicht automatisch downloaden konnte: lade sie selber aus der AI-Auto Web-UI runter und ziehe sie hier in die Slots. Backend speichert sie als <code>04_fusion_v{N}.png</code>, generiert fehlende GPT-Prompts und markiert den Job als <b>done</b>. Funktioniert auch fuer done-Jobs um Variants nachzuschieben/zu ersetzen.</div>
+        <div class="uv-slots">
+          ${[1,2,3,4,5].map(n => `
+            <label class="uv-slot" data-uv-slot="${n}" data-job-id="${job.id}">
+              <span class="uv-slot-label">Variant ${n}</span>
+              <span class="uv-fname" data-uv-fname>kein File</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" data-uv-file="${n}" data-job-id="${job.id}" />
+            </label>
+          `).join('')}
+        </div>
+        <div class="uv-actions">
+          <button data-uv-submit="${job.id}">${icon('rotate') || '&#10227;'} Save &amp; finish job</button>
+          <button data-uv-reset="${job.id}">Clear</button>
+          <span class="uv-status" data-uv-status="${job.id}"></span>
+        </div>
+      </div>
+    ` : ''}
     ${thumbs ? `
       ${status === 'done' ? (() => {
         const savedMode = _jobRegenMode.get(job.id) || '';
@@ -3615,6 +3705,84 @@ function renderJob(job) {
       } finally {
         renameBtn.disabled = false;
         renameBtn.innerHTML = orig;
+      }
+    });
+  }
+
+  // Upload-Variants: Slots reagieren auf File-Picker, zeigen Filename + Filled-State
+  const uvSlots = $$(`.uv-slot input[data-uv-file][data-job-id="${job.id}"]`, el);
+  uvSlots.forEach(input => {
+    input.addEventListener('change', () => {
+      const slot = input.closest('.uv-slot');
+      const fnameEl = $('[data-uv-fname]', slot);
+      const file = (input.files && input.files[0]) || null;
+      if (file) {
+        if (file.size > 30 * 1024 * 1024) {
+          toast(`Variant ${input.dataset.uvFile}: zu gross (max 30 MB)`, true);
+          input.value = '';
+          return;
+        }
+        fnameEl.textContent = file.name;
+        slot.classList.add('has-file');
+      } else {
+        fnameEl.textContent = 'kein File';
+        slot.classList.remove('has-file');
+      }
+    });
+  });
+  const uvReset = $(`button[data-uv-reset="${job.id}"]`, el);
+  if (uvReset) {
+    uvReset.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      uvSlots.forEach(input => {
+        input.value = '';
+        const slot = input.closest('.uv-slot');
+        const fnameEl = $('[data-uv-fname]', slot);
+        fnameEl.textContent = 'kein File';
+        slot.classList.remove('has-file');
+      });
+      const stat = $(`[data-uv-status="${job.id}"]`, el);
+      if (stat) stat.textContent = '';
+    });
+  }
+  const uvSubmit = $(`button[data-uv-submit="${job.id}"]`, el);
+  if (uvSubmit) {
+    uvSubmit.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const fd = new FormData();
+      let count = 0;
+      uvSlots.forEach(input => {
+        const file = (input.files && input.files[0]) || null;
+        if (file) {
+          fd.append(`variant_${input.dataset.uvFile}`, file, file.name);
+          count++;
+        }
+      });
+      if (count === 0) { toast('Mindestens ein Variant-Bild auswaehlen', true); return; }
+      if (!confirm(`${count} Variant-Bild${count > 1 ? 'er' : ''} hochladen und Job finalisieren?\n\nFehlende GPT-Prompts (step5/6/showcase) werden generiert. Job wird auf 'done' gesetzt.`)) return;
+      uvSubmit.disabled = true;
+      const orig = uvSubmit.innerHTML;
+      uvSubmit.innerHTML = (icon('more') || '&hellip;') + ' uploading';
+      const stat = $(`[data-uv-status="${job.id}"]`, el);
+      if (stat) stat.textContent = 'uploading ...';
+      try {
+        const resp = await fetch(`/api/jobs/${job.id}/upload-variants`, {
+          method: 'POST', body: fd,
+        });
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(`${resp.status}: ${text}`);
+        }
+        const data = await resp.json();
+        toast(`Job fertig: ${data.total_variants} Variant${data.total_variants > 1 ? 's' : ''} im Output-Ordner`);
+        if (stat) stat.textContent = `${data.uploaded_slots.length} hochgeladen, ${data.total_variants} total`;
+        await refreshJobs();
+      } catch (err) {
+        toast(err.message, true);
+        if (stat) stat.textContent = 'error';
+      } finally {
+        uvSubmit.disabled = false;
+        uvSubmit.innerHTML = orig;
       }
     });
   }
