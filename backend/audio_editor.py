@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
+import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +29,39 @@ log = logging.getLogger("fusion-auto.audio-editor")
 
 
 # ---------------------------------------------------------------------------
-# Subprocess Helpers
+# ffmpeg / ffprobe binary resolution
 # ---------------------------------------------------------------------------
+# Resolution order:
+#   1. FUSIONSTUDIO_FFMPEG_DIR env var (set by the launcher when bundled)
+#   2. PyInstaller MEIPASS / vendor/ffmpeg/ (bundled .exe at runtime)
+#   3. System PATH
+# Resolved once at import time and cached.
+
+
+def _resolve_binary(name: str) -> str:
+    exe_name = name + (".exe" if os.name == "nt" else "")
+
+    candidates: list[Path] = []
+
+    env_dir = os.environ.get("FUSIONSTUDIO_FFMPEG_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir) / exe_name)
+
+    bundle_dir = getattr(sys, "_MEIPASS", None)
+    if bundle_dir:
+        candidates.append(Path(bundle_dir) / "vendor" / "ffmpeg" / exe_name)
+        candidates.append(Path(bundle_dir) / exe_name)
+
+    for cand in candidates:
+        if cand.exists():
+            return str(cand)
+
+    found = shutil.which(name)
+    return found or name  # fall back to bare name (will surface FFmpegMissingError)
+
+
+_FFMPEG_BIN = _resolve_binary("ffmpeg")
+_FFPROBE_BIN = _resolve_binary("ffprobe")
 
 
 class FFmpegMissingError(RuntimeError):
@@ -73,7 +107,7 @@ async def _run(cmd: list[str], capture_stderr: bool = False) -> tuple[bytes, byt
 async def _probe_duration(audio_path: Path) -> float:
     """Gibt die Dauer der Audio-Datei in Sekunden zurueck."""
     cmd = [
-        "ffprobe",
+        _FFPROBE_BIN,
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
@@ -115,7 +149,7 @@ async def get_audio_samples(audio_path: Path, max_points: int = 2000) -> dict[st
     target_sr = max(50, min(8000, target_sr))
 
     cmd = [
-        "ffmpeg",
+        _FFMPEG_BIN,
         "-v", "error",
         "-i", str(audio_path),
         "-ac", "1",                  # mono
@@ -182,7 +216,7 @@ async def detect_silences(
     """
     min_dur_s = max(0.001, min_silence_ms / 1000.0)
     cmd = [
-        "ffmpeg",
+        _FFMPEG_BIN,
         "-v", "info",                # damit silencedetect-Logs auf stderr landen
         "-i", str(audio_path),
         "-af", f"silencedetect=noise={silence_thresh_db}dB:d={min_dur_s:.3f}",
@@ -288,7 +322,7 @@ async def remove_silences(
     )
 
     cmd = [
-        "ffmpeg",
+        _FFMPEG_BIN,
         "-v", "error",
         "-y",
         "-i", str(audio_path),
@@ -306,7 +340,7 @@ async def remove_silences(
 
 async def _ffmpeg_reencode_to_mp3(src: Path, dst: Path) -> None:
     cmd = [
-        "ffmpeg",
+        _FFMPEG_BIN,
         "-v", "error",
         "-y",
         "-i", str(src),

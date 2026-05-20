@@ -183,6 +183,40 @@ async def generate_distinctive_traits(
 
 
 # ---------------------------------------------------------------------------
+# Seedance prompt safety: hard-cap at 2000 chars (Seedance API limit).
+# GPT meistens erfuellt das via System-Prompt-Anweisung, aber falls es doch
+# rueberlaeuft, truncaten wir am letzten Satz-Ende statt mitten im Wort.
+# ---------------------------------------------------------------------------
+
+# 1900 statt 2000: gibt 100 Zeichen Buffer unter der echten Seedance-Grenze,
+# damit Unicode / Whitespace / Edge-Cases nicht zur API-Rejection fuehren.
+SEEDANCE_PROMPT_MAX_CHARS = 1900
+
+
+def _enforce_seedance_char_limit(text: str, label: str) -> str:
+    text = text.strip()
+    if len(text) <= SEEDANCE_PROMPT_MAX_CHARS:
+        return text
+    # Suche letzten Satz-Boundary (".", "!", "?") vor dem Limit.
+    cutoff = -1
+    for sep in (". ", "! ", "? ", ".", "!", "?"):
+        idx = text.rfind(sep, 0, SEEDANCE_PROMPT_MAX_CHARS)
+        if idx > cutoff:
+            cutoff = idx + len(sep.rstrip())
+    if cutoff < SEEDANCE_PROMPT_MAX_CHARS // 2:
+        # Kein guter Satz-Boundary gefunden - faelle auf letzte Wort-Grenze.
+        cutoff = text.rfind(" ", 0, SEEDANCE_PROMPT_MAX_CHARS)
+        if cutoff < 0:
+            cutoff = SEEDANCE_PROMPT_MAX_CHARS
+    truncated = text[:cutoff].rstrip()
+    log.warning(
+        "Seedance prompt %s was %d chars (over %d) - truncated to %d chars at sentence boundary",
+        label, len(text), SEEDANCE_PROMPT_MAX_CHARS, len(truncated),
+    )
+    return truncated
+
+
+# ---------------------------------------------------------------------------
 # Step 5 Transformation
 # ---------------------------------------------------------------------------
 
@@ -199,12 +233,13 @@ async def generate_step5_transformation(
         CONCEPT=concept,
         DISTINCTIVE_TRAITS=distinctive_traits,
     )
-    return await _chat(
+    raw = await _chat(
         prompts.GPT_STEP5_TRANSFORMATION_SYSTEM,
         user,
         temperature=0.9,
-        max_tokens=1800,
+        max_tokens=600,
     )
+    return _enforce_seedance_char_limit(raw, "step5_transformation")
 
 
 # ---------------------------------------------------------------------------
@@ -224,12 +259,13 @@ async def generate_step6_showcase(
         CONCEPT=concept,
         DISTINCTIVE_TRAITS=distinctive_traits,
     )
-    return await _chat(
+    raw = await _chat(
         prompts.GPT_STEP6_SHOWCASE_SYSTEM,
         user,
         temperature=0.9,
-        max_tokens=1200,
+        max_tokens=600,
     )
+    return _enforce_seedance_char_limit(raw, "step6_showcase")
 
 
 async def generate_showcase_image_prompt(
@@ -276,12 +312,13 @@ async def generate_action_scene_prompt(
         DISTINCTIVE_TRAITS=distinctive_traits,
         STEP6_VIDEO_PROMPT=step6_video_prompt,
     )
-    return await _chat(
+    raw = await _chat(
         prompts.GPT_ACTION_SCENE_SYSTEM,
         user,
         temperature=0.9,
-        max_tokens=900,
+        max_tokens=600,
     )
+    return _enforce_seedance_char_limit(raw, "action_scene")
 
 
 async def generate_funny_scene_prompt(
@@ -305,12 +342,13 @@ async def generate_funny_scene_prompt(
         STEP6_VIDEO_PROMPT=step6_video_prompt,
         GAG_HINT=gag_hint.strip() or "(none - pick the gag yourself)",
     )
-    return await _chat(
+    raw = await _chat(
         prompts.GPT_FUNNY_SCENE_SYSTEM,
         user,
         temperature=0.95,
-        max_tokens=700,
+        max_tokens=600,
     )
+    return _enforce_seedance_char_limit(raw, "funny_scene")
 
 
 # ---------------------------------------------------------------------------
@@ -331,12 +369,18 @@ async def generate_narration(
     distinctive_traits: str,
     step5: str,
     step6: str,
+    words_per_fusion: int | None = None,
 ) -> tuple[str, str]:
     """Gibt (narration_de, narration_en) zurueck.
 
     Die DE-Namen werden in der deutschen Narration verwendet, EN-Namen
     in der englischen. FUSION_NAME ist identisch in beiden Sprachen.
+
+    words_per_fusion ueberschreibt den Default-Word-Budget im System-Prompt
+    (sonst aus settings.narration_words_per_fusion).
     """
+    if words_per_fusion is None:
+        words_per_fusion = settings.narration_words_per_fusion
     user = prompts.GPT_NARRATION_USER_TEMPLATE.format(
         POKEMON_A=pokemon_a,
         POKEMON_B=pokemon_b,
@@ -347,6 +391,7 @@ async def generate_narration(
         STEP6=step6,
         OPENER_DE=prompts.NARRATION_OPENER_DE,
         OPENER_EN=prompts.NARRATION_OPENER_EN,
+        WORDS_PER_FUSION=int(words_per_fusion),
     )
     raw = await _chat(
         prompts.GPT_NARRATION_SYSTEM,
@@ -368,14 +413,22 @@ async def generate_narration(
     return de, en
 
 
-async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, str]:
+async def generate_batch_narration(
+    fusions: list[dict[str, str]],
+    words_per_fusion: int | None = None,
+) -> tuple[str, str]:
     """Generiert EINE durchgehende DE+EN Narration fuer eine Liste von Fusionen.
 
     Jede Fusion im Input dict muss haben:
       pokemon_a, pokemon_b, distinctive_traits, step5_transformation, step6_showcase
+
+    words_per_fusion ueberschreibt den Default-Word-Budget im System-Prompt
+    (sonst aus settings.narration_words_per_fusion).
     """
     if not fusions:
         raise ValueError("Keine Fusionen fuer Batch-Narration uebergeben.")
+    if words_per_fusion is None:
+        words_per_fusion = settings.narration_words_per_fusion
     parts: list[str] = []
     for i, f in enumerate(fusions, start=1):
         en_pair = f"{f.get('pokemon_a', '?')} + {f.get('pokemon_b', '?')}"
@@ -395,6 +448,7 @@ async def generate_batch_narration(fusions: list[dict[str, str]]) -> tuple[str, 
         FUSIONS_BLOCK=fusions_block,
         OPENER_DE=prompts.NARRATION_OPENER_DE,
         OPENER_EN=prompts.NARRATION_OPENER_EN,
+        WORDS_PER_FUSION=int(words_per_fusion),
     )
     raw = await _chat(
         prompts.GPT_BATCH_NARRATION_SYSTEM,

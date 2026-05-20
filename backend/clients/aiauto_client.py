@@ -1,24 +1,34 @@
 """
 AI-Auto Client fuer Image-Generation mit Nano Banana Pro.
 
-Robust gegen 524/Timeout: AI-Auto haelt bei einigen Modellen die HTTP-
-Verbindung offen waehrend das Bild rendert; Cloudflare vor ihrem Origin
-kappt bei 120s mit Cloudflare-524. Der Job laeuft trotzdem durch, die
-Generation erscheint in /generations. Wenn POST /generate timeouted,
-suchen wir die Generation via GET /generations ueber Prompt + Timestamp
-und pollen dann /generations/{id}/image wie im Normalfall.
+Zwei Namespaces, beide noetig:
+  - POST https://api.ai-auto.io/api/v2/generate
+      Erzeugt eine neue Generation. v2 ist die einzige API-Surface die
+      nano_banana_pro / kling_* / seedance_2 akzeptiert.
+      WICHTIG: v2-POST ist SYNCHRON - die Connection bleibt offen bis das
+      Bild fertig gerendert ist. Bei nano_banana_pro dauert das oft 3-5min;
+      Cloudflare vor AI-Auto's Origin cappt bei 120s mit 524. Wir muessen
+      also IMMER auf den Listing-Fallback gehen.
 
-Basiert auf der offiziellen AI-Auto SaaS-Doc:
-  Base URL: https://api.ai-auto.io/api/saas
-  POST /generate
-  GET  /generations                    - listing
-  GET  /generations/{id}/image         - fertiges Bild (JPEG)
-  GET  /generations/{id}               - Status (optional)
+  - GET https://api.ai-auto.io/api/saas/generations/...
+      Listing / Status / Download. Funktioniert mit API-Key UND zeigt auch
+      v2-Generationen (saas + v2 teilen sich die selbe DB).
+      /api/v2/generations* ist Dashboard-only (403 mit "Dashboard login
+      required") - fuer API-Clients nicht nutzbar.
+
+Flow:
+  1. POST v2/generate (Timeout absichtlich unter Cloudflare's 120s gesetzt
+     damit wir nicht auf das 524 warten muessen)
+  2. Listing-Fallback: GET saas/generations/images?limit=100 nach Prompt+Ts
+  3. Status-Polling: GET saas/generations/{id} bis status=completed
+  4. Download: video_url aus dem Status-Response (saas-URL) ODER
+     GET saas/generations/{id}/download als Fallback
 """
 from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import logging
 import mimetypes
 import time
@@ -27,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from PIL import Image
 
 from backend.config import (
     AIAUTO_LIST_MATCH_ATTEMPTS,
@@ -38,12 +49,48 @@ from backend.config import (
     AIAUTO_VIDEO_POLL_TIMEOUT_S,
     DEFAULT_ASPECT_RATIO,
     MAX_PARALLEL_AIAUTO_CALLS,
+    MAX_PARALLEL_SEEDANCE_VIDEO_CALLS,
     settings,
 )
 
 log = logging.getLogger("fusion-auto.aiauto")
 
+# v2 ist die einzige POST-Surface die neue Modelle akzeptiert. Hardcoded
+# weil eng an die Request-Shape gekoppelt - settings.aiauto_base_url ist
+# fuer Listing/Status (saas).
+_GENERATE_URL = "https://api.ai-auto.io/api/v2/generate"
+
 _SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_AIAUTO_CALLS)
+# Seedance v2 erlaubt pro Account nur 1 gleichzeitige Video-Generation -
+# separate Semaphore damit Image-Pipeline weiterhin parallel laufen darf.
+_VIDEO_SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_SEEDANCE_VIDEO_CALLS)
+
+# Seedance v2 lehnt Prompts ueber 2000 Zeichen ab. GPT-Generation hat den
+# Cap schon via System-Prompt + _enforce_seedance_char_limit eingebaut,
+# aber Prompt-Overrides (User-Edits / Regenerate) koennen drueber sein -
+# deshalb hier am API-Boundary nochmal final clippen.
+SEEDANCE_PROMPT_MAX_CHARS = 2000
+
+
+def _clip_prompt_for_seedance(prompt: str) -> str:
+    text = (prompt or "").strip()
+    if len(text) <= SEEDANCE_PROMPT_MAX_CHARS:
+        return text
+    cutoff = -1
+    for sep in (". ", "! ", "? ", ".", "!", "?"):
+        idx = text.rfind(sep, 0, SEEDANCE_PROMPT_MAX_CHARS)
+        if idx > cutoff:
+            cutoff = idx + len(sep.rstrip())
+    if cutoff < SEEDANCE_PROMPT_MAX_CHARS // 2:
+        cutoff = text.rfind(" ", 0, SEEDANCE_PROMPT_MAX_CHARS)
+        if cutoff < 0:
+            cutoff = SEEDANCE_PROMPT_MAX_CHARS
+    truncated = text[:cutoff].rstrip()
+    log.warning(
+        "Seedance v2 prompt was %d chars (over %d) - truncated to %d chars at sentence boundary",
+        len(text), SEEDANCE_PROMPT_MAX_CHARS, len(truncated),
+    )
+    return truncated
 
 # Claimed-Set verhindert dass mehrere parallele Fallback-Calls
 # (z.B. die 5 identischen Step-4-Variant-Prompts) alle dieselbe
@@ -56,10 +103,15 @@ class AIAutoError(RuntimeError):
     pass
 
 
+class AIAutoPermanentError(AIAutoError):
+    """Nicht-retrybar (Auth, fehlender API-Key). Bricht Retry-Loops ab."""
+    pass
+
+
 def _headers() -> dict[str, str]:
     key = settings.aiauto_api_key
     if not key:
-        raise AIAutoError(
+        raise AIAutoPermanentError(
             "AIAUTO_API_KEY ist nicht gesetzt. Im Dashboard unter Settings eintragen."
         )
     # AI-Auto akzeptiert beide Auth-Header. Image-API nutzt 'Authorization: Bearer',
@@ -72,12 +124,104 @@ def _headers() -> dict[str, str]:
     }
 
 
+# AI-Auto cappt reference_asset / i2v_reference_images bei 200_000 chars
+# pro Eintrag. Ein 4k PNG (10+ MB raw -> 13+ MB base64) sprengt das massiv.
+# Mit etwas Sicherheitsabstand gegen den Cap.
+_REF_MAX_B64_CHARS = 195_000
+
+
 def _encode_reference_as_data_url(image_path: Path) -> str:
-    mime, _ = mimetypes.guess_type(str(image_path))
-    if not mime or not mime.startswith("image/"):
-        mime = "image/png"
-    b64 = base64.b64encode(image_path.read_bytes()).decode("ascii")
-    return f"data:{mime};base64,{b64}"
+    """Encodet ein Referenz-Bild als Data-URL fuer AI-Auto.
+
+    AI-Auto hat ein hartes 200_000-Zeichen-Limit pro Referenz. Grosse
+    Source-Bilder (4k PNG) muessen runter-resized/recomprimiert werden bis
+    sie passen. Wir versuchen:
+      1) Raw Bytes des Files -> wenn klein genug, original Format behalten
+      2) Progressives JPEG-Recompress mit fallenden Aufloesungen + Qualities
+    """
+    raw_bytes = image_path.read_bytes()
+    raw_b64 = base64.b64encode(raw_bytes).decode("ascii")
+    if len(raw_b64) <= _REF_MAX_B64_CHARS:
+        mime, _ = mimetypes.guess_type(str(image_path))
+        if not mime or not mime.startswith("image/"):
+            mime = "image/png"
+        return f"data:{mime};base64,{raw_b64}"
+
+    # Zu gross - via PIL re-encoden. JPEG weil PNG bei grossen Bildern
+    # selten unter den Cap kommt (lossless).
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        img.load()
+    except Exception as exc:
+        raise AIAutoError(
+            f"AI-Auto reference image konnte nicht geladen werden ({image_path.name}): {exc}"
+        ) from exc
+
+    # JPEG braucht RGB. PNG-Transparenz auf schwarzem Hintergrund flatten -
+    # bewusst kein Weiss, weil schwarze Hintergrundbilder (z.B. unsere
+    # signature_background.png) sonst Halos bekommen.
+    if img.mode == "P":
+        img = img.convert("RGBA")
+    if img.mode in ("RGBA", "LA"):
+        alpha = img.split()[-1]
+        bg = Image.new("RGB", img.size, (0, 0, 0))
+        bg.paste(img.convert("RGB"), mask=alpha)
+        img = bg
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    original_w, original_h = img.size
+
+    # Progressiv: erst grosse Aufloesung mit hoher Quality versuchen, dann
+    # immer kleiner. Reihenfolge so dass Qualitaet so lange wie moeglich
+    # erhalten bleibt.
+    plans: list[tuple[int, int]] = [
+        (max_side, q)
+        for max_side in (1536, 1280, 1024, 768, 512)
+        for q in (88, 80, 70, 60)
+    ]
+
+    last_attempt_info = ""
+    for max_side, quality in plans:
+        w, h = img.size
+        if max(w, h) > max_side:
+            scale = max_side / max(w, h)
+            scaled = img.resize(
+                (max(1, int(w * scale)), max(1, int(h * scale))),
+                Image.LANCZOS,
+            )
+        else:
+            scaled = img
+        buf = io.BytesIO()
+        scaled.save(buf, format="JPEG", quality=quality, optimize=True)
+        jpg_bytes = buf.getvalue()
+        b64 = base64.b64encode(jpg_bytes).decode("ascii")
+        last_attempt_info = (
+            f"{scaled.size[0]}x{scaled.size[1]} q={quality} -> "
+            f"{len(jpg_bytes)} bytes / {len(b64)} b64 chars"
+        )
+        if len(b64) <= _REF_MAX_B64_CHARS:
+            log.info(
+                "AI-Auto ref %s (orig %dx%d %d bytes) re-encoded as JPEG %s",
+                image_path.name, original_w, original_h, len(raw_bytes),
+                last_attempt_info,
+            )
+            return f"data:image/jpeg;base64,{b64}"
+
+    # Letzter Ausweg: thumbnail. Liefert wenig Detail aber API akzeptiert.
+    fallback = img.copy()
+    fallback.thumbnail((384, 384), Image.LANCZOS)
+    buf = io.BytesIO()
+    fallback.save(buf, format="JPEG", quality=55, optimize=True)
+    jpg_bytes = buf.getvalue()
+    b64 = base64.b64encode(jpg_bytes).decode("ascii")
+    log.warning(
+        "AI-Auto ref %s konnte nicht in regulaere Plans (%s) gefittet werden - "
+        "Fallback auf %dx%d q=55 -> %d b64 chars",
+        image_path.name, last_attempt_info,
+        fallback.size[0], fallback.size[1], len(b64),
+    )
+    return f"data:image/jpeg;base64,{b64}"
 
 
 def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
@@ -91,6 +235,75 @@ def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
         if b64:
             return base64.b64decode(b64)
     return None
+
+
+# Sammelt alle plausiblen URL-Felder aus einem v2 Status-/POST-Response.
+# AI-Auto liefert je nach Modell unterschiedliche Shapes (output_url,
+# result_url, assets[].url, generation.url, ...). Wir scannen breit damit
+# wir nicht bei jeder Schema-Aenderung haengen.
+_IMAGE_URL_KEYS = (
+    # saas-spezifisch: `video_url` ist trotz Namen auch fuer Bilder die
+    # Download-URL. `thumb_url` als Notfall-Fallback (kleinere Aufloesung).
+    "video_url", "thumb_url",
+    "image_url", "output_url", "result_url", "asset_url",
+    "download_url", "url", "uri", "src",
+)
+_IMAGE_URL_LIST_KEYS = ("assets", "outputs", "results", "images", "files")
+
+
+def _extract_image_urls_from_response(payload: dict[str, Any]) -> list[str]:
+    """Findet alle HTTP(S)-URLs in einer Generation-Response."""
+    urls: list[str] = []
+
+    def _maybe_add(val: Any) -> None:
+        if isinstance(val, str) and val.startswith(("http://", "https://")):
+            if val not in urls:
+                urls.append(val)
+
+    def _scan(node: Any, depth: int = 0) -> None:
+        if depth > 4:
+            return
+        if isinstance(node, dict):
+            for k in _IMAGE_URL_KEYS:
+                _maybe_add(node.get(k))
+            for k in _IMAGE_URL_LIST_KEYS:
+                v = node.get(k)
+                if isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, str):
+                            _maybe_add(item)
+                        else:
+                            _scan(item, depth + 1)
+            # generischer Sweep ueber alle Felder, falls AI-Auto andere Key-
+            # Namen verwendet als oben gelistet
+            for v in node.values():
+                if isinstance(v, str):
+                    _maybe_add(v)
+                elif isinstance(v, (dict, list)):
+                    _scan(v, depth + 1)
+        elif isinstance(node, list):
+            for item in node:
+                _scan(item, depth + 1)
+
+    _scan(payload)
+    return urls
+
+
+_COMPLETED_TOKENS = ("complete", "succeed", "finish", "ready", "done", "available")
+_FAILED_TOKENS = ("fail", "error", "cancel", "rejected", "timeout")
+
+
+def _status_class(status: str) -> str:
+    """Kategorisiert einen v2-Status. Akzeptiert auch Variationen wie
+    `image_completed` oder `finished` ohne hardcoded Liste."""
+    s = (status or "").lower().strip()
+    if not s:
+        return "unknown"
+    if any(tok in s for tok in _FAILED_TOKENS):
+        return "failed"
+    if any(tok in s for tok in _COMPLETED_TOKENS):
+        return "completed"
+    return "pending"
 
 
 def _parse_iso_ts(raw: str) -> float | None:
@@ -121,7 +334,7 @@ async def _find_recent_generation(
     prompt: str,
     submit_ts: float,
 ) -> str | None:
-    """Sucht die frisch gestartete Generation im User-Listing."""
+    """Sucht die frisch gestartete Generation im User-Listing (saas)."""
     list_urls = [
         f"{settings.aiauto_base_url}/generations/images?limit=100",
         f"{settings.aiauto_base_url}/generations?limit=100",
@@ -211,6 +424,12 @@ async def _find_recent_generation(
                     for g in items:
                         if not isinstance(g, dict):
                             continue
+                        # v2-Listings haben 'type' (image/video). Alte saas-Listings
+                        # 'mode' (images/shorts). Beides als Image-Match akzeptieren,
+                        # aber Video-Generationen mit gleichem Prompt-Prefix ausschliessen.
+                        gtype = (g.get("type") or g.get("mode") or "").lower()
+                        if gtype and gtype not in ("image", "images"):
+                            continue
                         g_prompt_norm = _normalize(g.get("prompt") or "")
                         if not g_prompt_norm:
                             continue
@@ -262,51 +481,157 @@ async def _find_recent_generation(
     )
 
 
+async def _try_download_image(client: httpx.AsyncClient, url: str) -> bytes | None:
+    """Versucht eine URL und gibt image-bytes zurueck wenn content-type stimmt."""
+    try:
+        dl = await client.get(url, headers=_headers(), follow_redirects=True)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("AI-Auto fetch %s failed: %s", url, exc)
+        return None
+    if dl.status_code != 200:
+        return None
+    ct = (dl.headers.get("content-type") or "").lower()
+    if ct.startswith("image/"):
+        return dl.content
+    # Manche CDNs liefern application/octet-stream - akzeptieren wenn
+    # die Bytes nach einem Bild aussehen (PNG/JPEG/WebP magic).
+    body = dl.content
+    if body[:8] == b"\x89PNG\r\n\x1a\n" or body[:3] == b"\xff\xd8\xff" or body[:4] == b"RIFF":
+        return body
+    return None
+
+
+def _build_download_candidates(
+    base: str, generation_id: str, g: dict[str, Any]
+) -> list[tuple[str, str]]:
+    """Liefert (Label, URL) in der Reihenfolge die wir versuchen. video_url
+    aus dem saas-Response ist die kanonische Full-Res-Quelle - thumb_url
+    bewusst NICHT, weil das nur den Vorschau-Thumb liefert."""
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def _add(label: str, val: Any) -> None:
+        if not isinstance(val, str):
+            return
+        if not val.startswith(("http://", "https://")):
+            return
+        if val in seen:
+            return
+        seen.add(val)
+        out.append((label, val))
+
+    # saas-spezifisch: explizite Felder zuerst (Full-Res)
+    _add("response.video_url", g.get("video_url"))
+    _add("response.image_url", g.get("image_url"))
+    _add("response.output_url", g.get("output_url"))
+    _add("response.result_url", g.get("result_url"))
+    _add("response.download_url", g.get("download_url"))
+    # Konstruierte Fallbacks (sollten dieselbe URL sein wie video_url)
+    _add("constructed /download", f"{base}/generations/{generation_id}/download")
+    _add("constructed /image", f"{base}/generations/{generation_id}/image")
+    # Thumb als ALLERLETZTE Notbremse - liefert Low-Res aber besser als nichts
+    _add("response.thumb_url", g.get("thumb_url"))
+    return out
+
+
 async def _fetch_image_with_polling(
     client: httpx.AsyncClient, generation_id: str
 ) -> bytes:
     base = settings.aiauto_base_url
-    image_url = f"{base}/generations/{generation_id}/image"
     status_url = f"{base}/generations/{generation_id}"
 
     deadline = asyncio.get_event_loop().time() + AIAUTO_POLL_TIMEOUT_S
+    start_ts = asyncio.get_event_loop().time()
     last_status: str | None = None
+    logged_first_response = False
+    last_pending_log = 0.0
 
     while True:
-        if asyncio.get_event_loop().time() > deadline:
+        now = asyncio.get_event_loop().time()
+        if now > deadline:
             raise AIAutoError(
                 f"AI-Auto generation {generation_id} timed out "
-                f"after {AIAUTO_POLL_TIMEOUT_S}s (last status: {last_status})"
+                f"after {AIAUTO_POLL_TIMEOUT_S}s (last status: {last_status!r})"
             )
 
         status_resp = await client.get(status_url, headers=_headers())
+        if status_resp.status_code in (401, 403):
+            raise AIAutoPermanentError(
+                f"AI-Auto auth error {status_resp.status_code} on status: "
+                f"{status_resp.text[:200]}"
+            )
         if status_resp.status_code == 200:
             try:
                 data = status_resp.json()
             except Exception:
                 data = {}
+
+            if not logged_first_response:
+                logged_first_response = True
+                preview = status_resp.text[:600].replace("\n", " ")
+                log.info(
+                    "AI-Auto status[%s] first response: %s",
+                    generation_id, preview,
+                )
+
             g = data.get("generation") if isinstance(data.get("generation"), dict) else data
             if isinstance(g, dict):
-                last_status = str(g.get("status", "")).lower()
-                if last_status in ("failed", "error", "cancelled"):
+                last_status = str(g.get("status") or g.get("state") or "").lower()
+                klass = _status_class(last_status)
+                if klass == "failed":
                     raise AIAutoError(
-                        f"AI-Auto generation {generation_id} failed: "
+                        f"AI-Auto generation {generation_id} failed "
+                        f"(status={last_status!r}): "
                         f"{g.get('error') or g.get('error_message') or g}"
                     )
+
+                # Falls die Response Bytes inline mitliefert (b64)
                 sync_bytes = _sync_image_bytes_from_response(data)
                 if sync_bytes:
+                    log.info(
+                        "AI-Auto[%s] -> %d bytes from response b64",
+                        generation_id, len(sync_bytes),
+                    )
                     return sync_bytes
 
-        img_resp = await client.get(image_url, headers=_headers())
-        if img_resp.status_code == 200:
-            ct = img_resp.headers.get("content-type", "")
-            if ct.startswith("image/"):
-                return img_resp.content
-        elif img_resp.status_code in (401, 403):
-            raise AIAutoError(
-                f"AI-Auto auth error {img_resp.status_code} on image fetch: "
-                f"{img_resp.text[:200]}"
-            )
+                if klass == "completed":
+                    candidates = _build_download_candidates(base, generation_id, g)
+                    for label, url in candidates:
+                        bytes_ = await _try_download_image(client, url)
+                        if bytes_:
+                            log.info(
+                                "AI-Auto[%s] downloaded %d bytes via %s (%s)",
+                                generation_id, len(bytes_), label, url,
+                            )
+                            return bytes_
+                    elapsed = now - start_ts
+                    if elapsed > 30 and (now - last_pending_log) > 30:
+                        last_pending_log = now
+                        log.warning(
+                            "AI-Auto[%s] status=completed seit %.0fs aber kein "
+                            "Download erfolgreich. URLs versucht: %s. "
+                            "Polle weiter (CDN-Propagation?).",
+                            generation_id, elapsed,
+                            [u for _, u in candidates],
+                        )
+                elif klass == "pending":
+                    elapsed = now - start_ts
+                    if elapsed > 60 and (now - last_pending_log) > 30:
+                        last_pending_log = now
+                        log.info(
+                            "AI-Auto[%s] still pending (status=%r, %.0fs elapsed)",
+                            generation_id, last_status, elapsed,
+                        )
+                elif klass == "unknown":
+                    elapsed = now - start_ts
+                    if elapsed > 30 and (now - last_pending_log) > 30:
+                        last_pending_log = now
+                        log.warning(
+                            "AI-Auto[%s] unknown status=%r seit %.0fs - "
+                            "Response-Preview: %s",
+                            generation_id, last_status, elapsed,
+                            status_resp.text[:300].replace("\n", " "),
+                        )
 
         await asyncio.sleep(AIAUTO_POLL_INTERVAL_S)
 
@@ -335,7 +660,7 @@ async def _post_generate(
         )
         return None, None
     if resp.status_code in (401, 403):
-        raise AIAutoError(
+        raise AIAutoPermanentError(
             f"AI-Auto Auth-Error {resp.status_code} beim Image-Generate. "
             f"Der API-Key wurde abgelehnt. Pruefe in den Settings ob der "
             f"AIAUTO_API_KEY noch gueltig ist (ggf. in https://ai-auto.io "
@@ -364,15 +689,31 @@ async def _post_generate(
     return None, str(generation_id)
 
 
-async def generate_image(
+async def _generate_image_once(
     prompt: str,
     output_path: Path,
     reference_images: list[Path] | None = None,
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     resolution: str | None = None,
+    existing_generation_id: str | None = None,
+    existing_submit_ts: float | None = None,
+    gen_id_holder: list[str | None] | None = None,
+    submit_ts_holder: list[float | None] | None = None,
 ) -> Path:
-    """Generiert ein Bild via AI-Auto Nano Banana Pro und schreibt es nach
-    output_path (PNG oder JPEG je nach Response)."""
+    """Ein einzelner Generation-Versuch. Retry passiert in generate_image().
+
+    Anti-Duplicate-Logic (sehr wichtig fuer Credit-Verbrauch):
+      - existing_generation_id: schon eine ID? -> skip POST + listing,
+        direkt zum Polling.
+      - existing_submit_ts: POST war schon, aber Listing hatte die Gen
+        noch nicht? -> skip POST, nur erneut listing-fallback mit dem
+        ORIGINAL-submit_ts (NICHT mit time.time() - das wuerde unsere
+        gerade erzeugte Generation als "zu alt" rausfiltern).
+      - sonst: frischer POST.
+    `gen_id_holder` / `submit_ts_holder`: mutable Listen[1], in die wir
+    den State schreiben sobald wir ihn kennen. Der Caller (generate_image)
+    reicht sie beim Retry weiter.
+    """
     refs_data_urls = [
         _encode_reference_as_data_url(p)
         for p in (reference_images or [])
@@ -383,27 +724,72 @@ async def generate_image(
             f"AI-Auto erlaubt maximal 10 Reference-Images, bekommen: {len(refs_data_urls)}"
         )
 
-    body: dict[str, Any] = {
-        "prompt": prompt,
-        "mode": "images",
-        "model": "standard",
-        "image_model": settings.aiauto_image_model,
-        "aspect_ratio": aspect_ratio,
-        "resolution": resolution or settings.aiauto_image_resolution,
-    }
-    if refs_data_urls:
-        body["i2v_reference_images"] = refs_data_urls
-
-    url = f"{settings.aiauto_base_url}/generate"
-    submit_ts = time.time()
+    # POST IMMER an v2 (saas-POST kennt die neuen Modelle nicht).
+    # Listing/Status/Download laufen weiter via settings.aiauto_base_url (saas).
+    url = _GENERATE_URL
 
     async with _SEMAPHORE:
         async with httpx.AsyncClient(timeout=AIAUTO_REQUEST_TIMEOUT_S) as client:
-            sync_bytes, generation_id = await _post_generate(client, url, body)
+            if existing_generation_id:
+                log.info(
+                    "AI-Auto resume polling existing generation %s "
+                    "(kein neuer POST - schont Credits)",
+                    existing_generation_id,
+                )
+                generation_id = existing_generation_id
+                sync_bytes = None
+            elif existing_submit_ts is not None:
+                # POST war schon erfolgreich (oder 524'd), aber listing-fallback
+                # hatte die Generation beim letzten Versuch noch nicht gefunden.
+                # KEIN neuer POST - nur listing erneut probieren mit dem ORIGINAL
+                # submit_ts, damit der Timestamp-Filter unsere echte Gen nicht
+                # als "zu alt" rausschmeisst.
+                log.info(
+                    "AI-Auto retry listing-fallback (kein neuer POST) "
+                    "mit original submit_ts=%.0f age=%.0fs",
+                    existing_submit_ts, time.time() - existing_submit_ts,
+                )
+                generation_id = await _find_recent_generation(
+                    client, prompt, existing_submit_ts,
+                )
+                sync_bytes = None
+            else:
+                body: dict[str, Any] = {
+                    "type": "image",
+                    "model": settings.aiauto_image_model,
+                    "prompt": prompt,
+                    "ratio": aspect_ratio,
+                    "quality": resolution or settings.aiauto_image_resolution,
+                    "count": 1,
+                }
+                if refs_data_urls:
+                    body["use_image_reference"] = True
+                    body["i2v_reference_images"] = refs_data_urls
 
-            if sync_bytes is None and generation_id is None:
-                # POST timed out / 524 - listing-fallback (raised AIAutoError bei Miss)
-                generation_id = await _find_recent_generation(client, prompt, submit_ts)
+                submit_ts = time.time()
+                sync_bytes, generation_id = await _post_generate(client, url, body)
+
+                if sync_bytes is None and generation_id is None:
+                    # POST timed out / 524 -> Generation laeuft serverseitig
+                    # weiter. submit_ts JETZT persistieren (NICHT vorher), damit
+                    # ein nachfolgender 4xx-Reject NICHT versehentlich den
+                    # retry-skip-POST-Pfad triggert. Listing-fallback raises
+                    # bei Miss, der Retry uebernimmt dann via existing_submit_ts.
+                    if submit_ts_holder is not None:
+                        submit_ts_holder[0] = submit_ts
+                    generation_id = await _find_recent_generation(
+                        client, prompt, submit_ts,
+                    )
+                elif generation_id is not None and submit_ts_holder is not None:
+                    # Fast-path: POST hat direkt eine gen_id geliefert (selten,
+                    # nur bei wirklich schnellen Models). submit_ts trotzdem
+                    # persistieren als zusaetzlicher Schutz.
+                    submit_ts_holder[0] = submit_ts
+
+            # gen_id merken bevor wir pollen, damit ein spaeterer Fehler
+            # den outer retry NICHT erneut listet/POSTet.
+            if gen_id_holder is not None and generation_id:
+                gen_id_holder[0] = generation_id
 
             if sync_bytes is None:
                 assert generation_id is not None
@@ -412,6 +798,58 @@ async def generate_image(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(sync_bytes)
         return output_path
+
+
+async def generate_image(
+    prompt: str,
+    output_path: Path,
+    reference_images: list[Path] | None = None,
+    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+    resolution: str | None = None,
+) -> Path:
+    """Generiert ein Bild via AI-Auto. Retried unendlich bei transienten
+    Fehlern (Timeout, 5xx, "failed" status, listing-miss). Permanente Fehler
+    (Auth, fehlender API-Key) brechen sofort ab.
+
+    WICHTIG fuer Credit-Verbrauch: sobald wir einmal gePOSTet haben (und
+    damit AI-Auto-seitig eine Generation erzeugt wurde), bleibt der
+    submit_ts ueber alle Retries hinweg derselbe. Selbst wenn der Listing-
+    Fallback beim ersten Versuch die Gen nicht findet, retried der Loop
+    nur das Listing - er macht KEINEN neuen POST. So entstehen pro
+    generate_image()-Call maximal 1 AI-Auto-Generation, egal wie oft
+    intern retried wird.
+    """
+    attempt = 0
+    backoff = 5.0
+    max_backoff = 60.0
+    prompt_hint = (prompt or "")[:60]
+    gen_id_holder: list[str | None] = [None]
+    submit_ts_holder: list[float | None] = [None]
+    while True:
+        attempt += 1
+        try:
+            return await _generate_image_once(
+                prompt, output_path,
+                reference_images=reference_images,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                existing_generation_id=gen_id_holder[0],
+                existing_submit_ts=submit_ts_holder[0],
+                gen_id_holder=gen_id_holder,
+                submit_ts_holder=submit_ts_holder,
+            )
+        except AIAutoPermanentError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "AI-Auto generate_image attempt %d failed (%s: %s) - retry in %.0fs "
+                "[prompt-prefix=%r out=%s gen_id=%s submit_ts=%s]",
+                attempt, type(exc).__name__, exc, backoff,
+                prompt_hint, output_path.name,
+                gen_id_holder[0], submit_ts_holder[0],
+            )
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, max_backoff)
 
 
 # ---------------------------------------------------------------------------
@@ -425,9 +863,9 @@ async def _find_recent_video_generation(
     submit_ts: float,
 ) -> str | None:
     """Findet die frisch gestartete Video-Generation im Listing (analog
-    zu image-listing, aber mode='shorts' / model='seedance_2')."""
+    zu image-listing, aber gegen den Seedance v2-Endpoint)."""
     list_urls = [
-        f"{settings.aiauto_base_url}/generations?limit=100",
+        f"{settings.aiauto_video_base_url}/generations?limit=100",
     ]
     prompt_prefix = (prompt or "")[:220].strip()
     if not prompt_prefix:
@@ -455,8 +893,11 @@ async def _find_recent_video_generation(
                     for g in items:
                         if not isinstance(g, dict):
                             continue
-                        mode = (g.get("mode") or "").lower()
-                        if mode and mode not in ("shorts", "longform"):
+                        # v2 nutzt 'type' (video/image) statt 'mode' (shorts/images).
+                        # Beides tolerieren - alte saas-Listings haben 'mode',
+                        # neue v2-Listings haben 'type'.
+                        gtype = (g.get("type") or g.get("mode") or "").lower()
+                        if gtype and gtype not in ("video", "shorts", "longform"):
                             continue
                         g_prompt = _normalize(g.get("prompt") or "")
                         if not g_prompt:
@@ -491,8 +932,9 @@ async def _find_recent_video_generation(
 async def _poll_and_download_video(
     client: httpx.AsyncClient, generation_id: str
 ) -> bytes:
-    """Pollt /generations/{id} bis status=completed, dann GET /download als mp4."""
-    base = settings.aiauto_base_url
+    """Pollt /generations/{id} bis status=completed, dann GET /download als mp4.
+    Nutzt den Seedance v2-Endpoint."""
+    base = settings.aiauto_video_base_url
     status_url = f"{base}/generations/{generation_id}"
     download_url = f"{base}/generations/{generation_id}/download"
 
@@ -544,24 +986,34 @@ async def generate_video(
     reference_image: Path | None = None,
     reference_images: list[Path] | None = None,
     aspect_ratio: str = "9:16",
-    resolution: str = "720p",
-    seconds: int = 10,
-    model: str = "seedance_2",
+    resolution: str | None = None,
+    seconds: int | None = None,
+    model: str | None = None,
 ) -> Path:
-    """Generiert ein Seedance-2 Video via AI-Auto und schreibt es als mp4
-    nach output_path.
+    """Generiert ein Seedance-2 Video via AI-Auto v2-Endpoint und schreibt
+    es als mp4 nach output_path.
 
-    Refs werden als ingredients-mode I2V-Refs eingebunden (Data-URLs).
-    Entweder `reference_image` (single) ODER `reference_images` (multi,
-    z.B. fuer Start-Frame + End-Frame Morphs). `reference_images` hat
-    Vorrang wenn beide gesetzt sind."""
+    Refs werden als reference_asset (Data-URLs) eingebunden. Entweder
+    `reference_image` (single) ODER `reference_images` (multi, z.B. fuer
+    Start-Frame + End-Frame Morphs). `reference_images` hat Vorrang.
+
+    `resolution`, `seconds`, `model`: None -> Defaults aus Settings
+    (AIAUTO_VIDEO_QUALITY=4k, AIAUTO_VIDEO_DURATION=15, AIAUTO_VIDEO_MODEL).
+    """
+    quality = resolution or settings.aiauto_video_quality
+    duration = seconds if seconds is not None else settings.aiauto_video_duration
+    video_model = model or settings.aiauto_video_model
+    # Final-Clip am API-Boundary - faengt User-Edits / Overrides ab.
+    prompt = _clip_prompt_for_seedance(prompt)
+
     body: dict[str, Any] = {
+        "type": "video",
+        "model": video_model,
         "prompt": prompt,
-        "mode": "shorts",
-        "model": model,
-        "aspect_ratio": aspect_ratio,
-        "resolution": resolution,
-        "seconds": seconds,
+        "ratio": aspect_ratio,
+        "quality": quality,
+        "duration": duration,
+        "count": 1,
     }
     refs: list[Path] = []
     if reference_images:
@@ -569,13 +1021,21 @@ async def generate_video(
     elif reference_image and reference_image.exists():
         refs = [reference_image]
     if refs:
-        body["i2v_mode"] = "ingredients"
-        body["i2v_reference_images"] = [_encode_reference_as_data_url(p) for p in refs]
+        # v2 nutzt 'reference_asset' (single Data-URL fuer 1 Ref, Array
+        # fuer Multi-Ref / Ingredients-Mode). Falls die API nur Single-Ref
+        # akzeptiert, wird ein 400 zurueckkommen mit klarer Meldung.
+        encoded = [_encode_reference_as_data_url(p) for p in refs]
+        body["reference_asset"] = encoded[0] if len(encoded) == 1 else encoded
+        # Kling braucht das Flag explizit; Seedance ignoriert unbekannte Felder,
+        # also schadet das Setzen bei beiden Modellen nicht.
+        body["use_image_reference"] = True
 
-    url = f"{settings.aiauto_base_url}/generate"
+    # POST IMMER an v2 (saas-POST kennt seedance_2 / kling_* nicht).
+    # Listing/Status/Download laufen weiter via settings.aiauto_video_base_url (saas).
+    url = _GENERATE_URL
     submit_ts = time.time()
 
-    async with _SEMAPHORE:
+    async with _VIDEO_SEMAPHORE:
         async with httpx.AsyncClient(timeout=AIAUTO_REQUEST_TIMEOUT_S) as client:
             generation_id: str | None = None
             try:

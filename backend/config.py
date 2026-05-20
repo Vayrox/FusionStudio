@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,12 +16,34 @@ from dotenv import load_dotenv
 # Pfade
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# When packaged as a PyInstaller .exe (frozen), the launcher (fusion_studio.py)
+# sets FUSIONSTUDIO_DATA_DIR to the directory of the .exe (writable storage)
+# and FUSIONSTUDIO_BUNDLE_DIR to sys._MEIPASS (read-only bundle). In dev mode
+# both fall back to the repo root so the existing layout still works.
+_FROZEN = bool(getattr(sys, "frozen", False))
+_DATA_DIR_ENV = os.environ.get("FUSIONSTUDIO_DATA_DIR")
+_BUNDLE_DIR_ENV = os.environ.get("FUSIONSTUDIO_BUNDLE_DIR")
+
+if _DATA_DIR_ENV:
+    PROJECT_ROOT = Path(_DATA_DIR_ENV).resolve()
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+if _BUNDLE_DIR_ENV:
+    _BUNDLE_ROOT = Path(_BUNDLE_DIR_ENV).resolve()
+else:
+    _BUNDLE_ROOT = PROJECT_ROOT
+
+# Writable folders -> next to the .exe (or repo root in dev).
 ASSETS_DIR = PROJECT_ROOT / "assets"
 POKEMON_REFS_DIR = PROJECT_ROOT / "pokemon_refs"
 OUTPUT_DIR = PROJECT_ROOT / "output"
-DASHBOARD_DIR = PROJECT_ROOT / "dashboard"
 STATE_DIR = PROJECT_ROOT / ".state"
+
+# Read-only resources -> from the PyInstaller bundle when frozen,
+# otherwise from the repo. dashboard/index.html is shipped inside the bundle
+# (no per-user customization needed).
+DASHBOARD_DIR = _BUNDLE_ROOT / "dashboard"
 
 SIGNATURE_BACKGROUND_PATH = ASSETS_DIR / "signature_background.png"
 STATE_FILE = STATE_DIR / "jobs.json"
@@ -53,13 +76,15 @@ DEFAULT_ASPECT_RATIO = "9:16"
 
 MAX_PARALLEL_FUSIONS = 3
 MAX_PARALLEL_AIAUTO_CALLS = 4
+# Account-Tier-abhaengig - User wurde upgegradet, jetzt 6 parallele Video-Gens.
+MAX_PARALLEL_SEEDANCE_VIDEO_CALLS = 6
 
 AIAUTO_REQUEST_TIMEOUT_S = 300.0
 AIAUTO_POST_TIMEOUT_S = 100.0  # unter Cloudflare-524-Grenze (120s), dann Fallback via /generations
 AIAUTO_POLL_INTERVAL_S = 5.0
 AIAUTO_POLL_TIMEOUT_S = 900.0  # Nano Banana Pro kann lange brauchen
 AIAUTO_VIDEO_POLL_TIMEOUT_S = 1800.0  # Seedance-2 Video-Gen kann 15+min brauchen
-AIAUTO_LIST_MATCH_ATTEMPTS = 30
+AIAUTO_LIST_MATCH_ATTEMPTS = 60  # 60 * AIAUTO_POLL_INTERVAL_S = 300s
 # Toleranz RUECKWAERTS vom submit_ts - nur Generations die hoechstens so
 # viele Sekunden vor unserem POST angelegt wurden, gelten als Treffer.
 # Bewusst eng, damit ALTE Generations aus frueheren Runs nicht
@@ -79,15 +104,38 @@ load_dotenv(ENV_FILE)
 # Welche Keys vom Dashboard editierbar sind und ihre Defaults.
 EDITABLE_SETTINGS: dict[str, str] = {
     "AIAUTO_API_KEY": "",
+    # WICHTIG: zwei Namespaces bei AI-Auto:
+    #   - POST /api/v2/generate          - hier landen neue Modelle (nano_banana_pro,
+    #                                       kling_*, seedance_2). v2-POST ist SYNCHRON
+    #                                       (Connection bleibt offen bis fertig),
+    #                                       Cloudflare cappt aber bei 120s mit 524.
+    #   - GET  /api/saas/generations/*   - Listing/Status/Download. Funktioniert
+    #                                       mit API-Key. Zeigt auch v2-Generationen.
+    #                                       /api/v2/generations* erfordert Dashboard-
+    #                                       Login und ist fuer API-Clients nicht
+    #                                       nutzbar.
+    # AIAUTO_BASE_URL ist die saas-URL fuer Listing/Status/Download. Die
+    # v2-POST-URL ist im Client hardcoded weil sie zur Request-Shape gehoert.
     "AIAUTO_BASE_URL": "https://api.ai-auto.io/api/saas",
     "AIAUTO_IMAGE_MODEL": "nano_banana_pro",
     "AIAUTO_IMAGE_RESOLUTION": "2k",
+    "AIAUTO_VIDEO_BASE_URL": "https://api.ai-auto.io/api/saas",
+    "AIAUTO_VIDEO_MODEL": "seedance_2",
+    "AIAUTO_VIDEO_QUALITY": "4k",
+    "AIAUTO_VIDEO_DURATION": "15",
+    # Kling 2.5 Turbo Pro fuer Step-5 First-/Last-Frame Morph (alternativ zu
+    # Seedance 2). Kling unterstuetzt nur 720p/1080p (NICHT 4k) und nimmt
+    # Reference-Images ueber `reference_asset` + `use_image_reference: true`.
+    "AIAUTO_KLING_MODEL": "kling_2_5_turbo_pro",
+    "AIAUTO_KLING_QUALITY": "1080p",
+    "AIAUTO_KLING_DURATION": "5",
     "OPENAI_API_KEY": "",
     "OPENAI_MODEL": "gpt-4o",
     "GOOGLE_API_KEY": "",
     "GEMINI_VISION_MODEL": "gemini-2.5-flash",
     "VISION_PROVIDER": "openai",  # 'openai' | 'gemini'
     "STEP4_DESIGN_MODE": "blend",
+    "NARRATION_WORDS_PER_FUSION": "18",
 }
 
 # Welche davon sind Secrets (im UI maskiert, nie im Klartext zurueckgegeben).
@@ -120,6 +168,42 @@ class Settings:
         return self._get("AIAUTO_IMAGE_RESOLUTION")
 
     @property
+    def aiauto_video_base_url(self) -> str:
+        return self._get("AIAUTO_VIDEO_BASE_URL").rstrip("/")
+
+    @property
+    def aiauto_video_model(self) -> str:
+        return self._get("AIAUTO_VIDEO_MODEL") or "seedance_2"
+
+    @property
+    def aiauto_video_quality(self) -> str:
+        return self._get("AIAUTO_VIDEO_QUALITY") or "4k"
+
+    @property
+    def aiauto_video_duration(self) -> int:
+        raw = self._get("AIAUTO_VIDEO_DURATION") or "15"
+        try:
+            return int(raw)
+        except ValueError:
+            return 15
+
+    @property
+    def aiauto_kling_model(self) -> str:
+        return self._get("AIAUTO_KLING_MODEL") or "kling_2_5_turbo_pro"
+
+    @property
+    def aiauto_kling_quality(self) -> str:
+        return self._get("AIAUTO_KLING_QUALITY") or "1080p"
+
+    @property
+    def aiauto_kling_duration(self) -> int:
+        raw = self._get("AIAUTO_KLING_DURATION") or "5"
+        try:
+            return int(raw)
+        except ValueError:
+            return 5
+
+    @property
     def openai_api_key(self) -> str:
         return self._get("OPENAI_API_KEY")
 
@@ -149,6 +233,18 @@ class Settings:
         nur Silhouette inheritance)."""
         v = (self._get("STEP4_DESIGN_MODE") or "blend").lower().strip()
         return v if v in ("blend", "unique") else "blend"
+
+    @property
+    def narration_words_per_fusion(self) -> int:
+        """Ziel-Wortzahl pro Fusion-Beschreibung in der Narration.
+        Default 18 (was bisher hart in den Prompts stand). Erlaubt 5-60.
+        Wirkt sowohl auf Single- als auch auf Batch-Narration."""
+        raw = self._get("NARRATION_WORDS_PER_FUSION") or "18"
+        try:
+            n = int(raw)
+        except ValueError:
+            return 18
+        return max(5, min(60, n))
 
     # Laufzeit-Support
 

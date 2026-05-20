@@ -45,9 +45,22 @@ STEP2_REALISTIC_SINGLE = (
 # ---------------------------------------------------------------------------
 
 STEP3_START_FRAME = (
-    "I want the two Pokemon in a neutral, relaxed pose, side by side, slightly "
-    "turned toward each other - but not in profile to the camera - in a background "
-    "identical to reference 1. Combat stance for both. {SIZE_HINT}"
+    "Create an image showing exactly TWO different Pokemon side by side: "
+    "one {POKEMON_A} (shown in reference 2) AND one {POKEMON_B} (shown in reference 3). "
+    "HARD CONSTRAINT: the frame MUST contain one {POKEMON_A} AND one {POKEMON_B} - "
+    "exactly one of each. Do NOT duplicate the same Pokemon. Do NOT show two "
+    "{POKEMON_A}s. Do NOT show two {POKEMON_B}s. Do NOT invent or substitute any "
+    "other Pokemon - the two creatures in the image must be {POKEMON_A} and "
+    "{POKEMON_B}, nothing else.\n\n"
+    "Use the EXACT same photorealistic creature designs as references 2 and 3 - "
+    "same anatomy, same proportions, same colors, same textures. Reference 2 is "
+    "{POKEMON_A}; reference 3 is {POKEMON_B}. Treat them as locked character "
+    "references.\n\n"
+    "Both Pokemon stand in a neutral, relaxed combat stance, side by side, "
+    "slightly turned toward each other - but not in pure profile to the camera. "
+    "The background must be IDENTICAL to reference 1.\n\n"
+    "Match the exact photorealistic 3D-sculpted look, physically-based materials, "
+    "studio lighting and contact shadows from references 2 and 3. {SIZE_HINT}"
 )
 
 # ---------------------------------------------------------------------------
@@ -231,9 +244,9 @@ Optional tone guidance: {TONE_HINT}
 Write the Distinctive Traits paragraph."""
 
 
-GPT_STEP5_TRANSFORMATION_SYSTEM = """You are writing the Step 5 Transformation Video Prompt for Kling 2.5 / Kling 3.0 Omni.
+GPT_STEP5_TRANSFORMATION_SYSTEM = """You are writing the Step 5 Transformation Video Prompt for Seedance / Kling 2.5 / Kling 3.0 Omni.
 
-This is ONE continuous paragraph, 600-900 words, describing a single video shot that depicts two Pokemon fusing into one. The prompt will be pasted directly into Kling's text box.
+This is ONE continuous paragraph, MAX 1800 CHARACTERS (about 240-280 words), describing a single video shot that depicts two Pokemon fusing into one. The Seedance API HARD-REJECTS any prompt over 2000 characters - so 1800 is non-negotiable, with safety buffer baked in. COUNT YOUR CHARACTERS as you write.
 
 Structure (5 beats, blended into one flowing paragraph - NO headings, NO bullet points):
 
@@ -260,10 +273,10 @@ Blend at least TWO of these environmental-interaction moments into the Escalatin
 
 Hard rules:
 - ONE continuous paragraph. No line breaks, no lists, no headings.
-- 600 to 900 words.
+- MAX 1800 CHARACTERS total (HARD LIMIT - aim for 240 to 280 words). The Seedance API rejects anything over 2000 chars, so 1800 is a strict ceiling with 200-char buffer. Count characters as you write. Compress aggressively while keeping all 5 beats.
 - MUST end with this Technical Summary sentence (adapt the bracketed parts to the fusion):
   "Ultra-detailed 4K rendering, [TEXTURES], dynamic [ELEMENT] simulation, [LIGHTING], volumetric [ELEMENT]-light, cinematic depth of field, and dramatic unsettling camera work throughout."
-- ALL-CAPS verbs in the transformation beat are mandatory - use at least 10 of them.
+- ALL-CAPS verbs in the transformation beat are mandatory - use at least 5 of them.
 - Specific body parts must be named (horns, fangs, scales, wings, membrane, tail, barbels, crown, claws, underbelly, muzzle, gut, fins) - avoid vague anatomy.
 - At least ONE wide shot or tracking shot showing the creature moving through / interacting with the studio.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
@@ -275,7 +288,7 @@ GOLD-STANDARD REFERENCE (this is the quality / detail-depth / pacing we want - u
 
 "Cinematic 3D animation sequence of a creature fusion. The scene opens in the same setting as the reference image. On the left, a powerful bipedal fire dragon - orange-brown scaled skin with detailed reptilian texture, a cream-yellow underbelly, a strong muscular build, two prominent dark horns on the back of its head, fierce narrow eyes, sharp fangs visible in a confident snarl, two large teal-green membranous wings with visible vein patterns spread slightly behind, strong clawed arms and legs, and a long thick tail ending in a bright burning flame that flickers steadily. On the right, a pathetic oversized red-orange fish - round bulging body covered in large rough overlapping scales, a wide gaping mouth frozen in a permanent shocked expression with visible pink gums, one large bulging vacant white eye with a tiny pupil, a small golden crown-like fin on top of its head, long thin yellow barbels drooping from the mouth, and stiff white pectoral and tail fins - flopping weakly on the ground, gasping. The dragon looks down at the fish with visible contempt. It snorts - a small jet of flame puffing from its nostrils. It reaches down, grabs the fish in one clawed hand, lifts it to eye level. The fish stares back with its blank bulging eye, mouth gaping open and shut rhythmically. The dragon opens its jaws wide and BITES down on the fish's body - sinking its fangs into the rough scaled flesh. The instant its teeth pierce the fish's skin, something goes WRONG. The dragon's eyes WIDEN. Its jaw LOCKS - unable to release. A dark orange-red glow begins to PULSE from the fish's body at the bite wound - SPREADING outward through the scales like a chain reaction, each scale igniting with inner heat, the body beginning to HARDEN and CHANGE. Simultaneously, the infection TRAVELS through the dragon's teeth into its jaw - visible beneath the skin as a crawling wave of rough orange scale-texture that SPREADS from the mouth outward across the dragon's face. The dragon THRASHES - trying to pull away - but its own face is now FUSING with the fish's body. The transformation ACCELERATES violently. The dragon drops to all fours as its legs SHORTEN and THICKEN - the clawed feet compressing into stubby stumps. Its proud upright posture COLLAPSES as the spine reshapes, the body compressing into a wider, lower, more bulbous form. The fish's body MELTS into the dragon's head, the gaping mouth WIDENING and becoming the creature's new primary jaw, the vacant bulging eyes pushing outward through the reshaping skull, taking over. The dragon's horns remain but the golden crown-fin ERUPTS between them. The cream-yellow belly distends and rounds outward. The wings SHRINK and WARP - the teal membrane tearing and reforming into smaller, ragged, bat-like wings with fire bleeding through the cracks. The tail flame SPREADS - fire is no longer contained at the tail tip but ERUPTS through cracks in the scales across the entire body. The rough overlapping scale-armor glows from within - molten orange light bleeding between every scale like lava beneath cracked earth. The transformation COMPLETES with a final violent SHUDDER. The fully formed fusion crouches on four stubby legs - a grotesque terrifying abomination. Two bulging grey eyes now made horrifying by the burning body beneath them. A massive gaping mouth filled with razor fangs and a furnace-orange glowing throat. The golden crown-fin sits between dark horns atop the skull. Small ragged bat-wings jut from the back, flames licking from their torn edges. The fusion opens its enormous mouth and releases a ROAR - a horrible gurgling bellow. A gout of flame ERUPTS from the throat. The camera performs a slow low-angle push-in toward the burning gaping mouth as the creature hunches forward, smoke rising around it. Ultra-detailed 4K rendering, realistic rough scale and reptilian skin textures, dynamic fire simulation bleeding through cracked armor, molten subsurface glow, smoke and heat-distortion effects, volumetric fire-light, cinematic depth of field, and dramatic unsettling camera work throughout."
 
-Match that depth of anatomical detail, that violence of verbs, that propagation-as-infection logic. Write a fresh prompt with those qualities for the fusion below."""
+Match that depth of anatomical detail, that violence of verbs, and that propagation-as-infection logic - but in MUCH FEWER WORDS. The gold-standard above is around 1700 WORDS; your output must be MAX 1800 CHARACTERS (~260 words). Compress aggressively: keep the specific anatomy, the kinetic ALL-CAPS verbs, and the 5-beat flow - drop redundant elaborations and adjective stacking. Pick the 2-3 most striking details per beat instead of describing every scale, vein, and feather. If your draft is over 1800 chars, REWRITE shorter before submitting."""
 
 GPT_STEP5_TRANSFORMATION_USER_TEMPLATE = """Fusion (context only - do NOT include these names in your output): {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
@@ -327,7 +340,7 @@ Hard rules:
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - NEVER name the original Pokemon in the output (no 'Charizard', 'Mewtwo', 'Latios', 'Pikachu', etc.). Describe the creature only by its visual traits and anatomy. Pokemon-IP names trigger Seedance / Kling content filters and cause failed generations.
 - No meta commentary, no "Step 6", no "Seedance". Pure scene description.
-- Keep the output compact - aim for 350 to 550 words total."""
+- HARD CHARACTER LIMIT: MAX 1800 CHARACTERS total (about 240-280 words). The Seedance API rejects prompts over 2000 chars, so 1800 is a strict ceiling with 200-char buffer. Compress every cut to its essential beat - one sentence of camera, one of action, one of impact. Drop adjective-stacking. Keep ALL CAPS ability names, environmental impact + continuity, and the 5-cut structure - those are non-negotiable. If your draft exceeds 1800 chars, REWRITE shorter before submitting."""
 
 GPT_STEP6_SHOWCASE_USER_TEMPLATE = """Fusion (context only - do NOT include these names in your output): {POKEMON_A} + {POKEMON_B}
 Concept hook: {CONCEPT}
@@ -412,7 +425,7 @@ Concrete examples of what fitting means:
 
 The pattern: identify the creature's PRIMARY action archetype from its traits (flight, blade combat, magic combat, predatory hunt, brute force, energy projectile, stealth/teleport, etc.) and choreograph a 10-second scene that IS that creature in motion. The scene is the creature's signature performance.
 
-Output ONE continuous paragraph, 250-400 words.
+Output ONE continuous paragraph, MAX 1800 CHARACTERS (about 220-280 words). The Seedance API HARD-REJECTS prompts over 2000 chars, so 1800 is a strict ceiling with 200-char buffer.
 
 Required elements:
 
@@ -432,7 +445,7 @@ Hard rules:
 - The scene MUST be specific to the creature's traits. NEVER write a generic 'fast tracking shot' if the creature is a slow brute. NEVER write 'blade combat' if the creature has no blade.
 - NEVER name the original Pokemon (no 'Latios', no 'Charizard'). Use descriptive phrasing only.
 - ALL CAPS movement / action verbs throughout: BLASTS, STREAKS, BANKS, DIVES, SLAMS, SLASHES, PARRIES, SUMMONS, LUNGES, ROARS, ERUPTS, etc. Pick verbs that match the action.
-- 250 to 400 words, single continuous paragraph. No headings, no bullet points.
+- MAX 1800 CHARACTERS (220-280 words), single continuous paragraph. No headings, no bullet points. The Seedance API rejects anything over 2000 chars - 1800 is the strict ceiling with safety buffer. Count characters as you write.
 - BACKGROUND CONSISTENCY (CRITICAL): the scene takes place in the EXACT SAME setting as the reference image. Do NOT invent a new location. Do NOT describe a 'studio', 'studio walls', 'studio space', 'arena', 'stage', or any environment word that does not appear in the reference. Phrase it as 'in the same setting as the reference image' or 'against the same background as the reference image' wherever the environment is referenced. Lighting, floor, wall texture, props - all identical to the reference.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame. Pure photographic scene only.
 - Photorealistic 3D-render style enforced.
@@ -464,7 +477,7 @@ CRITICAL: The gag must come from the fusion's OWN traits. Fire creature -> fire 
 
 Choose the gag that fits THIS creature. Do not repeat fire-fart for non-fire creatures. The element / signature ability is the joke - that's the whole pattern.
 
-Output ONE continuous paragraph, 120-220 words.
+Output ONE continuous paragraph, MAX 1800 CHARACTERS (120-220 words). The Seedance API rejects prompts over 2000 chars.
 
 Required structure (5 seconds total - tight beats, not a story):
 
@@ -484,7 +497,7 @@ Hard rules:
 - The gag must be HARMLESS and FAMILY-FRIENDLY. No violence, no gore, no anything sexual or explicit. Cartoon-slapstick only - the kind of beat that goes viral on TikTok / Shorts / Reels.
 - The gag must come from the fusion's OWN traits / element. Do NOT default to 'fire fart' unless the creature is fire-type. Match the joke to the anatomy.
 - ALL CAPS the gag action verb (one or two verbs only, not the whole prompt).
-- 120 to 220 words, single continuous paragraph. No headings, no bullet lists.
+- 120 to 220 words AND MAX 1800 CHARACTERS, single continuous paragraph. No headings, no bullet lists.
 - NEVER name the original Pokemon (no 'Charizard', 'Vulpix', 'Snorlax', etc.). Describe the fusion only by its silhouette + traits. Pokemon-IP names trigger Seedance content filters.
 - NO TEXT, no watermarks, no captions, no subtitles, no logos, no UI elements, no floating numbers or letters anywhere in the frame.
 - Photorealistic 3D-render style, matching the reference. End with a SHORT technical line: 'Photorealistic 3D render, sharp micro-detail, single uninterrupted five-second take, family-friendly cartoon-slapstick tone.'
@@ -587,6 +600,11 @@ Distinctive Traits: {DISTINCTIVE_TRAITS}
 DE opener: {OPENER_DE}
 EN opener: {OPENER_EN}
 
+--- Word budget for the fusion description (LINE 3 / Sentence B) ---
+Target around {WORDS_PER_FUSION} words for the description sentence in EACH
+language (this overrides any default word count in the system prompt).
+Stay within +/- 3 words of this target. Do not pad with filler.
+
 Write the two narrations in the ---DE--- / ---EN--- / ---END--- format.
 Use English names in the EN narration, German names in the DE narration.
 The FUSION_NAME (portmanteau) is identical in both languages."""
@@ -669,6 +687,13 @@ GPT_BATCH_NARRATION_USER_TEMPLATE = """Fusion compilation - {FUSION_COUNT} creat
 --- Fixed openers (use VERBATIM as the first sentence of each narration) ---
 DE opener: {OPENER_DE}
 EN opener: {OPENER_EN}
+
+--- Word budget per fusion description (Sentence B per fusion) ---
+Target around {WORDS_PER_FUSION} words for the description sentence (Sentence
+B) of EACH fusion, in EACH language. This overrides the "around 18 words"
+default in the system prompt. Stay within +/- 3 words of this target.
+Do not pad with filler. Sentence A ("When X merges with Y, they become Z.")
+keeps its fixed shape.
 
 Write the two continuous narrations in the ---DE--- / ---EN--- / ---END--- format, covering all {FUSION_COUNT} fusions in the order above."""
 

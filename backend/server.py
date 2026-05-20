@@ -4,6 +4,7 @@ FastAPI-Server. Bedient das Dashboard und die Pipeline-API.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -11,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import audio_editor, config
+from backend import audio_editor, config, upscaler
 from backend.clients import openai_client
 from backend.pipeline import runner
 
@@ -82,6 +83,16 @@ class SettingsUpdate(BaseModel):
     GEMINI_VISION_MODEL: str | None = None
     VISION_PROVIDER: str | None = None
     STEP4_DESIGN_MODE: str | None = None
+    NARRATION_WORDS_PER_FUSION: str | None = None
+
+
+class RerunJobRequest(BaseModel):
+    pokemon_a: str | None = None
+    pokemon_b: str | None = None
+
+
+class RegenerateNarrationRequest(BaseModel):
+    words_per_fusion: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -205,12 +216,48 @@ async def api_cancel_job(job_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/jobs/{job_id}/rerun")
-async def api_rerun_job(job_id: str) -> dict[str, Any]:
+async def api_rerun_job(
+    job_id: str, req: RerunJobRequest | None = None,
+) -> dict[str, Any]:
+    pa = (req.pokemon_a if req else None) or None
+    pb = (req.pokemon_b if req else None) or None
     try:
-        new_jid = await runner.rerun_job(job_id)
+        new_jid = await runner.rerun_job(job_id, pokemon_a=pa, pokemon_b=pb)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"new_job_id": new_jid}
+
+
+@app.post("/api/jobs/{job_id}/regenerate-narration")
+async def api_regenerate_narration(
+    job_id: str, req: RegenerateNarrationRequest | None = None,
+) -> dict[str, Any]:
+    wpf = req.words_per_fusion if req else None
+    if wpf is not None and not (5 <= wpf <= 60):
+        raise HTTPException(status_code=400, detail="words_per_fusion muss zwischen 5 und 60 liegen.")
+    try:
+        result = await runner.regenerate_narration(job_id, words_per_fusion=wpf)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
+    return result
+
+
+@app.post("/api/batches/{batch_id}/regenerate-narration")
+async def api_regenerate_batch_narration(
+    batch_id: str, req: RegenerateNarrationRequest | None = None,
+) -> dict[str, Any]:
+    wpf = req.words_per_fusion if req else None
+    if wpf is not None and not (5 <= wpf <= 60):
+        raise HTTPException(status_code=400, detail="words_per_fusion muss zwischen 5 und 60 liegen.")
+    try:
+        result = await runner.regenerate_batch_narration(batch_id, words_per_fusion=wpf)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
+    return result
 
 
 @app.post("/api/batches/{batch_id}/cancel")
@@ -438,6 +485,181 @@ async def api_generate_funny_scene_video(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "queued", "tries": min(3, max(1, tries))}
+
+
+@app.post("/api/jobs/{job_id}/generate-fusion-sequence-video")
+async def api_generate_fusion_sequence_video(
+    job_id: str, req: GenerateVideoRequest | None = None,
+) -> dict[str, Any]:
+    """Step 5 Fusion-Sequence Video (Seedance 2, 4k/5s).
+
+    Beide Bilder als Reference: 03_start_frame.png + 04_fusion_v{fav}.png.
+    Default-Prompt: meta.step5_transformation. Custom-Prompt via prompt_override.
+    Kling First-Last-Frame manueller Fallback bleibt unangetastet.
+    """
+    tries = (req.tries if req else 1) or 1
+    override = req.prompt_override if req else None
+    try:
+        await runner.generate_fusion_sequence_video(job_id, tries=tries, prompt_override=override)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued", "tries": min(3, max(1, tries))}
+
+
+@app.post("/api/jobs/{job_id}/generate-fusion-sequence-video-kling")
+async def api_generate_fusion_sequence_video_kling(
+    job_id: str, req: GenerateVideoRequest | None = None,
+) -> dict[str, Any]:
+    """Step 5 Fusion-Sequence Video via Kling 2.5 Turbo Pro (AI-Auto).
+
+    Gleiche Refs/Prompts wie der Seedance-Pfad, aber mit Kling-Modell
+    und Kling-typischer Quality/Duration (Default 1080p/5s, ueber
+    AIAUTO_KLING_* Settings konfigurierbar). Output landet in
+    fusion_sequence_videos[] mit Filename 05_fusion_sequence_kling_v*.mp4.
+    """
+    tries = (req.tries if req else 1) or 1
+    override = req.prompt_override if req else None
+    try:
+        await runner.generate_fusion_sequence_video_kling(
+            job_id, tries=tries, prompt_override=override,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "queued", "tries": min(3, max(1, tries))}
+
+
+# ---------------------------------------------------------------------------
+# Upscaler (Real-ESRGAN ncnn-vulkan)
+# ---------------------------------------------------------------------------
+
+
+class UpscalerEnqueueRequest(BaseModel):
+    input_path: str
+    model: str = upscaler.DEFAULT_MODEL
+    target_height: int = 2160  # 1440 | 2160 | 2880
+
+
+@app.get("/api/upscaler/models")
+async def api_upscaler_models() -> dict[str, Any]:
+    return {
+        "models": upscaler.list_models(),
+        "default": upscaler.DEFAULT_MODEL,
+        "target_heights": list(upscaler.VALID_TARGET_HEIGHTS),
+    }
+
+
+@app.get("/api/upscaler/status")
+async def api_upscaler_status() -> dict[str, Any]:
+    return await upscaler.get_status()
+
+
+@app.post("/api/upscaler/enqueue")
+async def api_upscaler_enqueue(req: UpscalerEnqueueRequest) -> dict[str, Any]:
+    try:
+        return await upscaler.enqueue_upscale(
+            req.input_path, model=req.model, target_height=req.target_height,
+        )
+    except upscaler.UpscalerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/upscaler/cancel/{job_id}")
+async def api_upscaler_cancel(job_id: str) -> dict[str, Any]:
+    try:
+        return await upscaler.cancel_job(job_id)
+    except upscaler.UpscalerError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.delete("/api/upscaler/job/{job_id}")
+async def api_upscaler_remove(job_id: str) -> dict[str, Any]:
+    try:
+        removed = await upscaler.remove_job(job_id)
+    except upscaler.UpscalerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"removed": removed}
+
+
+@app.post("/api/upscaler/clear")
+async def api_upscaler_clear() -> dict[str, Any]:
+    count = await upscaler.clear_finished()
+    return {"cleared": count}
+
+
+@app.post("/api/upscaler/upload")
+async def api_upscaler_upload(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Saves an uploaded video into output/_upscaler_uploads/ and returns
+    the project-relative path. Streamed in 1 MB chunks to avoid OOM."""
+    import os as _os
+    import uuid as _uuid
+
+    raw_name = (file.filename or "upload.mp4")
+    suffix = ""
+    lower = raw_name.lower()
+    for ext in upscaler.UPLOAD_ALLOWED_EXTS:
+        if lower.endswith(ext):
+            suffix = ext
+            break
+    if not suffix:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Nur Video-Container erlaubt: "
+                + ", ".join(sorted(upscaler.UPLOAD_ALLOWED_EXTS))
+            ),
+        )
+
+    # Sanitize base name: keep alnum/-/_/dot, replace rest with underscore.
+    stem = Path(raw_name).stem
+    safe_stem = "".join(c if (c.isalnum() or c in "-_.") else "_" for c in stem)[:80]
+    if not safe_stem:
+        safe_stem = "upload"
+    target_name = f"{safe_stem}_{_uuid.uuid4().hex[:8]}{suffix}"
+    target_path = upscaler.UPSCALER_UPLOADS_DIR / target_name
+
+    written = 0
+    upscaler.UPSCALER_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        with target_path.open("wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)  # 1 MB
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > upscaler.UPLOAD_MAX_BYTES:
+                    f.close()
+                    try:
+                        target_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Upload zu gross (max {upscaler.UPLOAD_MAX_BYTES // (1024*1024)} MB).",
+                    )
+                f.write(chunk)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        try:
+            target_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise HTTPException(status_code=500, detail=f"Upload failed: {exc}") from exc
+
+    if written == 0:
+        try:
+            target_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise HTTPException(status_code=400, detail="Leeres File.")
+
+    rel_path = str(target_path.relative_to(config.PROJECT_ROOT)).replace("\\", "/")
+    return {
+        "path": rel_path,
+        "absolute_path": str(target_path),
+        "size_bytes": written,
+        "original_name": raw_name,
+    }
 
 
 # ---------------------------------------------------------------------------

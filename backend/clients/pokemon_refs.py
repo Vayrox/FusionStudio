@@ -47,6 +47,10 @@ _SPECIAL_SLUG_MAP = {
     "roaringmoon": "roaring-moon",
     "ironleaves": "iron-leaves",
     "walkingwake": "walking-wake",
+    # Kyurem-Formen: PokeAPI nutzt {base}-{form} Slugs, aber im Englischen
+    # sagt man "Black Kyurem" / "White Kyurem" - beide Reihenfolgen mappen.
+    "blackkyurem": "kyurem-black",
+    "whitekyurem": "kyurem-white",
     # Paldean Tauros breeds (komplexere Slug-Struktur als die generische
     # Regional-Variant-Logik abdeckt - hier explizit gemappt).
     "paldeantauros": "tauros-paldea-combat-breed",

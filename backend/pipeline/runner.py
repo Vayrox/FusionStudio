@@ -449,7 +449,11 @@ async def rerun_batch(batch_id: str) -> tuple[str, list[str]]:
     return batch_id, new_ids
 
 
-async def rerun_job(job_id: str) -> str:
+async def rerun_job(
+    job_id: str,
+    pokemon_a: str | None = None,
+    pokemon_b: str | None = None,
+) -> str:
     """Rerun eines einzelnen Jobs (status=error oder cancelled).
     Erstellt einen neuen Job mit gleichen Parametern (pokemon_a/b,
     concept, tone_hint, batch_id). Falls der Job zu einem Batch gehoert,
@@ -457,6 +461,13 @@ async def rerun_job(job_id: str) -> str:
     Batch-Monitor neu angestossen (Narration + Suno + YT-SEO werden
     resettet, weil der Compilation-Output nach Abschluss neu generiert
     werden muss).
+
+    pokemon_a / pokemon_b: Wenn gesetzt, ueberschreiben sie die Namen vom
+    Original-Job. Das ist nuetzlich wenn ein Pokemon-Name im PokeAPI nicht
+    aufgeloest werden konnte (z.B. Tippfehler "Charizrad") - statt einen
+    komplett neuen Pipeline-Run mit verlorenem Batch-Kontext zu starten,
+    kann der User den Namen direkt am gefailten Job korrigieren und die
+    bestehende Batch-Mitgliedschaft bleibt erhalten.
 
     Gibt neue job_id zurueck.
     """
@@ -469,9 +480,14 @@ async def rerun_job(job_id: str) -> str:
             f"(aktuell: {job.get('status')!r})"
         )
 
+    new_a = (pokemon_a or "").strip() or job.get("pokemon_a", "")
+    new_b = (pokemon_b or "").strip() or job.get("pokemon_b", "")
+    if not new_a or not new_b:
+        raise ValueError("pokemon_a und pokemon_b duerfen nicht leer sein.")
+
     new_jid = await submit_fusion(
-        pokemon_a=job.get("pokemon_a", ""),
-        pokemon_b=job.get("pokemon_b", ""),
+        pokemon_a=new_a,
+        pokemon_b=new_b,
         concept=job.get("concept", "") or "",
         tone_hint=job.get("tone_hint"),
         batch_id=job.get("batch_id"),
@@ -960,6 +976,114 @@ async def generate_funny_scene_video(
     )
 
 
+async def generate_fusion_sequence_video(
+    job_id: str, tries: int = 1, prompt_override: str | None = None,
+) -> None:
+    """Step 5 Fusion-Sequence Video via Seedance 2 (AI-Auto).
+
+    Generiert einen 5-Sekunden 4K Morph vom Start-Frame (beide Originale
+    Side-by-Side) zur Favoriten-Fusion-Variante. Beide Bilder gehen als
+    Reference-Ingredients zu Seedance.
+
+    Default-Prompt = meta.step5_transformation (gleicher Prompt der auch
+    fuer Kling First-Last-Frame manuell genutzt werden kann). Custom-Prompt
+    via prompt_override.
+
+    Output: 05_fusion_sequence_video_v{n}.mp4 in fusion_sequence_videos[].
+    """
+    tries = max(1, min(3, tries or 1))
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Fusion-Sequence-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if prompt_override and prompt_override.strip():
+        prompt = prompt_override.strip()
+    else:
+        prompt = meta.get("step5_transformation")
+        if not prompt:
+            raise RuntimeError("step5_transformation fehlt in _meta.json.")
+
+    start_frame = out_dir / "03_start_frame.png"
+    if not start_frame.exists():
+        raise RuntimeError(f"Start-Frame fehlt: {start_frame.name}")
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path.name}")
+
+    await _spawn_video_slots(
+        job_id, prompt, [start_frame, fav_path], tries,
+        list_field="fusion_sequence_videos",
+        filename_prefix="05_fusion_sequence_video",
+        seconds=5,
+    )
+
+
+async def generate_fusion_sequence_video_kling(
+    job_id: str, tries: int = 1, prompt_override: str | None = None,
+) -> None:
+    """Step 5 Fusion-Sequence Video via Kling 2.5 Turbo Pro (AI-Auto).
+
+    Alternative zum Seedance-Pfad: nutzt Kling als Video-Modell. Output
+    landet in derselben fusion_sequence_videos-Liste mit Filename-Prefix
+    `05_fusion_sequence_kling`, damit beide Modelle nebeneinander
+    laufen koennen ohne sich zu ueberschreiben.
+
+    Quality/Duration kommen aus den AIAUTO_KLING_* Settings (Default
+    1080p/5s). Refs: gleiche Start-Frame + Favoriten-Variante wie bei
+    Seedance.
+    """
+    from backend.config import settings as _settings  # local import
+
+    tries = max(1, min(3, tries or 1))
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    if job.get("status") != "done":
+        raise ValueError("Fusion-Sequence-Video nur fuer abgeschlossene Jobs.")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    meta_path = out_dir / "_meta.json"
+    if not meta_path.exists():
+        raise RuntimeError("_meta.json fehlt.")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if prompt_override and prompt_override.strip():
+        prompt = prompt_override.strip()
+    else:
+        prompt = meta.get("step5_transformation")
+        if not prompt:
+            raise RuntimeError("step5_transformation fehlt in _meta.json.")
+
+    start_frame = out_dir / "03_start_frame.png"
+    if not start_frame.exists():
+        raise RuntimeError(f"Start-Frame fehlt: {start_frame.name}")
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path.name}")
+
+    await _spawn_video_slots(
+        job_id, prompt, [start_frame, fav_path], tries,
+        list_field="fusion_sequence_videos",
+        filename_prefix="05_fusion_sequence_kling",
+        seconds=_settings.aiauto_kling_duration,
+        video_model=_settings.aiauto_kling_model,
+        aspect_ratio="9:16",
+        resolution=_settings.aiauto_kling_quality,
+    )
+
+
 async def _spawn_video_slots(
     job_id: str,
     prompt: str,
@@ -969,6 +1093,9 @@ async def _spawn_video_slots(
     list_field: str,
     filename_prefix: str,
     seconds: int = 15,
+    video_model: str | None = None,
+    aspect_ratio: str = "9:16",
+    resolution: str = "4k",
 ) -> None:
     """Startet `tries` parallele Video-Generations als neue Slots in der
     list_field-Liste des Jobs (append - bestehende Slots bleiben).
@@ -977,6 +1104,10 @@ async def _spawn_video_slots(
     als Ingredients an Seedance gegeben (z.B. Start- + End-Frame fuer Morph).
     `seconds` steuert die Video-Laenge - Default 15s, Step-5 Transformation
     nutzt 5s, weil ein kurzer Morph reicht.
+
+    `video_model` / `resolution` / `aspect_ratio` erlauben Kling-spezifische
+    Overrides (z.B. model=kling_2_5_turbo_pro, resolution=1080p). None bei
+    `video_model` faellt auf settings.aiauto_video_model (Seedance) zurueck.
     """
     job = await get_job(job_id)
     assert job is not None
@@ -998,7 +1129,10 @@ async def _spawn_video_slots(
         out_filename = f"{filename_prefix}_v{slot_idx + 1}.mp4"
         task_key = f"{list_field}:{job_id}:{slot_idx}"
         _register_task(task_key, asyncio.create_task(
-            _run_video_slot(job_id, prompt, ref_paths, slot_idx, out_filename, list_field, seconds)
+            _run_video_slot(
+                job_id, prompt, ref_paths, slot_idx, out_filename, list_field, seconds,
+                video_model=video_model, aspect_ratio=aspect_ratio, resolution=resolution,
+            )
         ))
 
 
@@ -1027,6 +1161,10 @@ async def _run_video_slot(
     out_filename: str,
     list_field: str,
     seconds: int = 15,
+    *,
+    video_model: str | None = None,
+    aspect_ratio: str = "9:16",
+    resolution: str = "4k",
 ) -> None:
     try:
         await _update_video_slot(
@@ -1040,7 +1178,8 @@ async def _run_video_slot(
 
         await aiauto_client.generate_video(
             prompt, video_out, reference_images=list(ref_paths),
-            aspect_ratio="9:16", resolution="4k", seconds=seconds,
+            aspect_ratio=aspect_ratio, resolution=resolution, seconds=seconds,
+            model=video_model,
         )
         await _update_video_slot(
             job_id, list_field, slot_idx,
@@ -1295,6 +1434,200 @@ async def generate_manual_video_prompts(image_bytes: bytes) -> dict[str, Any]:
     }
 
 
+async def regenerate_narration(
+    job_id: str, words_per_fusion: int | None = None,
+) -> dict[str, Any]:
+    """Regeneriert Narration (DE+EN) + Suno + YT-SEO fuer einen abgeschlossenen
+    Single-Job. Schreibt _meta.json + narration.md neu und aktualisiert den
+    Job-State. Funktioniert NICHT fuer Batch-Jobs - dort wird die gemeinsame
+    Narration zentral am Batch geregenerated.
+
+    words_per_fusion: optionaler Override fuer die Wortzahl der Beschreibung.
+    None = settings.narration_words_per_fusion verwenden.
+
+    Returns dict mit narration_de, narration_en, suno_prompt, yt_title,
+    yt_description.
+    """
+    meta_path, meta = await _load_prompt_context(job_id)
+    job = await get_job(job_id)
+    assert job is not None
+    if job.get("batch_id"):
+        raise ValueError(
+            "Dieser Job ist Teil eines Batches - benutze den Regenerate-"
+            "Narration-Button am Batch-Panel (gemeinsame Compilation-Narration)."
+        )
+
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    pokemon_a_de = meta.get("pokemon_a_de", pokemon_a)
+    pokemon_b_de = meta.get("pokemon_b_de", pokemon_b)
+    distinctive_traits = meta.get("distinctive_traits", "")
+    step5 = meta.get("step5_transformation", "")
+    step6 = meta.get("step6_showcase", "")
+    if not all([pokemon_a, pokemon_b, distinctive_traits, step5, step6]):
+        raise RuntimeError(
+            "Pflichtfelder in _meta.json fehlen (pokemon_a/b, distinctive_traits, "
+            "step5_transformation, step6_showcase) - Narration kann nicht regenerated werden."
+        )
+
+    narration_de, narration_en = await openai_client.generate_narration(
+        pokemon_a, pokemon_b, pokemon_a_de, pokemon_b_de,
+        distinctive_traits, step5, step6,
+        words_per_fusion=words_per_fusion,
+    )
+    suno_prompt = await openai_client.generate_suno_prompt(
+        narration_en,
+        fusion_count=1,
+        overall_tone=distinctive_traits,
+    )
+    yt_title, yt_description = await openai_client.generate_yt_seo(
+        narration_en,
+        fusions=[{"pokemon_a": pokemon_a, "pokemon_b": pokemon_b}],
+        overall_tone=distinctive_traits,
+    )
+
+    meta["narration_de"] = narration_de
+    meta["narration_en"] = narration_en
+    meta["suno_prompt"] = suno_prompt
+    meta["yt_title"] = yt_title
+    meta["yt_description"] = yt_description
+    if words_per_fusion is not None:
+        meta["narration_words_per_fusion"] = int(words_per_fusion)
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    out_dir = meta_path.parent
+    _write_narration_md(
+        out_dir, narration_de, narration_en, suno_prompt,
+        yt_title=yt_title, yt_description=yt_description,
+    )
+
+    files = dict(job.get("files") or {})
+    files["narration_md"] = _relative_to_root(out_dir / "narration.md")
+    await _update_job(
+        job_id,
+        narration_de=narration_de,
+        narration_en=narration_en,
+        suno_prompt=suno_prompt,
+        yt_title=yt_title,
+        yt_description=yt_description,
+        files=files,
+        narration_regen_at=_now_iso(),
+    )
+    return {
+        "narration_de": narration_de,
+        "narration_en": narration_en,
+        "suno_prompt": suno_prompt,
+        "yt_title": yt_title,
+        "yt_description": yt_description,
+    }
+
+
+async def regenerate_batch_narration(
+    batch_id: str, words_per_fusion: int | None = None,
+) -> dict[str, Any]:
+    """Regeneriert die gemeinsame Compilation-Narration (DE+EN) + Suno + YT-SEO
+    fuer einen Batch. Sammelt die fertigen Fusionen erneut aus deren _meta.json
+    und ueberschreibt das Batch-narration.md.
+
+    words_per_fusion: optionaler Override fuer die Wortzahl pro Fusion.
+    None = settings.narration_words_per_fusion verwenden.
+
+    Returns dict mit narration_de, narration_en, suno_prompt, yt_title,
+    yt_description.
+    """
+    batch = await get_batch(batch_id)
+    if not batch:
+        raise ValueError(f"Batch {batch_id} nicht gefunden")
+
+    job_ids: list[str] = batch.get("job_ids") or []
+    fusions_for_narration: list[dict[str, str]] = []
+    for jid in job_ids:
+        j = await get_job(jid)
+        if not j or j.get("status") != "done":
+            continue
+        out_dir_rel = j.get("output_dir")
+        if not out_dir_rel:
+            continue
+        meta_path = PROJECT_ROOT / out_dir_rel / "_meta.json"
+        if not meta_path.exists():
+            continue
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        fusions_for_narration.append({
+            "pokemon_a": meta.get("pokemon_a", ""),
+            "pokemon_b": meta.get("pokemon_b", ""),
+            "pokemon_a_de": meta.get("pokemon_a_de", meta.get("pokemon_a", "")),
+            "pokemon_b_de": meta.get("pokemon_b_de", meta.get("pokemon_b", "")),
+            "distinctive_traits": meta.get("distinctive_traits", ""),
+            "step5_transformation": meta.get("step5_transformation", ""),
+            "step6_showcase": meta.get("step6_showcase", ""),
+        })
+    if not fusions_for_narration:
+        raise ValueError(
+            "Keine abgeschlossene Fusion im Batch - keine Narration moeglich."
+        )
+
+    narration_de, narration_en = await openai_client.generate_batch_narration(
+        fusions_for_narration,
+        words_per_fusion=words_per_fusion,
+    )
+    traits_summary = " | ".join(
+        (f.get("distinctive_traits") or "")[:200]
+        for f in fusions_for_narration
+    )[:1500]
+    suno_prompt = await openai_client.generate_suno_prompt(
+        narration_en,
+        fusion_count=len(fusions_for_narration),
+        overall_tone=traits_summary or "cinematic epic, hauntingly majestic",
+    )
+    yt_title, yt_description = await openai_client.generate_yt_seo(
+        narration_en,
+        fusions=fusions_for_narration,
+        overall_tone=traits_summary or "cinematic epic, hauntingly majestic",
+    )
+
+    batch_dir = OUTPUT_DIR / "batches"
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    md_path = batch_dir / f"{batch_id}_narration.md"
+    fusion_list = "\n".join(
+        f"- {f['pokemon_a']} x {f['pokemon_b']}" for f in fusions_for_narration
+    )
+    md = (
+        f"# Batch Narration - {batch_id}\n\n"
+        f"> Durchgehende DE + EN Narration fuer eine Fusion-Compilation.\n\n"
+        f"Fusionen in Reihenfolge:\n{fusion_list}\n\n"
+        f"---\n\n## Deutsch\n\n{narration_de}\n\n"
+        f"---\n\n## English\n\n{narration_en}\n\n"
+        f"---\n\n## Suno Background Music Prompt\n\n{suno_prompt}\n\n"
+        f"---\n\n## YouTube Shorts SEO\n\n"
+        f"**Title:** {yt_title}\n\n"
+        f"**Description:**\n\n{yt_description}\n"
+    )
+    md_path.write_text(md, encoding="utf-8")
+
+    patch: dict[str, Any] = {
+        "status": "done",
+        "narration_de": narration_de,
+        "narration_en": narration_en,
+        "suno_prompt": suno_prompt,
+        "yt_title": yt_title,
+        "yt_description": yt_description,
+        "narration_path": _relative_to_root(md_path),
+        "fusion_count": len(fusions_for_narration),
+        "narration_regen_at": _now_iso(),
+    }
+    if words_per_fusion is not None:
+        patch["narration_words_per_fusion"] = int(words_per_fusion)
+    await _update_batch(batch_id, **patch)
+    return {
+        "narration_de": narration_de,
+        "narration_en": narration_en,
+        "suno_prompt": suno_prompt,
+        "yt_title": yt_title,
+        "yt_description": yt_description,
+    }
+
+
 async def regenerate_step5_prompt(job_id: str) -> str:
     """Regeneriert den Step-5 Transformation-Prompt (Kling) ohne Bilder
     neu zu generieren. Speichert in meta.step5_transformation."""
@@ -1407,7 +1740,13 @@ async def regenerate_start_frame(job_id: str) -> str:
             )
 
     step3_out = out_dir / "03_start_frame.png"
-    step3_prompt = prompts.STEP3_START_FRAME.replace("{SIZE_HINT}", size_hint).strip()
+    step3_prompt = (
+        prompts.STEP3_START_FRAME
+        .replace("{POKEMON_A}", pokemon_a)
+        .replace("{POKEMON_B}", pokemon_b)
+        .replace("{SIZE_HINT}", size_hint)
+        .strip()
+    )
     await aiauto_client.generate_image(
         step3_prompt,
         step3_out,
@@ -1553,7 +1892,13 @@ async def _pipeline(job_id: str) -> None:
     # 3) Start Frame - referenzen: signature background (=ref1), 2A, 2B
     await _update_job(job_id, current_step="step_3_start_frame")
     step3_out = out_dir / "03_start_frame.png"
-    step3_prompt = prompts.STEP3_START_FRAME.replace("{SIZE_HINT}", size_hint).strip()
+    step3_prompt = (
+        prompts.STEP3_START_FRAME
+        .replace("{POKEMON_A}", pokemon_a)
+        .replace("{POKEMON_B}", pokemon_b)
+        .replace("{SIZE_HINT}", size_hint)
+        .strip()
+    )
     await aiauto_client.generate_image(
         step3_prompt,
         step3_out,
