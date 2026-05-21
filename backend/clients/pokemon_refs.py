@@ -97,13 +97,97 @@ def _split_regional_form(slug: str) -> tuple[str, str | None]:
     return slug, None
 
 
+# Pokemon-Forms: Basis-Pokemon mit alternativen Formen, die PokeAPI als
+# eigene /pokemon/{base}-{form}-Eintraege fuehrt. Kompound-Formen wie
+# 'dusk-mane' / 'rapid-strike' / 'pom-pom' inklusive.
+_POKEMON_FORMS: dict[str, set[str]] = {
+    "lycanroc":    {"midday", "midnight", "dusk"},
+    "rotom":       {"heat", "wash", "frost", "fan", "mow"},
+    "deoxys":      {"attack", "defense", "speed", "normal"},
+    "wormadam":    {"sandy", "trash", "plant"},
+    "giratina":    {"origin", "altered"},
+    "shaymin":     {"sky", "land"},
+    "darmanitan":  {"zen", "standard"},
+    "meloetta":    {"pirouette", "aria"},
+    "hoopa":       {"unbound", "confined"},
+    "calyrex":     {"ice", "shadow"},
+    "necrozma":    {"dusk-mane", "dawn-wings", "ultra"},
+    "kyurem":      {"black", "white"},
+    "tornadus":    {"therian", "incarnate"},
+    "thundurus":   {"therian", "incarnate"},
+    "landorus":    {"therian", "incarnate"},
+    "urshifu":     {"single-strike", "rapid-strike"},
+    "oricorio":    {"baile", "pom-pom", "pau", "sensu"},
+    "mimikyu":     {"busted", "disguised"},
+    "zygarde":     {"10", "50", "complete"},
+    "basculegion": {"male", "female"},
+    "indeedee":    {"male", "female"},
+    "meowstic":    {"male", "female"},
+    "minior":      {"red", "orange", "yellow", "green", "blue", "indigo", "violet"},
+    "wishiwashi":  {"solo", "school"},
+    "aegislash":   {"blade", "shield"},
+    "morpeko":     {"hangry", "full-belly"},
+    "eiscue":      {"noice", "ice"},
+    "palafin":     {"hero", "zero"},
+    "tatsugiri":   {"curly", "droopy", "stretchy"},
+    "pumpkaboo":   {"small", "average", "large", "super"},
+    "gourgeist":   {"small", "average", "large", "super"},
+    "keldeo":      {"resolute", "ordinary"},
+    "basculin":    {"red-striped", "blue-striped", "white-striped"},
+}
+
+
+def _split_pokemon_form(slug: str) -> tuple[str, str] | None:
+    """Sucht das Basis-Pokemon und seine Form-Bezeichnung in beliebiger
+    Reihenfolge im Slug.
+
+    'lycanroc-dusk'        -> ('lycanroc', 'dusk')
+    'dusk-lycanroc'        -> ('lycanroc', 'dusk')
+    'necrozma-dusk-mane'   -> ('necrozma', 'dusk-mane')
+    'dusk-mane-necrozma'   -> ('necrozma', 'dusk-mane')
+    'urshifu-single-strike'-> ('urshifu', 'single-strike')
+
+    Returns None wenn keine bekannte Form-Kombination erkannt wurde.
+    """
+    parts = slug.split("-")
+    if len(parts) < 2:
+        return None
+    base_idx = next((i for i, p in enumerate(parts) if p in _POKEMON_FORMS), None)
+    if base_idx is None:
+        return None
+    base = parts[base_idx]
+    remaining = parts[:base_idx] + parts[base_idx + 1:]
+    if not remaining:
+        return None
+    forms = _POKEMON_FORMS[base]
+    # Exact match - alle uebrigen Tokens zusammenfuegen
+    full = "-".join(remaining)
+    if full in forms:
+        return base, full
+    # Probiere Teilstrings (vorne + hinten) - fuer Faelle wo der User
+    # zu viel angegeben hat (z.B. 'lycanroc-dusk-shiny' o.ae.)
+    for n in range(len(remaining), 0, -1):
+        head = "-".join(remaining[:n])
+        if head in forms:
+            return base, head
+        tail = "-".join(remaining[-n:])
+        if tail in forms:
+            return base, tail
+    return None
+
+
 def pokemon_slug(name: str) -> str:
     """Normalisiert einen Pokemon-Namen in den PokeAPI-Slug.
 
-    "Mr Mime"    -> "mr-mime"
-    "Ho-Oh"      -> "ho-oh"
-    "Nidoran F"  -> "nidoran-f"
-    "Farfetch'd" -> "farfetchd"
+    "Mr Mime"                -> "mr-mime"
+    "Ho-Oh"                  -> "ho-oh"
+    "Nidoran F"              -> "nidoran-f"
+    "Farfetch'd"             -> "farfetchd"
+    "Alolan Vulpix"          -> "vulpix-alola"
+    "Lycanroc Dusk"          -> "lycanroc-dusk"
+    "Lycanroc (Dusk Form)"   -> "lycanroc-dusk"  (Form-Wort wird gestrippt)
+    "Dusk Lycanroc"          -> "lycanroc-dusk"  (Reihenfolge egal)
+    "Necrozma Dusk Mane"     -> "necrozma-dusk-mane"
     """
     # Unicode-Zeichen in ASCII zerlegen (entfernt Accents, aber auch ♀/♂).
     # Wir ersetzen Gender-Symbole explizit vorher.
@@ -115,6 +199,12 @@ def pokemon_slug(name: str) -> str:
     name = name.replace("'", "")
     # Dots entfernen (Mr. Mime -> Mr Mime).
     name = name.replace(".", "")
+
+    # Redundantes 'Form' / 'Forme' Wort wegstrippen: "Lycanroc (Dusk Form)"
+    # / "Dusk Form Lycanroc" / "Lycanroc Dusk Form" -> "Lycanroc Dusk".
+    # \b sorgt dafuer dass 'former' / 'transform' nicht versehentlich
+    # getroffen wird.
+    name = re.sub(r"\bformes?\b", " ", name, flags=re.IGNORECASE)
 
     # Kleinschreibung
     lower = name.lower().strip()
@@ -135,6 +225,14 @@ def pokemon_slug(name: str) -> str:
         base_key = base.replace("-", "")
         base = _SPECIAL_SLUG_MAP.get(base_key, base)
         return f"{base}-{region}"
+
+    # Pokemon-Forms: 'lycanroc-dusk' / 'dusk-lycanroc' / 'necrozma-dusk-mane'
+    # / 'urshifu-single-strike' etc. - in beliebiger Reihenfolge zu
+    # {base}-{form} normalisieren.
+    form_match = _split_pokemon_form(slug)
+    if form_match:
+        base, form = form_match
+        return f"{base}-{form}"
 
     return slug
 
