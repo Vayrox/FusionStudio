@@ -87,9 +87,13 @@ AIAUTO_VIDEO_POLL_TIMEOUT_S = 1800.0  # Seedance-2 Video-Gen kann 15+min brauche
 AIAUTO_LIST_MATCH_ATTEMPTS = 60  # 60 * AIAUTO_POLL_INTERVAL_S = 300s
 # Toleranz RUECKWAERTS vom submit_ts - nur Generations die hoechstens so
 # viele Sekunden vor unserem POST angelegt wurden, gelten als Treffer.
-# Bewusst eng, damit ALTE Generations aus frueheren Runs nicht
-# faelschlich uebernommen werden. 15s reicht fuer Server-Clock-Skew.
-AIAUTO_LIST_MATCH_TOLERANCE_S = 15.0
+# Auf 300s (5min) gesetzt: nano_banana_pro braucht serverseitig 3-5min,
+# AI-Auto's Queue kann zusaetzlich latenten. Bei Retries wandert unser
+# submit_ts nach vorne - mit 15s Toleranz haben wir dann completed-but-
+# slow Generations weggefiltert. Cross-Fusion-Kontamination wird durch
+# Prompt-Prefix-Match + _CLAIMED_IDS Set verhindert, nicht durch
+# Timestamp-Cutoff.
+AIAUTO_LIST_MATCH_TOLERANCE_S = 300.0
 
 POKEAPI_BASE_URL = "https://pokeapi.co/api/v2"
 

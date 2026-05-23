@@ -767,6 +767,13 @@ async def _generate_image_once(
                     body["i2v_reference_images"] = refs_data_urls
 
                 submit_ts = time.time()
+                # submit_ts SOFORT in den Holder schreiben, BEVOR der POST losgeht.
+                # Falls AI-Auto die Gen serverseitig anlegt aber dann mit 4xx /
+                # Network-Error aus dem POST-Aufruf rauskracht, koennen wir bei
+                # der naechsten Retry trotzdem listing-faller mit dem ORIGINAL
+                # submit_ts und finden die Gen.
+                if submit_ts_holder is not None:
+                    submit_ts_holder[0] = submit_ts
                 sync_bytes, generation_id = await _post_generate(client, url, body)
 
                 if sync_bytes is None and generation_id is None:
