@@ -351,10 +351,13 @@ async def _find_recent_generation(
         return " ".join((s or "").split()).lower()
 
     want_full = _normalize(prompt_prefix)
-    # Progressive Fallbacks: strikt -> locker. 180 Chars deckt garantiert
-    # die Pokemon-Namen + einige Descriptor-Woerter ab, sodass parallele
-    # Batch-Fusionen nicht cross-contaminieren.
-    match_lens = [180, 120, 80, 40, 25]
+    # Progressive Fallbacks: strikt -> locker. WICHTIG: 80 ist die untere
+    # Grenze - damit wir bei Realistic-Single-Prompts (Format: "A full-body
+    # macro image of {POKEMON} reimagined as...") den Pokemon-Namen IMMER
+    # im Discriminator haben. Bei 40 oder 25 Chars matcht nur noch der
+    # generische Praefix, was parallele Pokemon-Renders cross-claimen und
+    # Bytes ins falsche Output-Folder kippen kann.
+    match_lens = [180, 120, 80]
     last_samples: list[dict[str, Any]] = []
     last_raw_previews: list[str] = []
 
@@ -895,7 +898,9 @@ async def _find_recent_video_generation(
         return " ".join((s or "").split()).lower()
 
     want_full = _normalize(prompt_prefix)
-    match_lens = [180, 120, 80, 40, 25]
+    # Untere Grenze 80 Chars (analog zum Image-Pfad) - sonst koennen
+    # parallele Video-Generations mit aehnlichem Prompt-Anfang cross-matchen.
+    match_lens = [180, 120, 80]
     last_samples: list[dict[str, Any]] = []
     last_raw_previews: list[str] = []
 
