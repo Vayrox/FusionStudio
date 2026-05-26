@@ -3991,6 +3991,16 @@ function _renderNextStepsContent(container, job, meta) {
 
     const items = [
       {
+        key: 'realistic_singles',
+        title: 'Realistic Singles (Step 2A + 2B)',
+        hint: `<code>02a_realistic_*</code> + <code>02b_realistic_*</code> &mdash; die hyperrealistischen Einzel-Renders von <b>${escapeHtml(job.pokemon_a || 'A')}</b> + <b>${escapeHtml(job.pokemon_b || 'B')}</b> die als Refs fuer Step 4 + Start-Frame gebraucht werden. Bypasst den Per-Pokemon Cache und schreibt das neue Bild zurueck (folgende Fusionen mit demselben Pokemon nutzen dann den frischen Render).`,
+        copies: [
+          {label: `${icon('rotate')} Regenerate both`, action: 'regenerate_realistic_both', primary: true},
+          {label: `${icon('rotate')} Only ${escapeHtml(job.pokemon_a || 'A')}`, action: 'regenerate_realistic_a'},
+          {label: `${icon('rotate')} Only ${escapeHtml(job.pokemon_b || 'B')}`, action: 'regenerate_realistic_b'},
+        ],
+      },
+      {
         key: 'start_frame',
         title: 'Start Frame (Side-by-Side)',
         hint: `<code>03_start_frame.png</code> &mdash; beide Originale auf dem Pokeball-Sockel. Wird als Start-Ref fuer Step 5 + als <code>@image3</code> fuer Kling Elements gebraucht. Falls verkorkst oder fehlend, hier neu generieren (Refs: signature_background + 02a + 02b).`,
@@ -4407,6 +4417,19 @@ function _renderNextStepsContent(container, job, meta) {
             if (!confirm('Start Frame (03_start_frame.png) neu generieren?\n\nNutzt die bestehenden 02a + 02b Realistic-Singles + Signature-Background. Dauert ca. 30-60s.')) return;
             await api(`/api/jobs/${job.id}/regenerate-start-frame`, {method: 'POST'});
             toast('Start Frame wird neu generiert ...');
+            await refreshJobs();
+          } else if (action === 'regenerate_realistic_both' || action === 'regenerate_realistic_a' || action === 'regenerate_realistic_b') {
+            const which = action === 'regenerate_realistic_a' ? 'a' :
+                          action === 'regenerate_realistic_b' ? 'b' : 'both';
+            const label = which === 'a' ? `${job.pokemon_a || 'A'} only` :
+                          which === 'b' ? `${job.pokemon_b || 'B'} only` :
+                          `both (${job.pokemon_a || 'A'} + ${job.pokemon_b || 'B'})`;
+            if (!confirm(`Realistic Singles neu generieren - ${label}?\n\nBypasst den Per-Pokemon Cache. Das alte 02a/02b im Job-Folder wird ueberschrieben + der Cache aktualisiert (nachfolgende Fusionen mit demselben Pokemon nutzen dann den neuen Render). Dauert ca. 30-60s pro Single.`)) return;
+            await api(`/api/jobs/${job.id}/regenerate-realistic-singles`, {
+              method: 'POST',
+              body: JSON.stringify({which}),
+            });
+            toast(`Realistic Singles werden neu generiert (${label}) ...`);
             await refreshJobs();
           } else if (action === 'regenerate_step5_prompt') {
             const res = await api(`/api/jobs/${job.id}/regenerate-step5-prompt`, {method: 'POST'});

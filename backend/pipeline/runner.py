@@ -1766,6 +1766,95 @@ async def regenerate_start_frame(job_id: str) -> str:
     return _relative_to_root(step3_out)
 
 
+async def regenerate_realistic_singles(
+    job_id: str,
+    which: str = "both",
+) -> dict[str, str]:
+    """Regeneriert die Step-2A / Step-2B Realistic-Singles fuer einen
+    abgeschlossenen Job - bypasst den Per-Pokemon Cache und schreibt
+    die neuen Bilder sowohl in den Job-Output-Folder als auch zurueck
+    in den Cache (sodass nachfolgende Fusionen mit dem gleichen Pokemon
+    die neue Version benutzen).
+
+    `which`: 'both' (default) | 'a' | 'b' - welche Singles regeneriert
+    werden sollen.
+
+    Returns: {step_2a?: rel-path, step_2b?: rel-path}.
+    """
+    if which not in ("both", "a", "b"):
+        raise ValueError(f"which muss 'both' / 'a' / 'b' sein, war {which!r}")
+
+    meta_path, meta = await _load_prompt_context(job_id)
+    pokemon_a = meta.get("pokemon_a", "")
+    pokemon_b = meta.get("pokemon_b", "")
+    if not pokemon_a or not pokemon_b:
+        raise RuntimeError("pokemon_a / pokemon_b fehlen in _meta.json.")
+
+    out_dir = meta_path.parent
+    files = dict(meta.get("files") or {})
+
+    # Targets bestimmen
+    targets: list[tuple[str, str, str]] = []  # (pokemon, files-key, filename)
+    step2a_rel = files.get("step_2a") or f"02a_realistic_{_folder_slug(pokemon_a)}.png"
+    step2b_rel = files.get("step_2b") or f"02b_realistic_{_folder_slug(pokemon_b)}.png"
+    if which in ("both", "a"):
+        targets.append((pokemon_a, "step_2a", step2a_rel))
+    if which in ("both", "b"):
+        targets.append((pokemon_b, "step_2b", step2b_rel))
+
+    # PokeAPI-Refs frisch holen (oder aus cache - get_official_artwork ist gecached)
+    ref_paths: dict[str, Path] = {}
+    for pokemon, _, _ in targets:
+        ref_paths[pokemon] = await pokemon_refs.fetch_official_artwork(pokemon)
+
+    # Cache invalidieren BEVOR wir neu generieren - sonst koennte ein
+    # paralleler Job die alte cached Datei greifen waehrend wir neu rendern.
+    for pokemon, _, _ in targets:
+        cache_path = _realistic_cache_path(pokemon)
+        if cache_path.exists():
+            try:
+                cache_path.unlink()
+            except OSError:
+                pass
+
+    # Parallel rendern + in Cache zurueckschreiben
+    out_paths: dict[str, Path] = {}
+    tasks = []
+    for pokemon, key, fname in targets:
+        out_path = out_dir / fname
+        out_paths[key] = out_path
+        # _step2_realistic_cached weiss Cache wieder schreiben sobald die
+        # Generation durch ist - wir nutzen die normale Function damit
+        # nachfolgende Fusionen auch den frischen Render benutzen.
+        tasks.append(_step2_realistic_cached(
+            pokemon, ref_paths[pokemon], out_path,
+        ))
+    await asyncio.gather(*tasks)
+
+    # files-Map in meta + Job-State aktualisieren
+    relative_map: dict[str, str] = {}
+    for key, out_path in out_paths.items():
+        files[key] = out_path.name
+        relative_map[key] = _relative_to_root(out_path)
+    meta["files"] = files
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    # Auch im Job-State files-Map updaten (damit Dashboard die neuen URLs sieht)
+    job = await get_job(job_id)
+    if job:
+        job_files = dict(job.get("files") or {})
+        job_files.update(relative_map)
+        await _update_job(
+            job_id,
+            files=job_files,
+            realistic_singles_regen_at=_now_iso(),
+        )
+
+    return relative_map
+
+
 async def complete_with_manual_variants(
     job_id: str,
     variants: dict[int, bytes],

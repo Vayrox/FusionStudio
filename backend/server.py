@@ -436,6 +436,24 @@ async def api_regenerate_start_frame(job_id: str) -> dict[str, str]:
     return {"path": path}
 
 
+class RegenerateRealisticRequest(BaseModel):
+    which: str = "both"  # 'both' | 'a' | 'b'
+
+
+@app.post("/api/jobs/{job_id}/regenerate-realistic-singles")
+async def api_regenerate_realistic_singles(
+    job_id: str, req: RegenerateRealisticRequest | None = None,
+) -> dict[str, Any]:
+    """Regeneriert Step-2A / Step-2B Realistic-Singles. Bypasst den
+    Per-Pokemon Cache, schreibt aber das Ergebnis zurueck in den Cache."""
+    which = (req.which if req else "both") or "both"
+    try:
+        result = await runner.regenerate_realistic_singles(job_id, which=which)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"files": result, "which": which}
+
+
 @app.post("/api/jobs/{job_id}/upload-variants")
 async def api_upload_variants(
     job_id: str,
