@@ -4567,76 +4567,11 @@ function _renderNextStepsContent(container, job, meta) {
       }
     });
 
-    // Custom-Prompt Submit (Step 6A / 6B / Action Scene)
-    $$('.ns-btn.rerun[data-custom-submit-action]', container).forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const action = btn.dataset.customSubmitAction;
-        const itemKey = btn.dataset.customSubmitKey;
-        const detailsEl = btn.closest('details.custom-prompt');
-        const ta = detailsEl ? detailsEl.querySelector(`textarea[data-custom-prompt-key="${itemKey}"]`) : null;
-        const promptText = (ta ? ta.value : '').trim();
-        if (!promptText) { toast('Custom-Prompt darf nicht leer sein', true); return; }
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '&hellip; running';
-        try {
-          if (action === 'generate_showcase') {
-            if (!confirm('Showcase-Image mit Custom-Prompt generieren? (4x 16:9 Varianten)\n\nBestehende Showcase-Variants werden ueberschrieben.')) {
-              btn.disabled = false; btn.innerHTML = orig; return;
-            }
-            await api(`/api/jobs/${job.id}/generate-showcase`, {
-              method: 'POST',
-              body: JSON.stringify({prompt_override: promptText}),
-            });
-            toast('Custom-Showcase queued (4x 16:9)');
-          } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video' || action === 'generate_funny_scene_video' || action === 'generate_fusion_sequence_video' || action === 'generate_fusion_sequence_video_kling') {
-            // Tries-Anzahl vom AEUSSEREN Dropdown lesen (action-button neben dem Step-Titel),
-            // bzw. aus _jobTriesPref falls Dropdown noch nicht geaendert wurde.
-            const outerSel = $(`.tries-select[data-tries-for="${action}"]`, container);
-            const cacheKey = `${job.id}:${action}`;
-            const liveVal = outerSel ? outerSel.value : (_jobTriesPref.get(cacheKey) || '1');
-            const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
-            _jobTriesPref.set(cacheKey, String(tries));
-            const labelMap = {
-              generate_step6_video: 'Step 6 Showcase',
-              generate_action_scene_video: 'Action Scene',
-              generate_funny_scene_video: 'Funny Scene',
-              generate_fusion_sequence_video: 'Fusion Sequence',
-              generate_fusion_sequence_video_kling: 'Fusion Sequence',
-            };
-            const endpointMap = {
-              generate_step6_video: 'generate-step6-video',
-              generate_action_scene_video: 'generate-action-scene-video',
-              generate_funny_scene_video: 'generate-funny-scene-video',
-              generate_fusion_sequence_video: 'generate-fusion-sequence-video',
-              generate_fusion_sequence_video_kling: 'generate-fusion-sequence-video-kling',
-            };
-            const label = labelMap[action];
-            const endpoint = endpointMap[action];
-            const isKling = action === 'generate_fusion_sequence_video_kling';
-            const isShort = action === 'generate_funny_scene_video' || action === 'generate_fusion_sequence_video' || isKling;
-            const dur = isShort ? '5s' : '15s';
-            const eta = isShort ? '3-7' : '10-20';
-            const provider = isKling ? 'Kling 2.5 Turbo Pro' : 'Seedance 2';
-            const quality = isKling ? '1080p' : '4k';
-            if (!confirm(`${provider} ${label} Video mit CUSTOM-Prompt generieren? (9:16, ${quality}, ${dur}, ${tries}x parallel)\n\nDauert oft ${eta} Minuten pro Generation.`)) {
-              btn.disabled = false; btn.innerHTML = orig; return;
-            }
-            await api(`/api/jobs/${job.id}/${endpoint}`, {
-              method: 'POST',
-              body: JSON.stringify({tries, prompt_override: promptText}),
-            });
-            toast(`${label} Video gequeued (${provider}, custom prompt, ${tries}x)`);
-          }
-          await refreshJobs();
-        } catch (err) {
-          toast(err.message, true);
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = orig;
-        }
-      });
-    });
+    // Custom-Prompt Submit Handler: jetzt GLOBAL via Event-Delegation
+    // auf document.body (siehe unten am Ende der Datei). Per-Element
+    // Attachment wurde entfernt weil es nach Polling-Re-Renders stale
+    // werden konnte - der neue Button im DOM hatte dann keinen Handler
+    // mehr und Clicks taten nichts.
 
     // Copy-Buttons
     $$('.ns-btn.copy', container).forEach(btn => {
@@ -5148,6 +5083,87 @@ function setupAudioEditor() {
   });
 }
 setupAudioEditor();
+
+// ---------------------------------------------------------------------------
+// Custom-Prompt Submit - GLOBAL Event Delegation
+// ---------------------------------------------------------------------------
+// Per-element forEach-handler-attachment kann nach Polling-Re-Renders
+// stale werden (alter Button im DOM hat handler, neuer nicht). Event-
+// Delegation auf document.body fangt jeden Click unabhaengig von wann
+// der Button gerendert wurde - bulletproof gegen Re-Render-Issues.
+document.body.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.ns-btn.rerun[data-custom-submit-action]');
+  if (!btn) return;
+  // Verhindert Doppel-Klick waehrend des Calls
+  if (btn.disabled) return;
+  ev.stopPropagation();
+
+  const action = btn.dataset.customSubmitAction;
+  const itemKey = btn.dataset.customSubmitKey;
+  // Job-ID rausfinden: erst das .job-Card-Root suchen (hat data-id),
+  // fallback auf _modalJobId wenn wir im Modal sind.
+  const jobCard = btn.closest('.job[data-id]');
+  const jobId = (jobCard && jobCard.dataset.id) || _modalJobId || null;
+  if (!jobId) {
+    toast('Job-ID nicht ermittelbar', true);
+    return;
+  }
+  const detailsEl = btn.closest('details.custom-prompt');
+  const ta = detailsEl ? detailsEl.querySelector(`textarea[data-custom-prompt-key="${itemKey}"]`) : null;
+  const promptText = (ta ? ta.value : '').trim();
+  if (!promptText) { toast('Custom-Prompt darf nicht leer sein', true); return; }
+
+  // Sofortiger Toast als visual feedback
+  toast('Sende Request an Backend ...');
+
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '&hellip; running';
+  try {
+    if (action === 'generate_showcase') {
+      await api(`/api/jobs/${jobId}/generate-showcase`, {
+        method: 'POST',
+        body: JSON.stringify({prompt_override: promptText}),
+      });
+      toast('Custom-Showcase queued (4x 16:9)');
+    } else if (action === 'generate_step6_video' || action === 'generate_action_scene_video' || action === 'generate_funny_scene_video' || action === 'generate_fusion_sequence_video' || action === 'generate_fusion_sequence_video_kling') {
+      const outerSel = document.querySelector(`.tries-select[data-tries-for="${action}"]`);
+      const cacheKey = `${jobId}:${action}`;
+      const liveVal = outerSel ? outerSel.value : (_jobTriesPref.get(cacheKey) || '1');
+      const tries = Math.max(1, Math.min(3, parseInt(liveVal, 10) || 1));
+      _jobTriesPref.set(cacheKey, String(tries));
+      const labelMap = {
+        generate_step6_video: 'Step 6 Showcase',
+        generate_action_scene_video: 'Action Scene',
+        generate_funny_scene_video: 'Funny Scene',
+        generate_fusion_sequence_video: 'Fusion Sequence (Seedance)',
+        generate_fusion_sequence_video_kling: 'Fusion Sequence (Kling)',
+      };
+      const endpointMap = {
+        generate_step6_video: 'generate-step6-video',
+        generate_action_scene_video: 'generate-action-scene-video',
+        generate_funny_scene_video: 'generate-funny-scene-video',
+        generate_fusion_sequence_video: 'generate-fusion-sequence-video',
+        generate_fusion_sequence_video_kling: 'generate-fusion-sequence-video-kling',
+      };
+      const label = labelMap[action] || action;
+      const endpoint = endpointMap[action];
+      await api(`/api/jobs/${jobId}/${endpoint}`, {
+        method: 'POST',
+        body: JSON.stringify({tries, prompt_override: promptText}),
+      });
+      toast(`${label} gequeued (custom prompt, ${tries}x)`);
+    } else {
+      toast(`Unbekannte Custom-Prompt Action: ${action}`, true);
+    }
+    await refreshJobs();
+  } catch (err) {
+    toast(`Custom-Prompt Submit failed: ${err.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}, true);  // capture phase damit wir vor anderen Handlern dran sind
 
 // ---------------------------------------------------------------------------
 // Sidebar routing (hash-based)
