@@ -1115,31 +1115,20 @@ async def generate_video(
         refs = [reference_image]
     if refs:
         encoded = [_encode_reference_as_data_url(p) for p in refs]
-        # Model-spezifisches reference_asset Format:
-        #   - Kling (First-Last-Frame Modus): akzeptiert Array (start+end)
-        #   - Seedance i2v: akzeptiert NUR String (single ref). Multi-Ref
-        #     liefert 422 'Input should be a valid string'.
-        #   - Andere Modelle: defensiv Single-Ref nehmen.
-        # Wenn Multi-Ref gesendet aber Modell nur Single akzeptiert, nehmen
-        # wir die ERSTE Ref (= bei Step 5 das start_frame, was Seedance i2v
-        # erwartet - End-State beschreibt der Prompt).
-        is_kling = "kling" in (video_model or "").lower()
-        if len(encoded) == 1:
-            body["reference_asset"] = encoded[0]
-        elif is_kling:
-            body["reference_asset"] = encoded  # Kling first-last-frame array
-        else:
-            # Seedance / Unbekannt: Single-Ref, restliche werden gedroppt.
-            # Wir logging die Anzahl der gedroppten Refs damit der Caller
-            # weiss dass er ggf. die Multi-Ref-Information im Prompt
-            # encodieren muss.
-            body["reference_asset"] = encoded[0]
-            if len(encoded) > 1:
-                log.warning(
-                    "AI-Auto video model %r akzeptiert nur Single-Ref - "
-                    "drop %d additional refs (used: first one only).",
-                    video_model, len(encoded) - 1,
-                )
+        # AI-Auto's v2 video-Endpoint akzeptiert reference_asset NUR als
+        # einzelnen String - sowohl fuer Seedance als auch fuer Kling
+        # (verifiziert via 422 'Input should be a valid string' bei beiden).
+        # Multi-Ref / First-Last-Frame wird ueber die API nicht unterstuetzt.
+        # Wir nehmen daher immer die ERSTE Ref (= bei Step 5 das start_frame,
+        # was als Animation-Anchor passt - End-State beschreibt der Prompt).
+        body["reference_asset"] = encoded[0]
+        if len(encoded) > 1:
+            log.warning(
+                "AI-Auto video model %r: API supports only single reference_asset, "
+                "drop %d additional refs (used: first one - in step 5 that's the "
+                "start_frame; end-state must be described in the prompt).",
+                video_model, len(encoded) - 1,
+            )
         # Kling braucht das Flag explizit; Seedance ignoriert unbekannte Felder,
         # also schadet das Setzen bei beiden Modellen nicht.
         body["use_image_reference"] = True
