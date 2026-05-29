@@ -76,8 +76,8 @@ DEFAULT_ASPECT_RATIO = "9:16"
 
 MAX_PARALLEL_FUSIONS = 3
 MAX_PARALLEL_AIAUTO_CALLS = 4
-# Account-Tier-abhaengig - User wurde upgegradet, jetzt 6 parallele Video-Gens.
-MAX_PARALLEL_SEEDANCE_VIDEO_CALLS = 6
+# Account-Tier-abhaengig - User-Upgrade, jetzt 11 parallele Video-Gens.
+MAX_PARALLEL_SEEDANCE_VIDEO_CALLS = 11
 
 AIAUTO_REQUEST_TIMEOUT_S = 300.0
 AIAUTO_POST_TIMEOUT_S = 100.0  # unter Cloudflare-524-Grenze (120s), dann Fallback via /generations
@@ -127,10 +127,14 @@ EDITABLE_SETTINGS: dict[str, str] = {
     "AIAUTO_VIDEO_MODEL": "seedance_2",
     "AIAUTO_VIDEO_QUALITY": "4k",
     "AIAUTO_VIDEO_DURATION": "15",
-    # Kling 2.5 Turbo Pro fuer Step-5 First-/Last-Frame Morph (alternativ zu
-    # Seedance 2). Kling unterstuetzt nur 720p/1080p (NICHT 4k) und nimmt
-    # Reference-Images ueber `reference_asset` + `use_image_reference: true`.
-    "AIAUTO_KLING_MODEL": "kling_2_5_turbo_pro",
+    # Kling O1 fuer Step-5 First-/Last-Frame Morph (alternativ zu Seedance 2).
+    # WICHTIG: AI-Auto's v2-Endpoint erwartet den Model-String im gtv-Format,
+    # NICHT die Human-Label 'Kling 2.5 Turbo'. Aus den Docs: Kling 3.0 =
+    # 'gtv_kling30-video', also Kling 01 = 'gtv_kling01-video'. Kling
+    # unterstuetzt 720p/1080p (NICHT 4k), duration 3/5/10/15, und nimmt
+    # MEHRERE Reference-Images als Array via reference_asset (start+end frame
+    # fuer echten Morph) + use_image_reference: true.
+    "AIAUTO_KLING_MODEL": "gtv_kling01-video",
     "AIAUTO_KLING_QUALITY": "1080p",
     "AIAUTO_KLING_DURATION": "5",
     "OPENAI_API_KEY": "",
@@ -193,7 +197,13 @@ class Settings:
 
     @property
     def aiauto_kling_model(self) -> str:
-        return self._get("AIAUTO_KLING_MODEL") or "kling_2_5_turbo_pro"
+        raw = self._get("AIAUTO_KLING_MODEL")
+        # Migration: alte .env-Files haben evtl. noch den Human-Label-String
+        # 'kling_2_5_turbo_pro' der von AI-Auto's v2-Endpoint NICHT akzeptiert
+        # wird. Auf das korrekte gtv-Format zwingen.
+        if not raw or raw == "kling_2_5_turbo_pro":
+            return "gtv_kling01-video"
+        return raw
 
     @property
     def aiauto_kling_quality(self) -> str:
