@@ -4021,9 +4021,11 @@ function _renderNextStepsContent(container, job, meta) {
           {label: `${icon('rotate')} Regen Prompt`, action: 'regenerate_step5_prompt'},
         ],
         customPrompt: {
-          action: 'generate_fusion_sequence_video',
           text: step5,
-          label: 'Generate Video',
+          actions: [
+            {action: 'generate_fusion_sequence_video', label: 'Generate Seedance'},
+            {action: 'generate_fusion_sequence_video_kling', label: 'Generate Kling'},
+          ],
         },
       },
       {
@@ -4211,9 +4213,19 @@ function _renderNextStepsContent(container, job, meta) {
         const draft = _customPromptDraft.get(draftKey) || {};
         const draftText = draft.text != null ? draft.text : (cp.text || '');
         const isOpen = !!draft.open;
-        const triesHint = (cp.action === 'generate_step6_video' || cp.action === 'generate_action_scene_video' || cp.action === 'generate_funny_scene_video' || cp.action === 'generate_fusion_sequence_video')
+        // actions: optional array von {action, label} fuer Multi-Provider
+        // Custom-Prompt-Submit (z.B. Step 5: Seedance + Kling getrennt).
+        // Fallback auf single action via cp.action + cp.label.
+        const cpActions = (Array.isArray(cp.actions) && cp.actions.length)
+          ? cp.actions
+          : [{action: cp.action, label: cp.label || 'Generate with this prompt'}];
+        const anyTriesAction = cpActions.some(a => a.action === 'generate_step6_video' || a.action === 'generate_action_scene_video' || a.action === 'generate_funny_scene_video' || a.action === 'generate_fusion_sequence_video' || a.action === 'generate_fusion_sequence_video_kling');
+        const triesHint = anyTriesAction
           ? `<span class="hint">Custom-Prompt-Run &mdash; Anzahl wird vom &times;-Dropdown oben uebernommen.</span>`
           : `<span class="hint">Custom-Prompt-Run &mdash; meta.json bleibt unangetastet.</span>`;
+        const actionsButtons = cpActions.map(a => `
+          <button class="ns-btn rerun" data-custom-submit-key="${escapeAttr(it.key)}" data-custom-submit-action="${escapeAttr(a.action)}">${icon('video')} ${escapeHtml(a.label || 'Generate with this prompt')}</button>
+        `).join('');
         customPromptHtml = `
           <details class="custom-prompt ns-custom-prompt"${isOpen ? ' open' : ''} data-custom-draft-key="${escapeAttr(draftKey)}">
             <summary>
@@ -4221,9 +4233,9 @@ function _renderNextStepsContent(container, job, meta) {
               <span>${icon('pencil')} Generate with custom prompt</span>
             </summary>
             <div class="body">
-              <textarea data-custom-prompt-key="${escapeAttr(it.key)}" data-custom-prompt-action="${escapeAttr(cp.action)}" placeholder="Eigenen Prompt einfuegen. Wird 1:1 statt des auto-generierten Prompts an Seedance / AI-Auto geschickt.">${escapeHtml(draftText)}</textarea>
+              <textarea data-custom-prompt-key="${escapeAttr(it.key)}" data-custom-prompt-action="${escapeAttr(cpActions[0].action)}" placeholder="Eigenen Prompt einfuegen. Wird 1:1 statt des auto-generierten Prompts an Seedance / AI-Auto geschickt.">${escapeHtml(draftText)}</textarea>
               <div class="actions">
-                <button class="ns-btn rerun" data-custom-submit-key="${escapeAttr(it.key)}" data-custom-submit-action="${escapeAttr(cp.action)}">${icon('video')} ${escapeHtml(cp.label || 'Generate with this prompt')}</button>
+                ${actionsButtons}
                 ${triesHint}
               </div>
             </div>
