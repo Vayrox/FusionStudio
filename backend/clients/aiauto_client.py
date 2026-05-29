@@ -1114,11 +1114,32 @@ async def generate_video(
     elif reference_image and reference_image.exists():
         refs = [reference_image]
     if refs:
-        # v2 nutzt 'reference_asset' (single Data-URL fuer 1 Ref, Array
-        # fuer Multi-Ref / Ingredients-Mode). Falls die API nur Single-Ref
-        # akzeptiert, wird ein 400 zurueckkommen mit klarer Meldung.
         encoded = [_encode_reference_as_data_url(p) for p in refs]
-        body["reference_asset"] = encoded[0] if len(encoded) == 1 else encoded
+        # Model-spezifisches reference_asset Format:
+        #   - Kling (First-Last-Frame Modus): akzeptiert Array (start+end)
+        #   - Seedance i2v: akzeptiert NUR String (single ref). Multi-Ref
+        #     liefert 422 'Input should be a valid string'.
+        #   - Andere Modelle: defensiv Single-Ref nehmen.
+        # Wenn Multi-Ref gesendet aber Modell nur Single akzeptiert, nehmen
+        # wir die ERSTE Ref (= bei Step 5 das start_frame, was Seedance i2v
+        # erwartet - End-State beschreibt der Prompt).
+        is_kling = "kling" in (video_model or "").lower()
+        if len(encoded) == 1:
+            body["reference_asset"] = encoded[0]
+        elif is_kling:
+            body["reference_asset"] = encoded  # Kling first-last-frame array
+        else:
+            # Seedance / Unbekannt: Single-Ref, restliche werden gedroppt.
+            # Wir logging die Anzahl der gedroppten Refs damit der Caller
+            # weiss dass er ggf. die Multi-Ref-Information im Prompt
+            # encodieren muss.
+            body["reference_asset"] = encoded[0]
+            if len(encoded) > 1:
+                log.warning(
+                    "AI-Auto video model %r akzeptiert nur Single-Ref - "
+                    "drop %d additional refs (used: first one only).",
+                    video_model, len(encoded) - 1,
+                )
         # Kling braucht das Flag explizit; Seedance ignoriert unbekannte Felder,
         # also schadet das Setzen bei beiden Modellen nicht.
         body["use_image_reference"] = True
