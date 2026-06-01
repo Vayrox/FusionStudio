@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
 from backend import prompts
 
 log = logging.getLogger("fusion-auto.pipeline")
@@ -54,6 +56,58 @@ def _register_task(key: str, task: asyncio.Task[Any]) -> None:
 
 def _now_iso() -> str:
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+
+# 16:9 Split-Ref Canvas-Groesse - 1920x1080 ist gross genug fuer Seedance's
+# 4K Output ohne dass die Halbe-Pokemon-Refs zu klein wirken (jede Haelfte
+# 960x1080).
+_MORPH_SPLIT_CANVAS_W = 1920
+_MORPH_SPLIT_CANVAS_H = 1080
+
+
+def _build_fusion_morph_split_ref(
+    start_frame: Path, end_frame: Path, out_path: Path,
+) -> Path:
+    """Baut ein 16:9 Side-by-Side Ref-Bild fuer Seedance/Kling Morph-Videos.
+
+    Seedance/Kling akzeptieren nur EIN reference_asset. Statt nur den Start-
+    Frame zu schicken (Modell sieht End-Zustand nicht), legen wir Start und
+    End in einer Kachel zusammen: LEFT=start, RIGHT=end, beide center-fitted
+    auf schwarzem Background, Aspect Ratios bleiben erhalten (Letterboxing).
+    Der Prompt-Prefix erklaert dem Modell wie die Kachel zu lesen ist.
+    """
+    canvas_w = _MORPH_SPLIT_CANVAS_W
+    canvas_h = _MORPH_SPLIT_CANVAS_H
+    half_w = canvas_w // 2
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
+
+    for path, x_origin in ((start_frame, 0), (end_frame, half_w)):
+        with Image.open(path) as src:
+            src.load()
+            img = src.convert("RGB")
+        scale = min(half_w / img.width, canvas_h / img.height)
+        new_w = max(1, int(round(img.width * scale)))
+        new_h = max(1, int(round(img.height * scale)))
+        resized = img.resize((new_w, new_h), Image.LANCZOS)
+        paste_x = x_origin + (half_w - new_w) // 2
+        paste_y = (canvas_h - new_h) // 2
+        canvas.paste(resized, (paste_x, paste_y))
+
+    canvas.save(out_path, format="PNG", optimize=True)
+    return out_path
+
+
+_MORPH_SPLIT_PROMPT_LEGEND = (
+    "REFERENCE IMAGE LAYOUT: The input reference image is a 16:9 canvas "
+    "split exactly in half. The LEFT half shows the STARTING STATE (two "
+    "separate Pokemon standing side by side). The RIGHT half shows the END "
+    "STATE (the single fused creature). Animate a smooth morph / "
+    "transformation from the LEFT-side composition INTO the RIGHT-side "
+    "composition. CRITICAL: do NOT keep the side-by-side split layout in "
+    "the output video. The output is a single continuous scene that starts "
+    "looking like the LEFT half and ends looking like the RIGHT half - "
+    "never show both halves at the same time, never show a vertical seam.\n\n"
+)
 
 
 def _load_state_sync() -> dict[str, Any]:
@@ -1029,8 +1083,12 @@ async def generate_fusion_sequence_video(
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path.name}")
 
+    split_ref = out_dir / "05_morph_split_ref.png"
+    _build_fusion_morph_split_ref(start_frame, fav_path, split_ref)
+    morph_prompt = _MORPH_SPLIT_PROMPT_LEGEND + prompt
+
     await _spawn_video_slots(
-        job_id, prompt, [start_frame, fav_path], tries,
+        job_id, morph_prompt, [split_ref], tries,
         list_field="fusion_sequence_videos",
         filename_prefix="05_fusion_sequence_video",
         seconds=5,
@@ -1082,8 +1140,12 @@ async def generate_fusion_sequence_video_kling(
     if not fav_path.exists():
         raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path.name}")
 
+    split_ref = out_dir / "05_morph_split_ref.png"
+    _build_fusion_morph_split_ref(start_frame, fav_path, split_ref)
+    morph_prompt = _MORPH_SPLIT_PROMPT_LEGEND + prompt
+
     await _spawn_video_slots(
-        job_id, prompt, [start_frame, fav_path], tries,
+        job_id, morph_prompt, [split_ref], tries,
         list_field="fusion_sequence_videos",
         filename_prefix="05_fusion_sequence_kling",
         seconds=_settings.aiauto_kling_duration,
