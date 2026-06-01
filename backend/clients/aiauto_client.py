@@ -757,17 +757,33 @@ async def _generate_image_once(
                 )
                 sync_bytes = None
             else:
+                image_model = settings.aiauto_image_model
                 body: dict[str, Any] = {
                     "type": "image",
-                    "model": settings.aiauto_image_model,
+                    "model": image_model,
                     "prompt": prompt,
                     "ratio": aspect_ratio,
                     "quality": resolution or settings.aiauto_image_resolution,
                     "count": 1,
                 }
                 if refs_data_urls:
+                    # Reference-Field-Name ist model-abhaengig:
+                    #   - nano_banana_pro / imagen_*: i2v_reference_images (Array,
+                    #     Multi-Ref Ingredients-Mode)
+                    #   - gpt_image_2 + andere GPT-Image-Modelle: reference_asset
+                    #     (Single-String wie bei Video-Modellen)
+                    # Plus use_image_reference: true fuer beide.
                     body["use_image_reference"] = True
-                    body["i2v_reference_images"] = refs_data_urls
+                    if "gpt_image" in image_model.lower():
+                        body["reference_asset"] = refs_data_urls[0]
+                        if len(refs_data_urls) > 1:
+                            log.warning(
+                                "AI-Auto image model %r accepts only single "
+                                "reference_asset - drop %d additional refs.",
+                                image_model, len(refs_data_urls) - 1,
+                            )
+                    else:
+                        body["i2v_reference_images"] = refs_data_urls
 
                 submit_ts = time.time()
                 # submit_ts SOFORT in den Holder schreiben, BEVOR der POST losgeht.

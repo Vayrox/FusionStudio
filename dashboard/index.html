@@ -2388,11 +2388,15 @@
         </div>
         <div class="field">
           <label for="s-aiauto-model">AI-Auto Image Model</label>
-          <input type="text" id="s-aiauto-model" />
+          <select id="s-aiauto-model" style="width:100%; padding:11px 14px; background:rgba(0,0,0,0.25); color:var(--text); border:1px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; outline:none;">
+            <option value="nano_banana_pro">Nano Banana Pro (Default, 2k)</option>
+            <option value="gpt_image_2">GPT Image 2.0 (Fallback wenn Nano down)</option>
+          </select>
+          <small>Welches Modell fuer alle Step-2/3/4 Image-Generations benutzt wird. Switch ohne Server-Restart - greift beim naechsten Generate-Call.</small>
         </div>
         <div class="field">
           <label for="s-aiauto-res">AI-Auto Image Resolution</label>
-          <input type="text" id="s-aiauto-res" placeholder="1k / 2k" />
+          <input type="text" id="s-aiauto-res" placeholder="1k / 2k (Nano) - low/medium/high/auto (GPT Image 2)" />
         </div>
         <div class="field">
           <label for="s-openai-model">OpenAI Model</label>
@@ -4656,7 +4660,20 @@ async function refreshSettings() {
     if (ggState) ggState.textContent = ggSet
       ? `set (...${s.GOOGLE_API_KEY.suffix})` : 'not set';
     $('#s-aiauto-url').value = s.AIAUTO_BASE_URL || '';
-    $('#s-aiauto-model').value = s.AIAUTO_IMAGE_MODEL || '';
+    // AI-Auto Image Model Dropdown: falls der gespeicherte Wert nicht zu den
+    // beiden Standard-Optionen passt (z.B. nano_banana_lite oder eine custom
+    // Model-ID die manuell in der .env steht), als zusaetzliche Option
+    // dynamisch hinzufuegen damit er nicht verloren geht.
+    const imgModelSel = $('#s-aiauto-model');
+    const savedImgModel = s.AIAUTO_IMAGE_MODEL || 'nano_banana_pro';
+    const knownImgModels = Array.from(imgModelSel.options).map(o => o.value);
+    if (!knownImgModels.includes(savedImgModel)) {
+      const opt = document.createElement('option');
+      opt.value = savedImgModel;
+      opt.textContent = `${savedImgModel} (custom from .env)`;
+      imgModelSel.appendChild(opt);
+    }
+    imgModelSel.value = savedImgModel;
     $('#s-aiauto-res').value = s.AIAUTO_IMAGE_RESOLUTION || '';
     $('#s-openai-model').value = s.OPENAI_MODEL || '';
     const gmModel = $('#s-gemini-vision-model');
