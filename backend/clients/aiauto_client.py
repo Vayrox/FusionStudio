@@ -31,6 +31,8 @@ import base64
 import io
 import logging
 import mimetypes
+import os
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,6 +66,16 @@ _SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_AIAUTO_CALLS)
 # Seedance v2 erlaubt pro Account nur 1 gleichzeitige Video-Generation -
 # separate Semaphore damit Image-Pipeline weiterhin parallel laufen darf.
 _VIDEO_SEMAPHORE = asyncio.Semaphore(MAX_PARALLEL_SEEDANCE_VIDEO_CALLS)
+# GPT Image 2.0 Package erlaubt nur 2 gleichzeitige Generationen pro Account
+# (429 "Package concurrent limit reached"). Eigene Semaphore dafuer, damit
+# nano_banana_pro weiterhin mit MAX_PARALLEL_AIAUTO_CALLS=4 laufen kann.
+_GPT_IMAGE_SEMAPHORE = asyncio.Semaphore(2)
+
+
+def _image_semaphore_for_model(model: str) -> asyncio.Semaphore:
+    if "gpt_image" in (model or "").lower():
+        return _GPT_IMAGE_SEMAPHORE
+    return _SEMAPHORE
 
 # Seedance v2 lehnt Prompts ueber 2000 Zeichen ab. GPT-Generation hat den
 # Cap schon via System-Prompt + _enforce_seedance_char_limit eingebaut,
@@ -222,6 +234,54 @@ def _encode_reference_as_data_url(image_path: Path) -> str:
         fallback.size[0], fallback.size[1], len(b64),
     )
     return f"data:image/jpeg;base64,{b64}"
+
+
+def _composite_refs_for_single_slot(refs: list[Path]) -> Path:
+    """Bauen N>=2 Reference-Bilder zu einem side-by-side Composite zusammen.
+
+    GPT Image 2.0 unterstuetzt nur einen einzigen `reference_asset`-String.
+    Statt N-1 Refs zu droppen (-> Modell hat keine Pokemon-Anker fuer Step 3/4
+    -> 500 "Generation failed") legen wir alle Refs in einem horizontalen
+    Grid auf schwarzem Hintergrund nebeneinander. Schwarzer Background damit
+    es zu signature_background.png passt (das ist auch schwarz).
+
+    Tile-Hoehe = 1024px (genug Detail), proportionale Breite. Final-Cap
+    bei 4096px Gesamt-Breite damit der b64-Cap im encode-Helper greift.
+    """
+    tile_h = 1024
+    max_total_w = 4096
+    tiles: list[Image.Image] = []
+    for p in refs:
+        with Image.open(p) as src:
+            src.load()
+            img = src.convert("RGB")
+        scale = tile_h / img.height
+        new_w = max(1, int(round(img.width * scale)))
+        tiles.append(img.resize((new_w, tile_h), Image.LANCZOS))
+
+    total_w = sum(t.width for t in tiles)
+    if total_w > max_total_w:
+        # Gleichmaessig downscalen damit Total <= max_total_w.
+        shrink = max_total_w / total_w
+        tile_h = max(1, int(round(tile_h * shrink)))
+        new_tiles: list[Image.Image] = []
+        for t in tiles:
+            new_w = max(1, int(round(t.width * shrink)))
+            new_tiles.append(t.resize((new_w, tile_h), Image.LANCZOS))
+        tiles = new_tiles
+        total_w = sum(t.width for t in tiles)
+
+    canvas = Image.new("RGB", (total_w, tile_h), (0, 0, 0))
+    x = 0
+    for t in tiles:
+        canvas.paste(t, (x, 0))
+        x += t.width
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".jpg", prefix="fusion_ref_composite_")
+    os.close(fd)
+    out_path = Path(tmp_name)
+    canvas.save(out_path, format="JPEG", quality=92, optimize=True)
+    return out_path
 
 
 def _sync_image_bytes_from_response(payload: dict[str, Any]) -> bytes | None:
@@ -717,21 +777,39 @@ async def _generate_image_once(
     den State schreiben sobald wir ihn kennen. Der Caller (generate_image)
     reicht sie beim Retry weiter.
     """
-    refs_data_urls = [
-        _encode_reference_as_data_url(p)
-        for p in (reference_images or [])
-        if p.exists()
-    ]
-    if len(refs_data_urls) > 10:
+    existing_refs = [p for p in (reference_images or []) if p.exists()]
+    if len(existing_refs) > 10:
         raise AIAutoError(
-            f"AI-Auto erlaubt maximal 10 Reference-Images, bekommen: {len(refs_data_urls)}"
+            f"AI-Auto erlaubt maximal 10 Reference-Images, bekommen: {len(existing_refs)}"
         )
+
+    # Model-aware ref handling:
+    # GPT Image 2.0 nimmt nur EIN reference_asset entgegen. Statt N-1 refs
+    # einfach zu droppen (-> 500 wenn z.B. Step 3 die zwei Pokemon-Refs verliert),
+    # compositen wir mehrere Refs zu einer side-by-side Kachel zusammen, damit
+    # GPT Image 2.0 alle Anchor-Pokemon "sieht".
+    active_model_for_refs = settings.aiauto_image_model
+    if "gpt_image" in (active_model_for_refs or "").lower() and len(existing_refs) > 1:
+        composite_path = _composite_refs_for_single_slot(existing_refs)
+        refs_data_urls = [_encode_reference_as_data_url(composite_path)]
+        log.info(
+            "AI-Auto image model %r: composited %d refs into single side-by-side "
+            "image (Single-Ref-Limit Workaround).",
+            active_model_for_refs, len(existing_refs),
+        )
+    else:
+        refs_data_urls = [_encode_reference_as_data_url(p) for p in existing_refs]
 
     # POST IMMER an v2 (saas-POST kennt die neuen Modelle nicht).
     # Listing/Status/Download laufen weiter via settings.aiauto_base_url (saas).
     url = _GENERATE_URL
 
-    async with _SEMAPHORE:
+    # Semaphore VOR dem Acquire whaehlen - GPT Image 2.0 hat strikteren
+    # Concurrent-Limit (2) als nano_banana_pro (MAX_PARALLEL_AIAUTO_CALLS=4).
+    active_model = settings.aiauto_image_model
+    semaphore = _image_semaphore_for_model(active_model)
+
+    async with semaphore:
         async with httpx.AsyncClient(timeout=AIAUTO_REQUEST_TIMEOUT_S) as client:
             if existing_generation_id:
                 log.info(
@@ -757,7 +835,7 @@ async def _generate_image_once(
                 )
                 sync_bytes = None
             else:
-                image_model = settings.aiauto_image_model
+                image_model = active_model
                 body: dict[str, Any] = {
                     "type": "image",
                     "model": image_model,
@@ -771,17 +849,11 @@ async def _generate_image_once(
                     #   - nano_banana_pro / imagen_*: i2v_reference_images (Array,
                     #     Multi-Ref Ingredients-Mode)
                     #   - gpt_image_2 + andere GPT-Image-Modelle: reference_asset
-                    #     (Single-String wie bei Video-Modellen)
-                    # Plus use_image_reference: true fuer beide.
+                    #     (Single-String, refs sind oben schon zu einem
+                    #     Composite zusammengebaut wenn N>1)
                     body["use_image_reference"] = True
                     if "gpt_image" in image_model.lower():
                         body["reference_asset"] = refs_data_urls[0]
-                        if len(refs_data_urls) > 1:
-                            log.warning(
-                                "AI-Auto image model %r accepts only single "
-                                "reference_asset - drop %d additional refs.",
-                                image_model, len(refs_data_urls) - 1,
-                            )
                     else:
                         body["i2v_reference_images"] = refs_data_urls
 
