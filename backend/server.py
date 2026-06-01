@@ -436,6 +436,18 @@ async def api_regenerate_start_frame(job_id: str) -> dict[str, str]:
     return {"path": path}
 
 
+@app.post("/api/jobs/{job_id}/build-morph-split-ref")
+async def api_build_morph_split_ref(job_id: str) -> dict[str, str]:
+    """Baut 05_morph_split_ref.png (16:9 Split-Canvas, LEFT=start_frame,
+    RIGHT=favorite fusion) on-demand fuer Preview. Wird sonst auch
+    automatisch beim Generate-Video gebaut."""
+    try:
+        path = await runner.build_morph_split_ref(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"path": path}
+
+
 class RegenerateRealisticRequest(BaseModel):
     which: str = "both"  # 'both' | 'a' | 'b'
 

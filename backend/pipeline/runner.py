@@ -1079,6 +1079,7 @@ async def generate_fusion_sequence_video(
 
     split_ref = out_dir / "05_morph_split_ref.png"
     _build_fusion_morph_split_ref(start_frame, fav_path, split_ref)
+    await _update_job(job_id, morph_split_ref_path=_relative_to_root(split_ref))
     morph_prompt = _MORPH_SPLIT_PROMPT_LEGEND + prompt
 
     await _spawn_video_slots(
@@ -1130,6 +1131,7 @@ async def generate_fusion_sequence_video_kling(
 
     split_ref = out_dir / "05_morph_split_ref.png"
     _build_fusion_morph_split_ref(start_frame, fav_path, split_ref)
+    await _update_job(job_id, morph_split_ref_path=_relative_to_root(split_ref))
     morph_prompt = _MORPH_SPLIT_PROMPT_LEGEND + prompt
 
     await _spawn_video_slots(
@@ -1745,6 +1747,32 @@ async def regenerate_showcase_image_prompt(job_id: str) -> str:
     _save_meta_field(meta_path, meta, "showcase_image_prompt", prompt)
     await _update_job(job_id, showcase_image_prompt_regen_at=_now_iso())
     return prompt
+
+
+async def build_morph_split_ref(job_id: str) -> str:
+    """Baut die 16:9 Split-Ref (05_morph_split_ref.png) on-demand fuer
+    Preview/Inspection - ohne ein Video zu starten.
+
+    LEFT=03_start_frame.png, RIGHT=04_fusion_v{fav}.png. Beide Halbsides
+    center-fitted, schwarzer Background. Returns relativen Pfad zur Ref.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise ValueError(f"Job {job_id} nicht gefunden")
+    fav = job.get("favorite_variant")
+    if not fav:
+        raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
+    out_dir = PROJECT_ROOT / job["output_dir"]
+    start_frame = out_dir / "03_start_frame.png"
+    if not start_frame.exists():
+        raise RuntimeError(f"Start-Frame fehlt: {start_frame.name}")
+    fav_path = out_dir / f"04_fusion_v{fav}.png"
+    if not fav_path.exists():
+        raise RuntimeError(f"Favoriten-Datei fehlt: {fav_path.name}")
+    split_ref = out_dir / "05_morph_split_ref.png"
+    _build_fusion_morph_split_ref(start_frame, fav_path, split_ref)
+    await _update_job(job_id, morph_split_ref_path=_relative_to_root(split_ref))
+    return _relative_to_root(split_ref)
 
 
 async def regenerate_start_frame(job_id: str) -> str:

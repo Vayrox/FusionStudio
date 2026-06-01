@@ -1234,6 +1234,19 @@
     border-radius: 4px; color: var(--accent-hi);
     border: 1px solid var(--border);
   }
+  .morph-split-preview {
+    margin-top: 10px; max-width: 520px;
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; background: #000;
+  }
+  .morph-split-preview img {
+    display: block; width: 100%; height: auto;
+  }
+  .morph-split-cap {
+    font-size: 11px; color: var(--text-muted);
+    padding: 6px 8px; background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
   .ns-actions {
     display: flex; gap: 6px; flex-wrap: wrap;
     justify-content: flex-end; align-items: center;
@@ -4015,12 +4028,19 @@ function _renderNextStepsContent(container, job, meta) {
       {
         key: 'step5',
         title: 'Step 5 &mdash; Fusion Sequence (Seedance 2 + Kling 2.5 Turbo)',
-        hint: fav
-          ? `5s morph: start frame <code>03_start_frame.png</code> &rarr; <code>${escapeHtml(variantFile)}</code>. Seedance 2 (4k 9:16) ODER Kling 2.5 Turbo Pro (1080p 9:16) &mdash; beide nutzen Start-Frame + Favorit als Refs.`
-          : `5s morph from start frame to favorited fusion. <span class="no-fav">Favorit waehlen ${icon('starFill')}.</span> Seedance 2 ODER Kling 2.5 Turbo Pro waehlbar.`,
+        hint: (fav
+          ? `5s morph via 16:9 <strong>Split-Ref</strong> (<code>05_morph_split_ref.png</code>): LEFT=<code>03_start_frame.png</code>, RIGHT=<code>${escapeHtml(variantFile)}</code>. Seedance/Kling sehen Start UND End in einem einzigen Ref-Bild. Preview-Button baut die Split-Ref ohne Video zu starten.`
+          : `5s morph from start frame to favorited fusion via 16:9 Split-Ref (start | fusion). <span class="no-fav">Favorit waehlen ${icon('starFill')}.</span>`)
+          + (job.morph_split_ref_path
+              ? (() => {
+                  const u = '/' + String(job.morph_split_ref_path).replace(/^\/+/, '') + '?v=' + encodeURIComponent(job.updated_at || '');
+                  return `<div class="morph-split-preview"><a href="${escapeAttr(u)}" target="_blank" rel="noopener"><img src="${escapeAttr(u)}" alt="Morph Split-Ref Preview" loading="lazy" /></a><div class="morph-split-cap"><code>${escapeHtml(job.morph_split_ref_path)}</code></div></div>`;
+                })()
+              : ''),
         copies: [
           {label: `${icon('video')} Generate Seedance`, action: 'generate_fusion_sequence_video', primary: true},
           {label: `${icon('video')} Generate Kling 2.5`, action: 'generate_fusion_sequence_video_kling', primary: true},
+          {label: `${icon('frame')} Preview Morph Ref`, action: 'build_morph_split_ref'},
           {label: `${icon('copy')} Copy Kling Prompt`, text: step5},
           {label: `${icon('rotate')} Regen Prompt`, action: 'regenerate_step5_prompt'},
         ],
@@ -4433,6 +4453,10 @@ function _renderNextStepsContent(container, job, meta) {
             if (!confirm('Start Frame (03_start_frame.png) neu generieren?\n\nNutzt die bestehenden 02a + 02b Realistic-Singles + Signature-Background. Dauert ca. 30-60s.')) return;
             await api(`/api/jobs/${job.id}/regenerate-start-frame`, {method: 'POST'});
             toast('Start Frame wird neu generiert ...');
+            await refreshJobs();
+          } else if (action === 'build_morph_split_ref') {
+            await api(`/api/jobs/${job.id}/build-morph-split-ref`, {method: 'POST'});
+            toast('Morph Split-Ref gebaut (05_morph_split_ref.png)');
             await refreshJobs();
           } else if (action === 'regenerate_realistic_both' || action === 'regenerate_realistic_a' || action === 'regenerate_realistic_b') {
             const which = action === 'regenerate_realistic_a' ? 'a' :
