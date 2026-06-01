@@ -788,14 +788,34 @@ async def _generate_image_once(
     # einfach zu droppen (-> 500 wenn z.B. Step 3 die zwei Pokemon-Refs verliert),
     # compositen wir mehrere Refs zu einer side-by-side Kachel zusammen, damit
     # GPT Image 2.0 alle Anchor-Pokemon "sieht".
+    # WICHTIG: Die Prompts (Step 3/4) verweisen explizit auf "reference 1/2/3".
+    # Bei GPT Image 2.0 zeigen wir aber nur EIN Bild (das Composite). Damit das
+    # Modell die "reference N"-Verweise korrekt interpretiert, prependen wir
+    # eine Panel-Legende an den Prompt die erklaert dass das Single-Ref-Bild
+    # aus N nebeneinander gelegten Panels besteht.
     active_model_for_refs = settings.aiauto_image_model
     if "gpt_image" in (active_model_for_refs or "").lower() and len(existing_refs) > 1:
         composite_path = _composite_refs_for_single_slot(existing_refs)
         refs_data_urls = [_encode_reference_as_data_url(composite_path)]
+        n = len(existing_refs)
+        panel_legend = (
+            f"REFERENCE IMAGE LEGEND: The single reference image you receive is a "
+            f"horizontal composite of {n} panels placed side by side, left to right. "
+            + " ".join(
+                f"Panel {i+1} (from the left) = reference {i+1}."
+                for i in range(n)
+            )
+            + " When the instructions below say 'reference 1', 'reference 2', etc, "
+            "they mean the corresponding panel in this composite. Do NOT copy the "
+            "side-by-side composite layout into your output - read each panel as a "
+            "separate visual reference for the subject the instructions ask you to "
+            "render.\n\n"
+        )
+        prompt = panel_legend + prompt
         log.info(
             "AI-Auto image model %r: composited %d refs into single side-by-side "
-            "image (Single-Ref-Limit Workaround).",
-            active_model_for_refs, len(existing_refs),
+            "image + prepended panel legend to prompt.",
+            active_model_for_refs, n,
         )
     else:
         refs_data_urls = [_encode_reference_as_data_url(p) for p in existing_refs]
