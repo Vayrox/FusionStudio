@@ -1065,16 +1065,10 @@ async def generate_fusion_sequence_video(
         raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
 
     out_dir = PROJECT_ROOT / job["output_dir"]
-    meta_path = out_dir / "_meta.json"
-    if not meta_path.exists():
-        raise RuntimeError("_meta.json fehlt.")
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
     if prompt_override and prompt_override.strip():
         prompt = prompt_override.strip()
     else:
-        prompt = meta.get("step5_transformation")
-        if not prompt:
-            raise RuntimeError("step5_transformation fehlt in _meta.json.")
+        prompt = prompts.STEP5_FUSION_SEQUENCE_DEFAULT
 
     start_frame = out_dir / "03_start_frame.png"
     if not start_frame.exists():
@@ -1122,16 +1116,10 @@ async def generate_fusion_sequence_video_kling(
         raise ValueError("Bitte zuerst eine Favoriten-Variante markieren (Stern auf v1..v3).")
 
     out_dir = PROJECT_ROOT / job["output_dir"]
-    meta_path = out_dir / "_meta.json"
-    if not meta_path.exists():
-        raise RuntimeError("_meta.json fehlt.")
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
     if prompt_override and prompt_override.strip():
         prompt = prompt_override.strip()
     else:
-        prompt = meta.get("step5_transformation")
-        if not prompt:
-            raise RuntimeError("step5_transformation fehlt in _meta.json.")
+        prompt = prompts.STEP5_FUSION_SEQUENCE_DEFAULT
 
     start_frame = out_dir / "03_start_frame.png"
     if not start_frame.exists():

@@ -332,6 +332,52 @@ Optional tone guidance: {TONE_HINT}
 Write the Distinctive Traits paragraph."""
 
 
+# Fixer Default-Prompt fuer Step 5 Fusion-Sequence-Videos. Wird statt der
+# GPT-Generation verwendet - ist auf Seedance/Kling getrimmt (16:9 Split-Ref
+# Layout wird vom Pipeline-Code separat geprependet) und nutzt rein
+# generische Verweise auf die zwei Pokemon (cooler/bluer vs warmer/brighter),
+# damit das Template fuer jedes Paar funktioniert ohne Anpassung.
+STEP5_FUSION_SEQUENCE_DEFAULT = (
+    "Use the attached image as the exact visual reference for both Pokemon. "
+    "Do not redesign them. The two Pokemon are standing on a circular metallic "
+    "platform with glowing blue and yellow ring-lights, set in a clean dark "
+    "studio with soft volumetric light and faint atmospheric haze. The camera "
+    "is locked off in a smooth, slow push-in toward the center of the platform "
+    "- no shake, no handheld.\n"
+    "BEAT 1 (0-1s): Both Pokemon stand briefly facing each other, then their "
+    "bodies begin to dissolve upward into streams of glowing particles, "
+    "starting from the feet and rising. Each creature's particles glow in "
+    "their own primary body color - the cooler/bluer Pokemon dissolving into "
+    "its matching colored light, the warmer/brighter Pokemon dissolving into "
+    "its matching colored light.\n"
+    "BEAT 2 (1-1.5s): The particles condense into two bright glowing orbs of "
+    "pure energy, one per Pokemon, each in its respective color. The orbs "
+    "float at the same height above the center of the platform, roughly "
+    "chest-high, humming with light. Soft lens flare on each orb.\n"
+    "BEAT 3 (1.5-3s): The two orbs begin to orbit each other, spinning faster "
+    "and faster around a shared center point, trailing streaks of colored "
+    "light behind them. The platform lights pulse in time with the spin. "
+    "Particles spiral inward. The orbs accelerate until they blur into a "
+    "single ring of colored light.\n"
+    "BEAT 4 (3-3.5s): The orbs collide at the center in a brilliant flash of "
+    "pure white light that briefly fills the frame, with a soft shockwave of "
+    "energy rippling outward across the platform and pushing the haze "
+    "outward.\n"
+    "BEAT 5 (3.5-5s): As the flash fades, the fused creature is revealed "
+    "standing in the exact center of the platform where the orbs merged, "
+    "fully formed, with the last wisps of colored particles settling around "
+    "its body. The fusion holds the pose briefly, lit by the soft glow of "
+    "the platform rings, ready for the camera.\n"
+    "Smooth cinematic transition, no cuts, all one continuous shot. Realistic "
+    "light physics, particle behavior, and lens flare. The fused Pokemon at "
+    "the end should be a natural combination of the two source creatures' "
+    "colors, anatomy, and features - keep this open for the model to "
+    "interpret based on the source Pokemon shown.\n"
+    "Style: clean, magical, cinematic, dramatic lighting, smooth camera, no "
+    "handheld shake, 5 seconds total."
+)
+
+
 GPT_STEP5_TRANSFORMATION_SYSTEM = """You are writing the Step 5 Transformation Video Prompt for Seedance / Kling 2.5 / Kling 3.0 Omni.
 
 This is ONE continuous paragraph, MAX 1800 CHARACTERS (about 240-280 words), describing a single video shot that depicts two Pokemon fusing into one. The Seedance API HARD-REJECTS any prompt over 2000 characters - so 1800 is non-negotiable, with safety buffer baked in. COUNT YOUR CHARACTERS as you write.

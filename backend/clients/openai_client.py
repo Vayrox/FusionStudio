@@ -227,19 +227,12 @@ async def generate_step5_transformation(
     concept: str,
     distinctive_traits: str,
 ) -> str:
-    user = prompts.GPT_STEP5_TRANSFORMATION_USER_TEMPLATE.format(
-        POKEMON_A=pokemon_a,
-        POKEMON_B=pokemon_b,
-        CONCEPT=concept,
-        DISTINCTIVE_TRAITS=distinctive_traits,
-    )
-    raw = await _chat(
-        prompts.GPT_STEP5_TRANSFORMATION_SYSTEM,
-        user,
-        temperature=0.9,
-        max_tokens=600,
-    )
-    return _enforce_seedance_char_limit(raw, "step5_transformation")
+    # Fixer Default-Prompt - keine GPT-Generation mehr. Das Template ist
+    # generisch genug fuer jedes Pokemon-Paar (Verweise auf "cooler/bluer"
+    # vs "warmer/brighter") und das Seedance-Modell adaptiert die Farben
+    # automatisch anhand der Split-Ref (start_frame + Fusion).
+    # Argumente bleiben aus API-Kompatibilitaet, werden aber nicht genutzt.
+    return prompts.STEP5_FUSION_SEQUENCE_DEFAULT
 
 
 # ---------------------------------------------------------------------------
