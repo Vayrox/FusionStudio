@@ -2851,6 +2851,22 @@
                 <option value="15">15</option>
               </select>
             </div>
+            <div class="cg-col" data-show-for="video" style="display:none">
+              <label for="cg-count">Anzahl Videos</label>
+              <select id="cg-count">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+              </select>
+            </div>
           </div>
 
           <div class="cg-actions" style="margin-top:14px">
@@ -5640,6 +5656,7 @@ setInterval(refreshJobs, 2000);
   const imgResEl = $('#cg-img-res');
   const vidResEl = $('#cg-vid-res');
   const secondsEl = $('#cg-seconds');
+  const countEl = $('#cg-count');
   const generateBtn = $('#cg-generate');
   const statusEl = $('#cg-status');
   const dropEl = $('#cg-drop');
@@ -5742,7 +5759,12 @@ setInterval(refreshJobs, 2000);
     const prompt = (promptEl.value || '').trim();
     if (!prompt) { toast('Prompt fehlt.'); return; }
     generateBtn.disabled = true;
-    statusEl.textContent = 'Sende Request an Backend ...';
+    const count = mode === 'video'
+      ? Math.max(1, Math.min(11, parseInt(countEl.value, 10) || 1))
+      : 1;
+    statusEl.textContent = count > 1
+      ? `Sende ${count} parallele Requests an Backend ...`
+      : 'Sende Request an Backend ...';
     try {
       const body = {
         prompt,
@@ -5759,17 +5781,29 @@ setInterval(refreshJobs, 2000);
         body.seconds = parseInt(secondsEl.value, 10) || 5;
         endpoint = '/api/custom-gen/video';
       }
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}: ${txt}`);
+      const tasks = Array.from({length: count}, () =>
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body),
+        }).then(async res => {
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}: ${txt}`);
+          }
+          return res.json();
+        })
+      );
+      const results = await Promise.allSettled(tasks);
+      const ok = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      const label = mode === 'image' ? 'Image' : 'Video';
+      if (failed === 0) {
+        toast(`${ok} ${label}${ok > 1 ? 's' : ''} queued`);
+      } else {
+        const firstErr = results.find(r => r.status === 'rejected');
+        toast(`${ok}/${results.length} queued, ${failed} failed: ${firstErr?.reason || ''}`);
       }
-      const data = await res.json();
-      toast(`${mode === 'image' ? 'Image' : 'Video'} queued (${data.id})`);
       statusEl.textContent = '';
       await refreshHistory();
     } catch (e) {
