@@ -2227,6 +2227,102 @@
   .up-upload-status.uploading { color: var(--accent-hi); }
   .up-upload-status.ok { color: #7be39a; }
   .up-upload-status.error { color: #ff8a8a; }
+  .cg-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    gap: var(--s-3); margin-top: var(--s-5);
+  }
+  @media (max-width: 980px) { .cg-grid { grid-template-columns: 1fr; } }
+  .cg-block {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: var(--s-3) var(--s-4);
+  }
+  .cg-block h3 {
+    margin: 0 0 10px; font-size: 11.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--accent-hi);
+  }
+  .cg-block label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--text); margin-bottom: 6px;
+  }
+  .cg-block textarea, .cg-block input[type=text], .cg-block select {
+    width: 100%; padding: 8px 10px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--r-sm); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    resize: vertical;
+  }
+  .cg-block textarea { min-height: 140px; }
+  .cg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .cg-row .cg-col { display: flex; flex-direction: column; }
+  .cg-mode-tabs {
+    display: inline-flex; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: var(--r-sm);
+    padding: 3px;
+  }
+  .cg-mode-tab {
+    background: transparent; border: 0; color: var(--text-muted);
+    padding: 6px 14px; font-weight: 600; font-size: 12px;
+    cursor: pointer; border-radius: 4px;
+  }
+  .cg-mode-tab.active {
+    background: var(--accent); color: #0a0a0c;
+  }
+  .cg-actions { display: flex; align-items: center; gap: 12px; }
+  .cg-refs-list {
+    margin-top: 10px; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+  }
+  .cg-ref-tile {
+    position: relative; border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden; aspect-ratio: 1/1;
+    background: #000;
+  }
+  .cg-ref-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cg-ref-tile .cg-ref-x {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 0; background: rgba(0,0,0,0.7); color: #fff;
+    cursor: pointer; font-size: 12px; line-height: 18px; padding: 0;
+  }
+  .cg-history { margin-top: var(--s-4); }
+  .cg-hist-item {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: var(--s-3);
+    margin-bottom: 10px; display: grid;
+    grid-template-columns: 200px 1fr auto;
+    gap: var(--s-3); align-items: start;
+  }
+  .cg-hist-thumb {
+    width: 200px; aspect-ratio: 1/1; background: #000;
+    border-radius: 6px; overflow: hidden; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .cg-hist-thumb img, .cg-hist-thumb video {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+  }
+  .cg-hist-thumb .cg-status-text {
+    color: var(--text-muted); font-size: 12px; text-align: center; padding: 12px;
+  }
+  .cg-hist-meta { font-size: 12px; color: var(--text-muted); }
+  .cg-hist-meta .cg-hist-prompt {
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; max-height: 80px; overflow: auto;
+    white-space: pre-wrap; padding: 6px 8px;
+    background: var(--surface-1); border-radius: 6px;
+    border: 1px solid var(--border); margin-top: 4px;
+  }
+  .cg-hist-actions { display: flex; flex-direction: column; gap: 6px; }
+  .cg-status-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .cg-status-queued { background: rgba(255,255,255,0.08); color: var(--text); }
+  .cg-status-running { background: rgba(94, 158, 255, 0.15); color: #5e9eff; }
+  .cg-status-done { background: rgba(123, 227, 154, 0.15); color: #7be39a; }
+  .cg-status-error { background: rgba(255, 138, 138, 0.15); color: #ff8a8a; }
+  .cg-status-cancelled { background: rgba(255, 200, 100, 0.15); color: #ffc864; }
   #up-queue-box { margin-top: var(--s-4); display: flex; flex-direction: column; gap: 10px; }
   .up-section-title {
     font-size: 10px; letter-spacing: 1.2px;
@@ -2362,6 +2458,10 @@
   <a class="nav-link" data-target="upscaler" href="#upscaler">
     <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg>
     <span>Upscaler</span>
+  </a>
+  <a class="nav-link" data-target="custom-gen" href="#custom-gen">
+    <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    <span>Custom Generation</span>
   </a>
   <div class="nav-divider"></div>
   <a class="nav-link" data-target="settings" href="#settings">
@@ -2686,6 +2786,96 @@
         <span id="up-actions-hint" style="opacity:0.75">Erst einen Video-Pfad waehlen.</span>
       </div>
       <div id="up-queue-box"></div>
+    </section>
+  </div>
+
+  <div data-page="custom-gen">
+    <div class="page-hero">
+      <span class="eyebrow">
+        <svg class="i i-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        AI-Auto direkt (Nano Banana Pro / GPT Image / Seedance / Kling)
+      </span>
+      <h1>Custom <span class="accent">Generation</span></h1>
+      <p>On-Demand Bild- und Video-Generation ausserhalb der Pipeline. Eigener Prompt, eigene Refs, freie Modell-Wahl. Outputs landen in <code>output/_custom_generation/</code>.</p>
+    </div>
+    <section id="sec-custom-gen">
+      <div class="cg-grid">
+        <div class="cg-block">
+          <h3>Mode</h3>
+          <div class="cg-mode-tabs">
+            <button type="button" class="cg-mode-tab active" data-mode="image">Image</button>
+            <button type="button" class="cg-mode-tab" data-mode="video">Video</button>
+          </div>
+
+          <h3 style="margin-top:18px">Prompt</h3>
+          <textarea id="cg-prompt" rows="8" placeholder="Was soll generiert werden? Beschreibe Scene, Stil, Komposition ..."></textarea>
+
+          <div class="cg-row" style="margin-top:14px">
+            <div class="cg-col">
+              <label for="cg-model">Model</label>
+              <select id="cg-model"></select>
+            </div>
+            <div class="cg-col">
+              <label for="cg-aspect">Aspect Ratio</label>
+              <select id="cg-aspect">
+                <option value="9:16" selected>9:16 (vertical)</option>
+                <option value="16:9">16:9 (landscape)</option>
+                <option value="1:1">1:1 (square)</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+              </select>
+            </div>
+          </div>
+          <div class="cg-row">
+            <div class="cg-col" data-show-for="image">
+              <label for="cg-img-res">Image Quality</label>
+              <select id="cg-img-res">
+                <option value="hd" selected>hd</option>
+                <option value="standard">standard</option>
+                <option value="4k">4k</option>
+              </select>
+            </div>
+            <div class="cg-col" data-show-for="video" style="display:none">
+              <label for="cg-vid-res">Video Quality</label>
+              <select id="cg-vid-res">
+                <option value="4k" selected>4k</option>
+                <option value="1080p">1080p</option>
+                <option value="720p">720p</option>
+              </select>
+            </div>
+            <div class="cg-col" data-show-for="video" style="display:none">
+              <label for="cg-seconds">Duration (s)</label>
+              <select id="cg-seconds">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="cg-actions" style="margin-top:14px">
+            <button type="button" id="cg-generate" class="ns-btn primary">Generate</button>
+            <span id="cg-status" style="opacity:0.75; font-size:0.9em"></span>
+          </div>
+        </div>
+
+        <div class="cg-block">
+          <h3>Reference Images</h3>
+          <label class="drop-zone" id="cg-drop">
+            <span class="drop-icon"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+            <div class="drop-text">Bilder hier ablegen oder <b>klicken</b> zum Hochladen</div>
+            <small>PNG / JPG / WEBP &middot; max 10 refs</small>
+            <input type="file" id="cg-file" accept="image/png,image/jpeg,image/webp" multiple />
+          </label>
+          <div id="cg-refs-list" class="cg-refs-list"></div>
+          <small style="opacity:0.65">Tip: Nano Banana Pro nimmt bis zu 10 Refs als Ingredients. Seedance/Kling nur 1 (oder Composite). GPT Image 2.0 nur 1.</small>
+        </div>
+      </div>
+
+      <div class="cg-history">
+        <h3 style="margin-top:24px">History</h3>
+        <div id="cg-history-list"></div>
+      </div>
     </section>
   </div>
 
@@ -5438,6 +5628,232 @@ document.addEventListener('keydown', (ev) => {
 refreshSettings();
 refreshJobs();
 setInterval(refreshJobs, 2000);
+
+
+// ---------------------------------------------------------------------------
+// Custom Generation (direct AI-Auto on-demand)
+// ---------------------------------------------------------------------------
+(function initCustomGen() {
+  const promptEl = $('#cg-prompt');
+  const modelEl = $('#cg-model');
+  const aspectEl = $('#cg-aspect');
+  const imgResEl = $('#cg-img-res');
+  const vidResEl = $('#cg-vid-res');
+  const secondsEl = $('#cg-seconds');
+  const generateBtn = $('#cg-generate');
+  const statusEl = $('#cg-status');
+  const dropEl = $('#cg-drop');
+  const fileEl = $('#cg-file');
+  const refsListEl = $('#cg-refs-list');
+  const historyListEl = $('#cg-history-list');
+  if (!promptEl) return;
+
+  const IMAGE_MODELS = [
+    {value: 'nano_banana_pro', label: 'Nano Banana Pro (multi-ref ingredients)'},
+    {value: 'gpt_image_2', label: 'GPT Image 2.0 (single-ref, composites N>1)'},
+  ];
+  const VIDEO_MODELS = [
+    {value: 'seedance_2', label: 'Seedance 2 (4k/9:16)'},
+    {value: 'gtv_kling01-video', label: 'Kling 2.5 Turbo Pro (1080p/9:16)'},
+  ];
+
+  let mode = 'image';
+  let pickedRefs = [];
+
+  function setMode(next) {
+    mode = next;
+    $$('.cg-mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === next));
+    $$('[data-show-for]').forEach(el => {
+      el.style.display = el.dataset.showFor === next ? '' : 'none';
+    });
+    renderModels();
+  }
+
+  function renderModels() {
+    const list = mode === 'image' ? IMAGE_MODELS : VIDEO_MODELS;
+    modelEl.innerHTML = list.map(m =>
+      `<option value="${escapeAttr(m.value)}">${escapeHtml(m.label)}</option>`
+    ).join('');
+  }
+
+  function renderRefs() {
+    refsListEl.innerHTML = pickedRefs.map((r, i) => {
+      const url = '/' + r.path.replace(/^\/+/, '');
+      return `<div class="cg-ref-tile">
+        <img src="${escapeAttr(url)}" alt="${escapeAttr(r.name)}" loading="lazy" />
+        <button type="button" class="cg-ref-x" data-idx="${i}" title="Remove">&times;</button>
+      </div>`;
+    }).join('');
+  }
+
+  refsListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cg-ref-x');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (Number.isFinite(idx)) {
+      pickedRefs.splice(idx, 1);
+      renderRefs();
+    }
+  });
+
+  async function uploadRef(file) {
+    const fd = new FormData();
+    fd.append('file', file, file.name || 'ref.png');
+    const res = await fetch('/api/custom-gen/upload-ref', {method: 'POST', body: fd});
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`Upload failed (${res.status}): ${txt}`);
+    }
+    return res.json();
+  }
+
+  async function handleFiles(files) {
+    for (const f of files) {
+      if (pickedRefs.length >= 10) { toast('Max 10 refs.'); break; }
+      try {
+        const r = await uploadRef(f);
+        pickedRefs.push({path: r.path, name: r.name});
+        renderRefs();
+      } catch (e) {
+        toast(String(e));
+      }
+    }
+  }
+
+  fileEl.addEventListener('change', () => {
+    if (fileEl.files && fileEl.files.length) {
+      handleFiles(Array.from(fileEl.files));
+      fileEl.value = '';
+    }
+  });
+  ['dragover','dragenter'].forEach(ev => dropEl.addEventListener(ev, e => {
+    e.preventDefault(); dropEl.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev => dropEl.addEventListener(ev, e => {
+    e.preventDefault(); dropEl.classList.remove('drag');
+  }));
+  dropEl.addEventListener('drop', e => {
+    if (e.dataTransfer && e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
+  });
+
+  $$('.cg-mode-tab').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+  generateBtn.addEventListener('click', async () => {
+    const prompt = (promptEl.value || '').trim();
+    if (!prompt) { toast('Prompt fehlt.'); return; }
+    generateBtn.disabled = true;
+    statusEl.textContent = 'Sende Request an Backend ...';
+    try {
+      const body = {
+        prompt,
+        refs: pickedRefs.map(r => r.path),
+        model: modelEl.value,
+        aspect_ratio: aspectEl.value,
+      };
+      let endpoint;
+      if (mode === 'image') {
+        body.resolution = imgResEl.value;
+        endpoint = '/api/custom-gen/image';
+      } else {
+        body.resolution = vidResEl.value;
+        body.seconds = parseInt(secondsEl.value, 10) || 5;
+        endpoint = '/api/custom-gen/video';
+      }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${txt}`);
+      }
+      const data = await res.json();
+      toast(`${mode === 'image' ? 'Image' : 'Video'} queued (${data.id})`);
+      statusEl.textContent = '';
+      await refreshHistory();
+    } catch (e) {
+      toast(String(e));
+      statusEl.textContent = String(e);
+    } finally {
+      generateBtn.disabled = false;
+    }
+  });
+
+  function statusPill(s) {
+    return `<span class="cg-status-pill cg-status-${s || 'queued'}">${escapeHtml(s || 'queued')}</span>`;
+  }
+
+  function thumbHtml(g) {
+    const outRel = g.output_path;
+    if (g.status === 'done' && outRel) {
+      const url = '/' + outRel.replace(/^\/+/, '') + '?v=' + encodeURIComponent(g.updated_at || '');
+      if (g.type === 'video') {
+        return `<video src="${escapeAttr(url)}" controls preload="metadata"></video>`;
+      }
+      return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener"><img src="${escapeAttr(url)}" alt="" loading="lazy" /></a>`;
+    }
+    let txt = g.status || 'queued';
+    if (g.status === 'error' && g.error) txt = g.error;
+    return `<div class="cg-status-text">${escapeHtml(txt)}</div>`;
+  }
+
+  async function refreshHistory() {
+    try {
+      const res = await fetch('/api/custom-gen/list');
+      if (!res.ok) throw new Error('list failed');
+      const data = await res.json();
+      const gens = data.generations || [];
+      if (!gens.length) {
+        historyListEl.innerHTML = '<small style="opacity:0.6">Noch keine Generations.</small>';
+        return;
+      }
+      historyListEl.innerHTML = gens.map(g => {
+        const refsPreview = (g.refs || []).map(p => {
+          const u = '/' + String(p).replace(/^\/+/, '');
+          return `<a href="${escapeAttr(u)}" target="_blank" rel="noopener" style="margin-right:4px"><img src="${escapeAttr(u)}" style="width:24px;height:24px;object-fit:cover;border-radius:3px;vertical-align:middle" /></a>`;
+        }).join('');
+        const canCancel = g.status === 'running' || g.status === 'queued';
+        return `<div class="cg-hist-item">
+          <div class="cg-hist-thumb">${thumbHtml(g)}</div>
+          <div class="cg-hist-meta">
+            ${statusPill(g.status)}
+            <span style="margin-left:8px">${escapeHtml(g.type)} &middot; ${escapeHtml(g.model || '')} &middot; ${escapeHtml(g.aspect_ratio || '')}${g.type === 'video' ? ' &middot; ' + (g.seconds || 5) + 's' : ''}</span>
+            <div style="margin-top:4px;font-size:11px">${escapeHtml(g.created_at || '')}</div>
+            <div class="cg-hist-prompt">${escapeHtml(g.prompt || '')}</div>
+            ${refsPreview ? `<div style="margin-top:6px">refs: ${refsPreview}</div>` : ''}
+          </div>
+          <div class="cg-hist-actions">
+            ${canCancel ? `<button class="ns-btn tiny" data-cg-cancel="${escapeAttr(g.id)}">Cancel</button>` : ''}
+            <button class="ns-btn tiny" data-cg-delete="${escapeAttr(g.id)}">Delete</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      historyListEl.innerHTML = `<small style="opacity:0.6">Error: ${escapeHtml(String(e))}</small>`;
+    }
+  }
+
+  historyListEl.addEventListener('click', async (e) => {
+    const cancelBtn = e.target.closest('[data-cg-cancel]');
+    if (cancelBtn) {
+      await fetch(`/api/custom-gen/cancel/${cancelBtn.dataset.cgCancel}`, {method: 'POST'});
+      await refreshHistory();
+      return;
+    }
+    const delBtn = e.target.closest('[data-cg-delete]');
+    if (delBtn) {
+      if (!confirm('Generation und Output-Datei loeschen?')) return;
+      await fetch(`/api/custom-gen/${delBtn.dataset.cgDelete}`, {method: 'DELETE'});
+      await refreshHistory();
+    }
+  });
+
+  // initial
+  renderModels();
+  refreshHistory();
+  setInterval(refreshHistory, 3000);
+})();
 
 
 // ---------------------------------------------------------------------------

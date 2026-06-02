@@ -762,6 +762,7 @@ async def _generate_image_once(
     existing_submit_ts: float | None = None,
     gen_id_holder: list[str | None] | None = None,
     submit_ts_holder: list[float | None] | None = None,
+    image_model: str | None = None,
 ) -> Path:
     """Ein einzelner Generation-Versuch. Retry passiert in generate_image().
 
@@ -793,7 +794,7 @@ async def _generate_image_once(
     # Modell die "reference N"-Verweise korrekt interpretiert, prependen wir
     # eine Panel-Legende an den Prompt die erklaert dass das Single-Ref-Bild
     # aus N nebeneinander gelegten Panels besteht.
-    active_model_for_refs = settings.aiauto_image_model
+    active_model_for_refs = image_model or settings.aiauto_image_model
     if "gpt_image" in (active_model_for_refs or "").lower() and len(existing_refs) > 1:
         composite_path = _composite_refs_for_single_slot(existing_refs)
         refs_data_urls = [_encode_reference_as_data_url(composite_path)]
@@ -826,7 +827,7 @@ async def _generate_image_once(
 
     # Semaphore VOR dem Acquire whaehlen - GPT Image 2.0 hat strikteren
     # Concurrent-Limit (2) als nano_banana_pro (MAX_PARALLEL_AIAUTO_CALLS=4).
-    active_model = settings.aiauto_image_model
+    active_model = image_model or settings.aiauto_image_model
     semaphore = _image_semaphore_for_model(active_model)
 
     async with semaphore:
@@ -924,6 +925,7 @@ async def generate_image(
     reference_images: list[Path] | None = None,
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     resolution: str | None = None,
+    image_model: str | None = None,
 ) -> Path:
     """Generiert ein Bild via AI-Auto. Retried unendlich bei transienten
     Fehlern (Timeout, 5xx, "failed" status, listing-miss). Permanente Fehler
@@ -955,6 +957,7 @@ async def generate_image(
                 existing_submit_ts=submit_ts_holder[0],
                 gen_id_holder=gen_id_holder,
                 submit_ts_holder=submit_ts_holder,
+                image_model=image_model,
             )
         except AIAutoPermanentError:
             raise

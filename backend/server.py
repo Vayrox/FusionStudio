@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import audio_editor, config, upscaler
+from backend import audio_editor, config, custom_gen, upscaler
 from backend.clients import openai_client
 from backend.pipeline import runner
 
@@ -650,6 +650,91 @@ async def api_upscaler_remove(job_id: str) -> dict[str, Any]:
     except upscaler.UpscalerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"removed": removed}
+
+
+# ---------------------------------------------------------------------------
+# Custom Generation (on-demand image/video gen ohne Pipeline)
+# ---------------------------------------------------------------------------
+
+
+class CustomGenImageRequest(BaseModel):
+    prompt: str
+    refs: list[str] = []
+    model: str | None = None
+    aspect_ratio: str | None = None
+    resolution: str | None = None
+
+
+class CustomGenVideoRequest(BaseModel):
+    prompt: str
+    refs: list[str] = []
+    model: str | None = None
+    aspect_ratio: str | None = None
+    resolution: str | None = None
+    seconds: int | None = None
+
+
+@app.get("/api/custom-gen/list")
+async def api_custom_gen_list() -> dict[str, Any]:
+    return {"generations": await custom_gen.list_generations()}
+
+
+@app.get("/api/custom-gen/refs")
+async def api_custom_gen_refs() -> dict[str, Any]:
+    return {"refs": custom_gen.list_refs()}
+
+
+@app.post("/api/custom-gen/upload-ref")
+async def api_custom_gen_upload_ref(file: UploadFile = File(...)) -> dict[str, Any]:
+    data = await file.read()
+    try:
+        return custom_gen.save_uploaded_ref(file.filename or "ref.png", data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/custom-gen/ref")
+async def api_custom_gen_delete_ref(path: str) -> dict[str, Any]:
+    try:
+        custom_gen.delete_ref(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@app.post("/api/custom-gen/image")
+async def api_custom_gen_image(req: CustomGenImageRequest) -> dict[str, Any]:
+    try:
+        gen_id = await custom_gen.enqueue_image(
+            req.prompt, req.refs, req.model, req.aspect_ratio, req.resolution,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"id": gen_id}
+
+
+@app.post("/api/custom-gen/video")
+async def api_custom_gen_video(req: CustomGenVideoRequest) -> dict[str, Any]:
+    try:
+        gen_id = await custom_gen.enqueue_video(
+            req.prompt, req.refs, req.model, req.aspect_ratio,
+            req.resolution, req.seconds,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"id": gen_id}
+
+
+@app.post("/api/custom-gen/cancel/{gen_id}")
+async def api_custom_gen_cancel(gen_id: str) -> dict[str, Any]:
+    await custom_gen.cancel_generation(gen_id)
+    return {"ok": True}
+
+
+@app.delete("/api/custom-gen/{gen_id}")
+async def api_custom_gen_delete(gen_id: str) -> dict[str, Any]:
+    await custom_gen.delete_generation(gen_id)
+    return {"ok": True}
 
 
 @app.post("/api/upscaler/clear")
