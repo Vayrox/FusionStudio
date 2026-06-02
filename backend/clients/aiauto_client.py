@@ -32,6 +32,7 @@ import io
 import logging
 import mimetypes
 import os
+import random
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -857,6 +858,10 @@ async def _generate_image_once(
                 sync_bytes = None
             else:
                 image_model = active_model
+                # Zufaelliger Seed pro Call - sonst liefern viele Image-Modelle
+                # (Nano Banana Pro etc.) bei identischem Prompt+Refs nahezu
+                # identische Outputs. AI-Auto akzeptiert seed je nach Modell;
+                # wenn nicht unterstuetzt wird er still ignoriert.
                 body: dict[str, Any] = {
                     "type": "image",
                     "model": image_model,
@@ -864,6 +869,7 @@ async def _generate_image_once(
                     "ratio": aspect_ratio,
                     "quality": resolution or settings.aiauto_image_resolution,
                     "count": 1,
+                    "seed": random.randint(1, 2**31 - 1),
                 }
                 if refs_data_urls:
                     # Reference-Field-Name ist model-abhaengig:
@@ -1210,6 +1216,9 @@ async def generate_video(
     # Final-Clip am API-Boundary - faengt User-Edits / Overrides ab.
     prompt = _clip_prompt_for_seedance(prompt)
 
+    # Zufaelliger Seed pro Call - sonst liefern Seedance/Kling bei identischem
+    # Prompt+Refs nahezu identische Videos. Akzeptanz je nach Modell; wenn
+    # nicht unterstuetzt wird seed serverseitig ignoriert.
     body: dict[str, Any] = {
         "type": "video",
         "model": video_model,
@@ -1218,6 +1227,7 @@ async def generate_video(
         "quality": quality,
         "duration": duration,
         "count": 1,
+        "seed": random.randint(1, 2**31 - 1),
     }
     refs: list[Path] = []
     if reference_images:
