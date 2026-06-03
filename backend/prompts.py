@@ -701,11 +701,45 @@ LINE 4 (CTA + engagement) - one short sentence per language, combining a follow/
   - German:  "Folge fuer mehr cinematic Pokemon-Fusionen und sag uns, welches Pokemon-Paar als naechstes verschmelzen soll!"
   - German:  "Abonniere fuer weitere Fusionen und lass uns in den Kommentaren wissen, welche Pokemon wir als naechstes verschmelzen sollen!"
 
-FUSION_NAME rules:
-- Invent a portmanteau or stylized fusion of the two Pokemon names.
-- Examples: Charizard + Magikarp -> Charykarp. Latios + Latias -> Latios X. Mewtwo + Charizard -> Mewzard. Garchomp + Salazzle -> Salachomp. Aegislash + Gallade -> Gallislash. Darkrai + Ceruledge -> Darkledge.
-- Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
-- Use the SAME fusion name in both DE and EN.
+FUSION_NAME rules (this is the single most-judged part of the script - take it seriously):
+
+STEP 1 - Read the Distinctive Traits and Transformation/Showcase context. Identify the fusion's strongest VISUAL identity: dominant color, dominant body type (dragon / serpent / bird / wolf / golem / spectre / knight / etc), signature feature (flame, scythe, crown, blade, wing, fang, eye-pattern), and overall vibe (regal, monstrous, ethereal, infernal, glacial, toxic). The name MUST evoke at least ONE of those.
+
+STEP 2 - Mentally draft 3 candidate names. Pick the strongest. Score on:
+  - Visual fit: does the name HINT at the look? (e.g. dark + serpent -> a slithering syllable; fire + dragon -> a roaring syllable)
+  - Phonetic flow: can a kid say it aloud in one breath without stumbling?
+  - Distinctiveness: does it sound like a real Pokemon and NOT generic mush?
+  - Source readability: at least one parent's name fragment must be clearly audible.
+
+STEP 3 - Construction techniques (use whichever fits the look, not always the same one):
+  - SYLLABLE BLEND with a sound-bend that matches the look (Charizard + Magikarp -> Charykarp - flame-fish, soft consonant for fish; Garchomp + Salazzle -> Salachomp - hiss + chomp = venom predator)
+  - PREFIX/SUFFIX with mood marker (-rai for dark/spectral, -ion for regal, -zor/-X for sharp/edged, -lure for haunted, -ros for ancient, -ynx/-yx for feline-sleek, -gore for brutal)
+  - LOOK-ANCHORED MORPHEME instead of just splicing names: if the fusion looks volcanic, embed -magma- / -pyr- / -ember-; if it's serpentine, embed -ophis- / -naga- / -coil-; if it's psychic-knight, embed -mind- / -aegis- / -sable-. Then bolt that onto one parent's stem.
+  - STYLIZED ENDING when it sells the drama: a final X, Z, -EX, -OS, -A only when the look earns it (legendary auras, apex predators, crowned forms). Do NOT default to -X every time.
+
+STEP 4 - Reject if any of these apply, restart from STEP 2:
+  - It's just the first half of A + second half of B with no thought (e.g. Charizard + Pikachu -> "Charichu"). Lazy. Avoid unless it actually sounds great.
+  - It rhymes with or accidentally spells a real English/German word that breaks immersion (Buttzard, Floppyon, Dickdrai etc).
+  - More than 4 syllables - too clunky to say.
+  - Sounds like the wrong type (a cute soft name on a brutal demon-fusion, or a heavy guttural name on a fairy-type fusion).
+
+GOOD examples (notice how each name evokes the look, not just the letters):
+  - Charizard + Gyarados -> Charydos (dragonfire serpent, the -dos echoes a heavy sea-beast tail)
+  - Darkrai + Ceruledge -> Darkledge (shadow knight, blade-suffix locks in the edge motif)
+  - Mewtwo + Charizard -> Mewzard (psychic dragon, the soft "Mew-" keeps the mind-vibe before the dragon roar)
+  - Lugia + Noivern -> Lugivern (sky-leviathan, both flying legends stay legible)
+  - Aegislash + Gallade -> Gallislash (psychic blade-knight, double sword-stem)
+  - Blastoise + Chandelure -> Chandoise (haunted shell-cannon, the spectral -doise hum sells the ghost angle)
+  - Garchomp + Salazzle -> Salachomp (toxic raptor, hissing sala + brutal chomp)
+  - Latios + Latias -> Latios X (twin dragons that always belonged together, the X earns its place)
+
+BAD examples (do NOT produce these):
+  - "Charkarp", "Mewchamp", "Pikabro" - phoneme mash with zero thought
+  - "Megafusion", "Hyperdragon", "Ultragod" - generic non-names that ignore the source pair
+  - "Pokefire", "Pokestorm" - using "Poke-" as a prefix
+  - Names longer than 4 syllables ("Charizardomewtwoia")
+
+Use the SAME fusion name in both DE and EN. Do not translate it.
 
 Hard rules:
 - Opener is line 1. Line 2 is the 'When ... become {FUSION_NAME}' sentence. Line 3 is the description. Line 4 is the CTA + question.
@@ -790,11 +824,46 @@ When Mewtwo merges with Charizard, they become Mewzard.
 The ultimate apex hybrid, weaponizing draconic fire and god-tier psychic energy through glowing violet eyes to dominate the battlefield.
 Follow for more cinematic Pokemon fusions and drop your next Pokemon pair in the comments!"
 
-FUSION_NAME rules:
-- Invent a portmanteau or stylized fusion of the two Pokemon names.
-- Examples: Charizard + Magikarp -> Charykarp. Latios + Latias -> Latios X. Mewtwo + Charizard -> Mewzard. Garchomp + Salazzle -> Salachomp. Aegislash + Gallade -> Gallislash. Darkrai + Ceruledge -> Darkledge. Lugia + Noivern -> Lugivern. Blastoise + Chandelure -> Chandoise.
-- Be creative: sometimes merge syllables, sometimes stylize with letters (X, Z) or suffixes, keep it distinct and easy to say aloud.
-- Use the SAME fusion name in both DE and EN.
+FUSION_NAME rules (single most-judged part of every fusion's script - take it seriously, do NOT phone it in):
+
+STEP 1 - Read the Distinctive Traits + Transformation + Showcase context for that fusion. Identify its strongest VISUAL identity: dominant color, dominant body type (dragon / serpent / bird / wolf / golem / spectre / knight / etc), signature feature (flame, scythe, crown, blade, wing, fang, eye-pattern), and overall vibe (regal, monstrous, ethereal, infernal, glacial, toxic). The name MUST evoke at least ONE of those.
+
+STEP 2 - Mentally draft 3 candidate names per fusion. Pick the strongest. Score on:
+  - Visual fit: does the name HINT at the look? (e.g. dark + serpent -> a slithering syllable; fire + dragon -> a roaring syllable)
+  - Phonetic flow: can a kid say it aloud in one breath without stumbling?
+  - Distinctiveness: does it sound like a real Pokemon, NOT generic mush?
+  - Source readability: at least one parent's name fragment must be clearly audible.
+
+STEP 3 - Construction techniques (mix them across the compilation - do not use the same recipe every time):
+  - SYLLABLE BLEND with a sound-bend that matches the look (Charizard + Magikarp -> Charykarp - flame-fish, soft consonant for fish; Garchomp + Salazzle -> Salachomp - hiss + chomp = venom predator)
+  - PREFIX/SUFFIX with mood marker (-rai for dark/spectral, -ion for regal, -zor/-X for sharp/edged, -lure for haunted, -ros for ancient, -ynx/-yx for feline-sleek, -gore for brutal)
+  - LOOK-ANCHORED MORPHEME instead of just splicing names: volcanic look -> embed -magma- / -pyr- / -ember-; serpentine -> -ophis- / -naga- / -coil-; psychic-knight -> -mind- / -aegis- / -sable-. Then bolt that onto one parent's stem.
+  - STYLIZED ENDING when it sells the drama: a final X, Z, -EX, -OS, -A only when the look earns it (legendary auras, apex predators, crowned forms). Do NOT default to -X every time.
+
+STEP 4 - Reject if any of these apply, restart from STEP 2:
+  - It's just first-half-of-A + second-half-of-B with no thought. Lazy. Avoid unless it actually sounds great.
+  - Rhymes with or accidentally spells a real English/German word that breaks immersion (Buttzard, Floppyon, Dickdrai etc).
+  - More than 4 syllables - too clunky to say.
+  - Sounds like the wrong type (cute soft name on a brutal demon, heavy guttural name on a fairy).
+  - Two fusions in the same compilation share the same suffix/recipe (vary them across the batch).
+
+GOOD examples (each name evokes the look, not just the letters):
+  - Charizard + Gyarados -> Charydos (dragonfire serpent, -dos echoes a heavy sea-beast tail)
+  - Darkrai + Ceruledge -> Darkledge (shadow knight, blade-suffix locks in the edge motif)
+  - Mewtwo + Charizard -> Mewzard (psychic dragon, soft Mew- keeps the mind-vibe before the dragon roar)
+  - Lugia + Noivern -> Lugivern (sky-leviathan, both flying legends stay legible)
+  - Aegislash + Gallade -> Gallislash (psychic blade-knight, double sword-stem)
+  - Blastoise + Chandelure -> Chandoise (haunted shell-cannon, spectral -doise hum sells the ghost angle)
+  - Garchomp + Salazzle -> Salachomp (toxic raptor, hissing sala + brutal chomp)
+  - Latios + Latias -> Latios X (twin dragons that always belonged together, the X earns its place)
+
+BAD examples (do NOT produce these):
+  - "Charkarp", "Mewchamp", "Pikabro" - phoneme mash with zero thought
+  - "Megafusion", "Hyperdragon", "Ultragod" - generic non-names that ignore the source pair
+  - "Pokefire", "Pokestorm" - using "Poke-" as a prefix
+  - Names longer than 4 syllables ("Charizardomewtwoia")
+
+Use the SAME fusion name in both DE and EN. Do not translate it. Each fusion in the compilation gets its OWN unique name - no recycling.
 
 Sentence B Description Style Guide (one sentence, around 20-25 words, max 27, evocative + punchy, with one extra concrete sensory detail beyond the headline trait):
   - "a malformed nightmare in burnt orange-bronze scales, its barbels dripping flame as splashes radiate heatwaves across the cracked ground"
